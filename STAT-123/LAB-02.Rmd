@@ -1,0 +1,77 @@
+---
+title: "LAB-02"
+author: "Raul Rodriguez"
+date: "2023-05-17"
+output: html_document
+---
+
+```{r question 1}
+#a)
+Fdata <- read.csv('./FlowerData.csv')
+#b)
+class(Fdata) #dataframe because it's class says so
+
+#c)
+nums <- unlist(lapply(Fdata, is.numeric))
+FlowerMatrix <- Fdata[ , nums ]
+#d)
+colnames(FlowerMatrix) <- c('Age (in days)', 'Height (in cm)')
+
+#e)
+head(FlowerMatrix)
+rownames(FlowerMatrix) <- Fdata[ , 'Individual']
+head(FlowerMatrix)
+
+
+```
+```{r question 2}
+#a)
+average_age_of_flowers <- mean(FlowerMatrix[ ,'Age (in days)'])
+
+#b)
+average_height_of_flowers <- mean(FlowerMatrix[ ,'Height (in cm)'])
+
+average_age_of_flowers
+average_height_of_flowers
+
+#c)
+tallest_index <- which.max(FlowerMatrix[ ,'Height (in cm)'])
+tallest <- max(FlowerMatrix[ ,'Height (in cm)'])
+
+#d)
+youngest_index <- which.min(FlowerMatrix[ ,'Age (in days)'])
+youngest <- min(FlowerMatrix[ ,'Age (in days)'])
+
+
+
+tallest 
+tallest_index
+
+youngest
+youngest_index
+
+
+#e)
+
+tallest_color <- Fdata[, 'Colour'][tallest_index]
+youngest_color <- Fdata[, 'Colour'][youngest_index]
+
+tallest_color
+youngest_color
+
+
+```
+```{r question 3}
+#a)
+
+#The issue was that the previous Fdata had the original col names when printed in another block. In order to fix the error and mutate the original csv with the new col names I used the 'names' function. 
+Fdata
+
+names(Fdata) <- c('Individual','Age (days)','Height (cm)','Colour')
+
+Fdata
+ 
+
+```
+
+
