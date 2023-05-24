@@ -1,0 +1,165 @@
+---
+title: "assignment-1"
+author: "Raul Rodriguez"
+date: "2023-05-23"
+output: html_document
+---
+
+# assignment question 1
+A  farmer  wants  to  determine  the  proportion  of  pumpkin  seeds  planted  in  her  field  that successfully grow into pumpkins.  It would take too much time to count the total number of seeds planted in the field and the total yield of pumpkins.  Thus, she decides that she needs to take a sample to estimate this proportion.
+
+a. State the population and the variable of interest to this farmer. 
+The population in this case are the pumpkins in the farmer's field. The variable of interest is the proportion of seeds that successfully turn into pumpkins. 
+
+b. Give an example of a way the farmer could perform a convenience sample.
+A convenience sample for the farmer is to count an area that is convenient for her. A good example of this scenario is the farmer counting the pumpkins and seeds along the base and height of her field. She would then calculate:
+ seeds_base * seeds_height = total_number_of_seeds in field
+ pumpkins_base * pumpkins_height = total_number_of_pumpkins in field
+ total_number_of seeds in field /  total_number_of_pumpkins = seed to pumpkin ratio. 
+ 
+
+c. Give an example of a way the farmer could perform a simple random sample. 
+For a simple random sample, the farmer would choose 4 random patches of land (assuming that each patch is 25 squared cm.) This would give the farmer a total of 1 square meter of land that is formed from random samples across her field. She can then use the seed to pumpkin ratio in that patch to calculate the rest of her field's ratio. 
+
+d. Give an example of a way the farmer could perform a stratified random sample.
+A simple random sample would be for the farmer to count the seeds and pumpkins in a square meter of her field (strata). This sample represents a part of the population that She can use to calculate the **seed to pumpkin ratio in a square meter of the field**. This result can be used to calculate the total seed to pumpkin ratio by doing the following:
+base_of_field * height_of_field * square_meter_of_seeds = total_seeds
+base_of_field * height_of_field * square_meter_of_pumpkins = total_pumpkins
+total_seeds / total_pumpkins = seed to pumpkin ratio
+
+d. What is the population parameter of interest?  What would be a good statistic to use to estimate this?
+The population of interest are the pumpkins because the farmer wants to know what is the pumpkin yield out of a determined number of seeds, specifically, the number of seeds that turn into pumpkins. 
+
+
+
+# assignment question 2
+(a)  Describe what information is contained in the data set.  What command in R did you use to find this information?
+
+The Lynx data set contains numeric data. I used the is.numeric() method to find the information. 
+```{r, echo=FALSE}
+#a)
+is.numeric(lynx)
+
+```
+
+
+(b)  Create a character vector called years which contains the years of the trappings. 
+
+according to (stat.ethz)[https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/lynx.html] "Annual numbers of lynx trappings for 1821–1934 in Canada.".
+```{r, echo=FALSE}
+#b)
+years <- c(1821:1934)
+years
+
+```
+
+(c)  Set the names of the lynx vector equal to years. 
+```{r, echo=FALSE}
+
+#c)
+names(lynx) <- years
+lynx
+
+```
+
+
+(d)  How many lynx were trapped in 1901?  Use years as your index. 
+```{r, echo=FALSE}
+
+#d)
+lynx["1901"]
+
+
+```
+
+(e)  What is the average number of annual lynx trappings from 1821 to 1920, inclusive?  Hint: You want to compute the average trappings for the first 100 data points.
+ 
+
+```{r, echo=FALSE}
+
+
+#e)
+mean(lynx["1821"]: lynx["1920"])
+
+
+
+```
+# assignment question 3
+
+(a)  Read in the data file and name the data frame casino. 
+```{r, echo=FALSE}
+#a)
+casino <- read.csv('casino.csv')
+print(casino)
+
+
+```
+
+(b)  Use the head() function to determine the games these friends played in the casino.
+```{r, echo=FALSE}
+#b)
+head(casino)
+
+```
+
+(c)  Create a character vector called friends which contains the values from the first column of the data set. 
+```{r, echo=FALSE}
+
+
+#c)
+friends <- c(casino[, 1])
+friends
+
+```
+
+(d)  Using the R command as.matrix(), create a matrix called winnings which contains all the columns except the first one from the casino data set. 
+
+```{r, echo=FALSE}
+
+#d)
+winnings <- as.matrix(casino[2: length(casino)])
+winnings
+
+```
+(e)  Create a vector called totals which contains the row sums of the matrix winnings.  What do the values in this vector represent? 
+```{r, echo=FALSE}
+
+#e)
+ #values in vector represent total earnings of each friend
+totals <- rowSums(winnings)
+totals
+
+```
+
+(f)  Set the names of the vector totals equal to friends. 
+```{r, echo=FALSE}
+
+#f)
+names(totals) <- friends
+totals
+
+
+```
+
+(g)  Use  the  R  functions  min(),  max(),  which.max()  and  which.min()  to  determine  which friend won the most money and which friend lost the most money in the casino. 
+```{r, echo=FALSE}
+#g)
+min(friends) # Andrew
+max(friends) # Sophia
+
+
+```
+
+(h)  What was the average amount of money won or lost by the group of friends on the trip?
+ Page 2
+
+```{r, echo=FALSE}
+
+#h)
+mean(totals)
+
+
+
+```
+
+
