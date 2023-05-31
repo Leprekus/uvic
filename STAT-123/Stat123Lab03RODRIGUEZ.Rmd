@@ -1,0 +1,74 @@
+---
+title: "LAB-3"
+author: "Raul Rodriguez"
+date: "2023-05-25"
+output: html_document
+---
+
+
+## Question 1
+```{r qOne}
+
+Inflation.df <- read.csv('inflation_consumer.csv')
+
+
+num_of_observations <- nrow(Inflation.df)
+num_of_variables <- ncol(Inflation.df)
+
+#a)
+num_of_observations
+#b)
+num_of_variables
+
+#c)
+mean_year <- mean(Inflation.df[,"Year"])
+print('This Indicates that the times span with the highest inflation was around 1992')
+mean_year
+
+#d)
+index_lowest <- which.min(Inflation.df[,"Inflation"])
+
+lowest_inflation_country <- Inflation.df[index_lowest,"Country"]
+
+lowest_inflation_year <- Inflation.df[index_lowest,"Year"]
+
+lowest_inflation_country
+lowest_inflation_year
+
+#e)
+index_highest <- which.max(Inflation.df[,"Inflation"])
+
+highest_inflation_country <- Inflation.df[index_highest,"Country"]
+
+highest_inflation_year <- Inflation.df[index_highest,"Year"]
+
+
+highest_inflation_country
+highest_inflation_year
+
+```
+
+## Question 2
+
+``` {r qTwo}
+Inflation.df <- read.csv('inflation_consumer.csv')
+
+#a)
+inflation_over_seven <- Inflation.df[,"Inflation"] > 7
+Sub_Inflation <- data.frame(Inflation.df[inflation_over_seven,])
+head(Sub_Inflation)
+
+#b)
+avg.inflation <- mean(Inflation.df[,"Inflation"])
+avg.inflation
+
+#c)
+inflation_over_fifteen <- Sub_Inflation[,"Inflation"] > 15
+length(Sub_Inflation[inflation_over_fifteen,"Inflation"])
+
+#d)
+Inflation_Status <- factor(Sub_Inflation$Inflation > 15, levels = c(FALSE, TRUE), labels = c("Low", "High"))
+table(Inflation_Status)
+```
+
+
