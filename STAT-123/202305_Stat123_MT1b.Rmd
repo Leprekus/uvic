@@ -1,0 +1,81 @@
+---
+title: "Stat 123 Summer 2023 Midterm 1b"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+All answers are to be done with R commands.
+
+## Question 1
+
+Download the data file artists.csv from Brightspace and save it in a directory of your choice.
+
+Read the data file as a data frame and name it artist.
+
+
+```{r q1}
+
+#a. Find the sum of the artists' height and display the result below.
+artists <- read.csv('artists.csv')
+head(artists)
+
+#b. Find the average of the artists' weight and display the result below.
+artists_weight <- artists[, "Weight"]
+avg_artsits_weigth <- mean(artists_weight)
+avg_artsits_weigth
+
+
+```
+
+## Question 2
+
+You will use the built-in data chickwts and the dplyr package for this question.
+
+```{r q2}
+
+#a. Load the dplyr package using a R command.
+
+library(dplyr)
+
+#b. Display the first 8 observations (rows) in the dataset.
+chick <- chickwts
+chickwts[1:8, ]
+
+
+#. For the following questions, you MUST use dplyr piping commands to complete the tasks.
+
+#c. Find out how many chickens receive the meatmeal feed.
+meal <- chickwts['feed'] %>%
+  filter(feed == 'meatmeal')
+
+length(meal[, 'feed'])
+
+
+#d. Create a new data frame from chickwts named chickwt2 that contains chickens with
+#   weight more than 150. Do not show the results.
+chickwt2 <- chickwts['weight']  %>% filter(weight > 150)
+length(chickwt2[,'weight'])
+
+
+#e. Display the chickwt2 data frame in ascending order by weight.
+chickwt2_sorted <- chickwt2 %>%
+  arrange(weight)
+
+chickwt2_sorted
+
+#f. Display the mean weight of chickens grouped by their feed type.
+group <- chickwts %>%
+  group_by(feed) %>%
+  summarize(mean_weight = mean(weight))
+
+group
+
+```
+
+
+Once you are satisfied with your results, knit this file as a html and submit it to Brightspace. If you are running out of time and the file does not knit, add the character # at the beginning of the commands that did not run. Then knit it as a html file and submit.
+

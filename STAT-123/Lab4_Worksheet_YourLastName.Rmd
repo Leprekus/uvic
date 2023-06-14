@@ -1,0 +1,87 @@
+---
+title: "Lab 4"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+```{r}
+
+#1a.
+library(tidyverse)
+
+
+#1b.
+super <- read.csv('Superstores.csv')
+
+#1c.
+super %>%
+  select('Category', 'Sales') %>%
+  filter(Category == 'Office Supplies')  %>%
+  summarise(Sales = sum(Sales))
+
+#1d.
+superCali <- super %>% 
+  filter(State == 'California')
+head(superCali)
+
+#1e.You can use your creativity to produce different layouts.
+counts <- table(super$Region)
+counts
+barplot(counts, main="Order Count by Region",
+  xlab="", col=c("darkblue","red"),
+  legend = rownames(counts), beside=TRUE)
+
+
+```
+
+## Question 2
+
+```{r}
+
+#install.packages('palmerpenguins')
+library(palmerpenguins)
+#2a.
+head(penguins)
+
+#2b.
+# specify the width of the bins to suit your need
+if (anyNA(penguins$body_mass_g)) {
+  mean_mass <- mean(penguins$body_mass_g, na.rm = TRUE)
+} else {
+  mean_mass <- mean(penguins$body_mass_g)
+}
+
+# I tried using mean(penguins$body_mass_g, na.rm = TRUE)
+# but the output was still NA
+mean_mass
+
+ggplot(penguins, aes(x = body_mass_g)) +
+  geom_histogram() +
+   geom_vline(xintercept = mean_mass, color = "red", linetype = "dashed", size = 1) +
+  labs(title = "Penguin Mass Distribution",
+       x = "Mass Measured in grams (gr)",
+       y = "Count") +
+  theme_minimal()
+
+```
+
+## Question 3
+
+The following Plot is appropriate because it clearly establishes a mass to flipper length ratio. From the Presented plot line it is observable that the heavier a penguin is, the longer its flipper is going to be. 
+```{r}
+
+ggplot(penguins, aes(x = flipper_length_mm, y = body_mass_g)) +
+  geom_line() +
+  labs(title = "Penguin Flipper Length to Mass Ratio",
+       x = "Flipper Length in Milimeters (mm)",
+       y = "Body Mass in grams (gr)") +
+  theme_minimal()
+```
+
