@@ -1,0 +1,294 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same} % disable monospaced font for URLs
+\hypersetup{
+  pdftitle={Lab 6},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Lab 6}
+\author{}
+\date{\vspace{-2.5em}2023-06-22}
+
+\begin{document}
+\maketitle
+
+\hypertarget{question-1}{%
+\subsection{Question 1}\label{question-1}}
+
+Normal critical values for difference confidence interval.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#args are alpha and value}
+
+\CommentTok{\#(a) 80\%}
+\FunctionTok{qt}\NormalTok{(}\AttributeTok{p =}\NormalTok{ .}\DecValTok{10}\NormalTok{, }\AttributeTok{df =} \DecValTok{80}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] -1.292224
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#(b) 85\%}
+\FunctionTok{qt}\NormalTok{(}\AttributeTok{p =} \FloatTok{0.075}\NormalTok{ , }\AttributeTok{df =} \DecValTok{85}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] -1.45266
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#(c) 99\% }
+\FunctionTok{qt}\NormalTok{(}\AttributeTok{p =}  \FloatTok{0.005}\NormalTok{ , }\AttributeTok{df =} \DecValTok{99}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] -2.626405
+\end{verbatim}
+
+\hypertarget{question-2}{%
+\subsection{Question 2}\label{question-2}}
+
+Assigning a letter grade to student Henry.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#load the appropriate library}
+\FunctionTok{library}\NormalTok{(dplyr)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## 
+## Attaching package: 'dplyr'
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:stats':
+## 
+##     filter, lag
+\end{verbatim}
+
+\begin{verbatim}
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#read in the data file}
+\NormalTok{grades123 }\OtherTok{\textless{}{-}} \FunctionTok{read.csv}\NormalTok{(}\StringTok{\textquotesingle{}grades.csv\textquotesingle{}}\NormalTok{)}
+
+\CommentTok{\#(a)}
+
+\NormalTok{finalscore }\OtherTok{\textless{}{-}}\NormalTok{ grades123 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{final =}\NormalTok{ midterm }\SpecialCharTok{*}\NormalTok{ .}\DecValTok{4} \SpecialCharTok{+}\NormalTok{ exam }\SpecialCharTok{*}\NormalTok{ .}\DecValTok{6}\NormalTok{) }
+\NormalTok{finalscore}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##        name midterm exam final
+## 1     Alice      80   85  83.0
+## 2       Bob      70   80  76.0
+## 3   Charlie      91   70  78.4
+## 4     David      85   90  88.0
+## 5     Emily      55   55  55.0
+## 6     Frank      80   85  83.0
+## 7     Grace      95   90  92.0
+## 8     Henry      50   75  65.0
+## 9    Isabel      65   85  77.0
+## 10     John      75   70  72.0
+## 11    Karen      80   80  80.0
+## 12     Liam      85   80  82.0
+## 13    Megan      90   70  78.0
+## 14     Nate      75   60  66.0
+## 15   Olivia      80   75  77.0
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#(b)}
+
+\NormalTok{henry\_final }\OtherTok{\textless{}{-}} \DecValTok{65}
+
+\NormalTok{score }\OtherTok{\textless{}{-}} \StringTok{\textquotesingle{}\textquotesingle{}}
+\NormalTok{x }\OtherTok{\textless{}{-}}\NormalTok{ finalscore[}\DecValTok{8}\NormalTok{,}\StringTok{\textquotesingle{}final\textquotesingle{}}\NormalTok{]}
+
+\ControlFlowTok{if}\NormalTok{(x }\SpecialCharTok{\textless{}} \DecValTok{60}\NormalTok{) \{}
+\NormalTok{  score }\OtherTok{\textless{}{-}} \StringTok{\textquotesingle{}F\textquotesingle{}}
+\NormalTok{\} }\ControlFlowTok{else} \ControlFlowTok{if}\NormalTok{ (x }\SpecialCharTok{\textless{}} \DecValTok{70} \SpecialCharTok{\&}\NormalTok{ x }\SpecialCharTok{\textgreater{}=} \DecValTok{60}\NormalTok{) \{}
+\NormalTok{  score }\OtherTok{\textless{}{-}} \StringTok{\textquotesingle{}D\textquotesingle{}}
+\NormalTok{\} }\ControlFlowTok{else} \ControlFlowTok{if}\NormalTok{ (x }\SpecialCharTok{\textless{}} \DecValTok{80} \SpecialCharTok{\&}\NormalTok{ x }\SpecialCharTok{\textgreater{}=} \DecValTok{70}\NormalTok{) \{}
+\NormalTok{  score }\OtherTok{\textless{}{-}} \StringTok{\textquotesingle{}C\textquotesingle{}}
+\NormalTok{\} }\ControlFlowTok{else} \ControlFlowTok{if}\NormalTok{ ( x }\SpecialCharTok{\textless{}} \DecValTok{90} \SpecialCharTok{\&}\NormalTok{ x }\SpecialCharTok{\textgreater{}=} \DecValTok{80}\NormalTok{) \{}
+\NormalTok{  score }\OtherTok{\textless{}{-}} \StringTok{\textquotesingle{}B\textquotesingle{}}
+\NormalTok{\} }\ControlFlowTok{else}\NormalTok{ \{}
+\NormalTok{  score }\OtherTok{\textless{}{-}} \StringTok{\textquotesingle{}A\textquotesingle{}}
+\NormalTok{\}}
+
+
+
+
+
+\CommentTok{\#(c) Assigning Henry\textquotesingle{}s grade.}
+
+\NormalTok{letter.grade }\OtherTok{=}\NormalTok{ score}
+
+
+
+\NormalTok{letter.grade}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "D"
+\end{verbatim}
+
+\hypertarget{question-3-while-loop}{%
+\subsection{Question 3: While loop}\label{question-3-while-loop}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#(a)}
+
+\NormalTok{num }\OtherTok{\textless{}{-}} \FunctionTok{sample}\NormalTok{(}\DecValTok{1}\SpecialCharTok{:}\DecValTok{20}\NormalTok{, }\DecValTok{100}\NormalTok{, }\AttributeTok{replace =} \ConstantTok{TRUE}\NormalTok{)}
+
+\NormalTok{num}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##   [1] 10 11  5 15 19  2 14  6  6 13  1  2 17 20  7  9 10  3 13  3 13  3 11 12  2
+##  [26]  2  4  5  4 17 15 19 20  7 16  8  9 17 14 15 18  3  9 16 12 20  1  3  6  5
+##  [51]  8  5  6  5 18 13 19  3 13 11 17 19  3  3 12  6  1 14 18 12 11  1 19 13  1
+##  [76] 13  3 15 12  2 17 11  4 15 15  8  3 10  6  4  5  5 10  3 20  4  7 19 19  7
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#(b)}
+
+\NormalTok{i }\OtherTok{\textless{}{-}} \DecValTok{1}
+
+\ControlFlowTok{while}\NormalTok{ (i }\SpecialCharTok{\textless{}=} \FunctionTok{length}\NormalTok{(num)) \{}
+  \ControlFlowTok{if}\NormalTok{(num[i] }\SpecialCharTok{==} \DecValTok{5}\NormalTok{) \{}
+    \FunctionTok{return}\NormalTok{(}\FunctionTok{print}\NormalTok{(}\FunctionTok{paste}\NormalTok{(}\StringTok{"The first 5 appears in position number"}\NormalTok{, i)))}
+\NormalTok{  \} }\ControlFlowTok{else} \ControlFlowTok{if}\NormalTok{(i }\SpecialCharTok{==} \FunctionTok{length}\NormalTok{(num) }\SpecialCharTok{\&}\NormalTok{ num[i] }\SpecialCharTok{!=} \DecValTok{5}\NormalTok{) \{}
+      \FunctionTok{print}\NormalTok{(}\StringTok{"The number 5 is not in the vector num."}\NormalTok{)}
+\NormalTok{    \}}
+  
+\NormalTok{  i }\OtherTok{=}\NormalTok{ i }\SpecialCharTok{+} \DecValTok{1}
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "The first 5 appears in position number 3"
+\end{verbatim}
+
+\end{document}

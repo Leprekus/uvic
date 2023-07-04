@@ -1,0 +1,113 @@
+---
+title: "Lab 6"
+author: ''
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+Normal critical values for difference confidence interval.
+
+```{r}
+#args are alpha and value
+
+#(a) 80%
+qt(p = .10, df = 80)
+
+#(b) 85%
+qt(p = 0.075 , df = 85)
+
+
+#(c) 99% 
+qt(p =  0.005 , df = 99)
+
+
+
+```
+
+## Question 2
+
+Assigning a letter grade to student Henry.
+
+```{r}
+
+#load the appropriate library
+library(dplyr)
+#read in the data file
+grades123 <- read.csv('grades.csv')
+
+#(a)
+
+finalscore <- grades123 %>% 
+  mutate(final = midterm * .4 + exam * .6) 
+finalscore
+
+#(b)
+
+henry_final <- 65
+
+score <- ''
+x <- finalscore[8,'final']
+
+if(x < 60) {
+  score <- 'F'
+} else if (x < 70 & x >= 60) {
+  score <- 'D'
+} else if (x < 80 & x >= 70) {
+  score <- 'C'
+} else if ( x < 90 & x >= 80) {
+  score <- 'B'
+} else {
+  score <- 'A'
+}
+
+
+
+
+
+#(c) Assigning Henry's grade.
+
+letter.grade = score
+
+
+
+letter.grade
+
+```
+
+## Question 3: While loop
+
+```{r}
+
+#(a)
+
+num <- sample(1:20, 100, replace = TRUE)
+
+num
+
+#(b)
+
+i <- 1
+
+while (i <= length(num)) {
+  if(num[i] == 5) {
+    return(print(paste("The first 5 appears in position number", i)))
+  } else if(i == length(num) & num[i] != 5) {
+      print("The number 5 is not in the vector num.")
+    }
+  
+  i = i + 1
+}
+
+
+
+
+```
+

@@ -1,0 +1,88 @@
+****---
+title: "Lab 5"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+Load the data wk5.csv into R and save it as d5.
+
+```{r}
+
+#(a)
+
+library(tidyverse)
+
+#(b) Input data file
+d5 <- read.csv('data_wk5.csv')
+
+#(c) Determine the minimum and maximum values of d5. You do not need to save these but 
+#    you must show that you printed them out.
+quantile(d5$x)
+
+#(d) Create a ggplot2 histogram of the \textit{d5} variable. Give the histogram border and fill colours of your liking. Name the $x$-axis ``Values'', and make the title ``Histogram of Values.``
+
+
+#    Set the minimum and maximum values of the x-axis so that all data points are represented. For example, if the minimum and maximum values of the variables are 40.4 and 55.6 respectively, you should set the histogram values to be 40 and 56 respectively. Set the binwidth to 2.
+
+library(ggplot2)
+
+# Calculate the minimum and maximum values of the x-axis
+x_min <- floor(min(d5$x))
+x_max <- ceiling(max(d5$x))
+
+
+# Create the histogram
+ggplot(d5, aes(x = x, y = ..density.., fill = "Histogram")) +
+  geom_histogram(color = "black", fill = "lightblue", alpha = 0.7, binwidth = 1) +
+  geom_density(aes(y = ..density.., color = "Density Curve"), size = 1.2) +
+  scale_fill_manual(values = "lightblue") +
+  scale_color_manual(values = "red") +
+  labs(x = "x Values", y = "Density", title = "Histogram and Density of x") +
+  xlim(x_min, x_max) +
+  theme_minimal()
+
+
+
+```
+
+## Question 2
+
+This question involves gauging whether or not a distribution seems normally distributed.
+
+(a) Does the histogram created in Question 1 seem normally distributed?
+
+The histogram in question one is not normally distributed because it depicts a Leptokurtic distribution. These types of distributions have a 'kurtosis' greater than three. The Kurtosis is the 'peak' of the mountain also referred to as its tail.
+
+(d) After comparing the answers from B and C I am more inclined to say that x is evenly distributed because the the results from both B and C are really close to each other. 
+
+```{r}
+
+#(a) Does the histogram created in Question 1 seem normally distributed?
+
+#(b) Find the empirical 2.5% and 97.5% quantiles and save them as qlow and qhigh, respectively.
+qlow <- quantile(d5$x, probs = 0.025, na.rm = FALSE)
+qhigh <- quantile(d5$x, probs = 0.975, na.rm = FALSE)
+
+qlow
+qhigh
+
+#(c) Finding the normal theoretical 2.5% and 97.5% quantiles of x.
+x_mean <- mean(d5$x)
+x_sd <- sd(d5$x)
+
+qnorm(.025,mean = x_mean, sd = x_sd)
+qnorm(.975,mean = x_mean, sd = x_sd)
+
+
+#(d) Are your answers in (b) and (c) close?
+
+
+```
+

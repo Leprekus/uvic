@@ -1,0 +1,133 @@
+---
+title: "homework 2"
+author: "Raul Rodriguez"
+date: "2023-06-21"
+output: html_document
+---
+
+****---
+title: "Lab 5"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+
+```{r}
+library(dplyr)
+
+# a) 
+#dept a 
+#grouped by admit and gender
+dept_a <-UCBAdmissions[,,'A']
+ncol(dept_a)
+ncol(dept_a)
+class(dept_a)
+
+# b) 
+admit_gender <- rowSums(UCBAdmissions, dims = 2)
+admit_gender
+
+
+
+# c) 
+
+total_applicants <- rowSums(admit_gender)
+total_applicants
+# d) 
+admit_rate <- admit_gender / total_applicants
+
+admit_rate
+
+```
+e) After taking a look at the results it can be observed that both the admission
+and rejection rate for male and female participants is equivalent. Both have 
+proportional ratios to according to the percentage they  corresponding size of the population. 
+
+## Question 2
+
+
+```{r}
+library(ggplot2)
+
+data = read.csv('Government_expenditure_per_student.csv')
+
+#a)
+ggplot(data, aes(x = Value)) +
+  geom_histogram(fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Government Expenditure per Student",
+       x = "Value")
+
+#b) answered outside of chunk
+
+#c)
+
+# Compute the center value
+mean_value <- mean(data$Value)
+median_value <- median(data$Value)
+
+# Compute the measures of variability
+sd_value <- sd(data$Value)
+range_value <- max(data$Value) - min(data$Value)
+
+mean_value
+median_value
+sd_value
+range_value
+
+#d) 
+trimmed_mean <- mean(data$Value, trim = 0.05)
+trimmed_mean
+```
+b) The data distribution shows the data to have a right-skew. 
+
+
+## Question 3
+
+```{r}
+#a)
+pop <- c(1:30)
+pop_mean <- mean(pop)
+pop_sd <- sqrt((30-1)/30) * sd(pop)
+
+pop
+pop_mean
+pop_sd
+
+#b)
+samp <- sample(pop, size = 100, replace = TRUE)
+
+#c)
+
+
+#x (pop_mean): sample mean
+
+#t: the t-critical value
+
+#s (pop_sd): sample standard deviation
+
+#n (length(pop)): sample size
+
+margin <- qt(0.975,df = length(pop)-1)* pop_sd / sqrt(length(pop))
+
+
+lowerinterval <- pop_mean - margin
+upperinterval <- pop_mean + margin
+
+lowerinterval
+upperinterval
+
+#d) answered outside of chunk
+
+
+#e)
+
+```
+
+d) My confidence interval uses the population and the margin to output the desired confidence levels. But the computed result does not contain the population mean.
