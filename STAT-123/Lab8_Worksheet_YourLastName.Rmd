@@ -1,0 +1,91 @@
+---
+title: "Lab 8"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+```
+
+## 1. Read in data file and set up data frame for analysis.
+
+```{r}
+
+realestate <- 
+head(realestate)
+
+#1a.
+house <- 
+head(house)
+
+#1b.
+
+head(house)
+
+# You can also use dplyr to do this.
+
+```
+
+```{r}
+
+#1c price vs age
+
+ggplot
+
+```
+
+
+
+```{r}
+
+#1c price vs distance to mrt station
+
+ggplot
+
+```
+
+
+```{r}
+
+#1c price vs no. of convenience stores nearby
+
+ggplot
+
+```
+
+```{r}
+
+#1d Brief discussion about the plots
+
+
+
+```
+
+## 2. Individual correlations.
+
+```{r}
+
+
+```
+
+## 3. Correlation matrix for all variables.
+
+```{r}
+
+cor(house)
+
+# The y = house specification asks R to compute all correlations in the house
+# data frame.
+
+house |> cor(y = house, method = "pearson") |>  round(3)
+
+# The correlation coefficent between number of convenience stores and distance
+# to mrt station is -0.603.
+
+
+```
+

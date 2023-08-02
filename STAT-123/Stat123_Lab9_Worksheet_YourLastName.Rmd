@@ -1,0 +1,119 @@
+---
+title: "Lab 9"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+```
+
+### Introduction
+
+Download the data set media_spend.csv and save it to whatever directory you are using for this course.
+
+Today’s dataset contains information about a fictitious company that’s trying to determine how much money to spend on various types of advertising for the coming year. They have historical data showing sales (in millions of dollars) and the amount they spent on TV, Radio, and Newspaper advertising that year (in thousands of dollars). Our goal today is to determine which types of advertising effects sales the most.
+
+## Question 1
+
+```{r}
+library(dplyr)
+#(a) Load the media spend.csv dataset into R and save it to spend.
+spend <- read_csv('media_spend.csv')
+
+#(b) We are trying to see how the advertising effects sales, therefore, sales is our response variable and the other columns are our regressors. List the regressors (independent variables).
+regressors <- names(spend)[names(spend) != 'Sales']
+response <- names(spend)[names(spend) == 'Sales']
+
+regressors
+response
+
+#(c) Plot the response variable (as the y-axis) against each of the regressor variables (one plot for each regressor) using ggplot2. Display the three plots side by side using the "gridExtra" package.
+
+#install.packages("gridExtra")              # install package if needed
+library("gridExtra")                        # Load gridExtra package
+
+createPlot <- function(regressor) {
+  ggplot(spend, aes(x = .data[[regressor]], y = response)) + 
+  geom_point()
+}
+
+plots <- lapply(regressors, createPlot)
+grid.arrange(grobs = plots, ncol = 3)
+
+
+
+#(d) Looking only at the plots, which type of advertising do you think will have the largest effect on sales?
+# The media with the largest effect on sales is by far TV because it has the highest number coming up at 300.
+```
+The media with the largest effect on sales is by far TV because it has the highest number coming up at 300.
+
+
+## Question 2
+
+```{r}
+
+#(a) Perform a linear regression for each form of advertising vs the response variable, sales. Print out the summary for each of these regressions and take note of the p-value for the t-test on the significance of the coefficient for each.
+
+target <- spend$Sales
+
+
+
+tv_summary <- summary(lm(formula = target ~ spend$TV, data = spend))
+radio_summary <- summary(lm(formula = target ~ spend$Radio, data = spend))
+newspaper_summary <- summary(lm(formula = target ~ spend$Newspaper, data = spend))
+
+tv_summary
+radio_summary
+newspaper_summary
+
+
+
+#(b) Which of the regressors is the most significant in terms of the p-value?
+
+# The regressor with the most significance in terms of the p-value 
+# is TV meaning that it has a strong response with the 'Sales' response variable. 
+
+#(c) Of all the significant regressors, which one has the biggest impact on sales on its own?
+# On its own, the regressor with the biggest impact is Radio because it has the biggest unit increase in sales (0.1244)
+
+#(d) Create a vector of the p-values and name each element with the corresponding type of advertising.
+lmp <- function (summaryObject) {
+    if (class(summaryObject) != "summary.lm") stop("Not an object of class 'summary.lm' ")
+    f <- summaryObject$fstatistic
+    p <- pf(f[1],f[2],f[3],lower.tail=F)
+    attributes(p) <- NULL
+    return(p)
+}
+
+summaries <- c(tv_summary, radio_summary, newspaper_summary)
+
+pValues <- c(lmp(tv_summary), lmp(radio_summary), lmp(newspaper_summary))
+
+headers <- c('TV', 'Radio', 'NewsPaper')
+
+names(pValues) <- headers
+
+
+
+
+#(e) Create another vector of the slope coefficients and name each element with the corresponding type of advertising.
+slope_coefficients <- c(tv_summary$coefficients[,"Estimate" ], radio_summary$coefficients[,"Estimate" ], newspaper_summary$coefficients[,"Estimate" ])
+
+names(slope_coefficients) <- headers
+
+
+
+#(f) Display both vectors.
+pValues
+slope_coefficients
+
+```
+(b) Which of the regressors is the most significant in terms of the p-value?
+
+ The regressor with the most significance in terms of the p-value 
+ is TV meaning that it has a strong response with the 'Sales' response variable. 
+
+## End of Lab 9.

@@ -1,0 +1,124 @@
+---
+title: "Lab 8"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+
+```
+
+## 1. Read in data file and set up data frame for analysis.
+
+```{r}
+
+realestate <- read.csv('RealEstate.csv')
+head(realestate)
+
+#1a.
+house <- data.frame(
+  realestate$X2.house.age,       realestate$X3.distance.to.the.nearest.MRT.station,
+realestate$X4.number.of.convenience.stores,
+realestate$Y.house.price.of.unit.area)
+
+#1b.
+colnames(house) <- c('age','mrt.dist','num.conv.stores','price')
+
+# You can also use dplyr to do this.
+
+```
+
+```{r}
+library(ggplot2)
+#1c price vs age
+
+plot_age <- ggplot(house, aes(x = age, y = price)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(x = "Age", y = "Price", title = "Scatterplot: Age vs. Price")
+
+
+
+plot_age
+
+```
+
+
+
+```{r}
+
+#1c price vs distance to mrt station
+
+plot_mrt_dist <- ggplot(house, aes(x = mrt.dist, y = price)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(x = "Distance to MRT Station", y = "Price", title = "Scatterplot: Distance to MRT vs. Price")
+
+plot_mrt_dist
+
+```
+
+
+```{r}
+
+#1c price vs no. of convenience stores nearby
+
+plot_num_conv_stores <- ggplot(house, aes(x = num.conv.stores, y = price)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(x = "Number of Convenience Stores", y = "Price", title = "Scatterplot: Num. of Conv. Stores vs. Price")
+
+plot_num_conv_stores
+
+```
+
+```{r}
+
+#1d Brief discussion about the plots
+
+
+```
+age vs price: the price seems to reach a 'baseline' between 'young' houses and 'older' houses. But younger houses are slightly more expensive than the baseline while the oldest houses seem to have a dramatic price spike. Meaning there is a link: the newer a house is the pricier it gets and this price diminishes until a certain extent. Once you take a look at really old houses the price spikes again. 
+
+MRT Station vs Price: This positively correlates the distance from the MRT Station with a house's price. Meaning that the closer a house is to the station the more it increases in value.
+
+Number of convenience store to price: There seems to be a linear relation between the number of convenience stores and the price of a house. It seems that the more stores there are, the pricier a house becomes. 
+
+## 2. Individual correlations.
+
+```{r}
+
+
+cor_age_price <- cor(house$age, house$price)
+
+cor_mrt_dist_price <- cor(house$mrt.dist, house$price)
+
+cor_num_conv_stores_price <- cor(house$num.conv.stores, house$price)
+
+cor_age_price
+cor_mrt_dist_price
+cor_num_conv_stores_price
+
+```
+
+## 3. Correlation matrix for all variables.
+
+```{r}
+
+cor(house)
+
+# The y = house specification asks R to compute all correlations in the house
+# data frame.
+
+house |> cor(y = house, method = "pearson") |>  round(3)
+
+# The correlation coefficent between number of convenience stores and distance
+# to mrt station is -0.603.
+
+
+```
+The correlation suggests that there is a negative correlation between the number of convenienve stores and the MRT Station distance. This means that as the MRT distance increases the number of convenience stores decreases.  
+

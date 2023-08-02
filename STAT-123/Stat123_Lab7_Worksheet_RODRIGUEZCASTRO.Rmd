@@ -1,0 +1,140 @@
+---
+title: "Lab 7"
+author: "Raul Rodriguez Castro"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Learning Objective
+
+We are going to learn all kinds of ways to perform calculations on vectors and matrices using for-loops and the apply family.
+
+## Question 1
+
+```{r}
+# tidyverse is not required for this lab.
+# Set your working directory.
+
+
+#(a) Load lab7 data.csv into R and save it as df.
+df <- read.csv('lab7_data.csv')
+
+#(b) Familiarize yourself with the dataframe. Notice how it has one column where the entries are characters and the rest of the columns are numeric values. We want to perform mathematical operations on this dataframe in a variety of ways. We could, with a little fancy footwork, perform these operations on the dataframe itself, but to make our lives a little easier today we’re first going to create a matrix that contains only the numerical values.
+
+#Create this matrix and name it nums. Hint: We’ve done this exact thing in a previous lab.
+numeric_values <- sapply(df,is.numeric)
+nums <- as.matrix(df[, numeric_values])
+
+
+#(c) First we’re only going to deal with the 3rd column of nums. Save this column as its own vector and name it c3.
+c3 <- nums[,3]
+
+#(d) Write a for-loop that adds up each element of c3 and save it to the name sc3. Print out sc3. Hint: You should set sc3 equal to zero before you write the for-loop.
+sc3 <- 0
+for(i in c3) {
+  sc3 <- sc3 + i
+}
+
+sc3
+
+```
+
+## Question 2
+
+```{r}
+
+#(a) Save columns 2 and 4 of nums as their own vectors and name them c2 and c4, respectively.
+c2 <- nums[,2]
+c3<- nums[,3]
+c4<- nums[,4]
+
+
+#(b) Write a for-loop that adds each element of c2, c3, c4 together and save it to a vector named row_sums. Note: row_sums should be a vector where the first element is the sum of the first elements of c2, c3, and c4. Hint: Set up the row sums vector before you write the for-loop.
+row_sums <- rep(0, length(c2))
+
+
+for (i in seq_along(c2)) {
+  
+  row_sums[i] <- c2[i] + c3[i] + c4[i]
+}
+#You may use: row_sums = rep(0, length(c2))
+
+
+#(c) Print out the row sums vector.
+row_sums
+
+```
+
+## Question 3
+
+Now let’s try using for-loops on the entire matrix rather than on just a few columns at a time. Our goal is to write a for-loop to create a new column at the end of the matrix that contains the sum of each row.
+
+```{r}
+
+#(a) Create a new column of zeros at the end of nums by using: nums = cbind(nums, rep(0, length(nums[,1]))).
+nums = cbind(nums, rep(0, length(nums[, 1])))
+
+
+#(b) Write a for-loop that calculates the sum (for each row) of the first through fourth columns of nums and saves the sum in the fifth column of nums. ie. The element in the first row and fifth column of nums should end up being 231.
+
+for(i in seq_along(nums[,1])){
+  row_sum <- nums[i,1] + nums[i,2]+ nums[i,3] + nums[i,4]
+  nums[i, 5] <- row_sum
+}
+
+
+#(c) Print out the nums matrix.
+nums
+
+```
+
+## Question 4
+
+Loops in R are notoriously slow. While loops are incredibly important to master from a theoretical sense, when working with large data sets we should always try to use the apply family of functions to increase efficiency.
+
+You’ve learned about sapply and lapply in class, but until you learn how to write your own functions, sapply and lapply can be fairly limited. Today we will take a quick look at the power of the apply() function, which allows us to perform functions on 2 dimensional objects like matrices and dataframes.
+
+The apply() function has 3 main parameters: apply(X = , MARGIN = , FUN = ). The only difference between apply() and sapply() is the MARGIN parameter which tells R whether you want to calculate something on the rows (MARGIN = 1) or the columns (MARGIN = 2).
+
+```{r}
+
+#(a) Create a new column at the end of nums (there should be 6 columns in nums once you’ve done this) similarly to how you were shown in 3a).
+nums = cbind(nums, rep(0, length(nums[, 1])))
+
+
+
+#(b) Use apply() to fill this new column with the sum of each row for columns 1 − 5. 
+
+nums[,6] = apply(X = nums[, 1:5], MARGIN=  1, FUN = sum)
+
+
+#Hints: in the apply() function you should set X = nums[, 1:5] and FUN = sum. I’ll let you figure out what to set MARGIN equal to.
+
+
+#(c) Print out nums
+
+nums
+
+```
+
+## Bonus 
+
+```{r}
+
+#(a) Create a new row at the bottom of nums that is filled with zeros.
+nums = rbind(nums, rep(0, length(nums[,1])))
+
+#(b) Use apply() to fill this new row with the sum of each column for rows 1 − 12.
+nums[13, ] <- apply(nums[1:12, ], MARGIN = 2, FUN = sum)
+
+
+#(c) Print out nums
+
+nums
+
+```
+

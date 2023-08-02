@@ -1,0 +1,195 @@
+---
+title: "assignment 3"
+author: "Raul Rodriguez"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+
+```{r}
+
+df <- read.csv('homework3Data.csv')
+
+# a)
+# Load the ggplot2 library
+library(ggplot2)
+
+
+
+ggplot_factory <- function(df, df_col, title_name) {
+  ggplot(data = df, aes(x = .data[[df_col]])) +
+    geom_histogram(fill = 'gray', color = 'black') +
+    geom_vline(aes(xintercept = mean(.data[[df_col]])), color = 'red') +
+    geom_vline(aes(xintercept = median(.data[[df_col]])), color = 'blue') +
+    geom_density(color = 'green') +
+    labs(title = title_name)
+}
+
+
+a_plot <- ggplot_factory(
+  df, 
+  df_col = 'A', 
+  title_name = 'Column A')
+
+b_plot <- ggplot_factory(
+  df, 
+  df_col = 'B', 
+  title_name = 'Column B')
+
+c_plot <- ggplot_factory(
+  df, 
+  df_col = 'C', 
+  title_name = 'Column C')
+
+c_plot <- ggplot_factory(
+  df, 
+  df_col = 'C', 
+  title_name = 'Column C')
+
+x_plot <- ggplot_factory(
+  df, 
+  df_col = 'X', 
+  title_name = 'Column X')
+
+y_plot <- ggplot_factory(
+  df, 
+  df_col = 'Y', 
+  title_name = 'Column Y')
+
+z_plot <- ggplot_factory(
+  df, 
+  df_col = 'Z', 
+  title_name = 'Column Z')
+
+
+
+
+a_plot
+b_plot
+c_plot
+
+x_plot
+y_plot
+z_plot
+
+#b) 
+# answered in text 
+
+#c) 
+
+mean_X <- mean(df$X)
+sd_X <- sd(df$X)
+
+interval_68 <- c(mean_X - sd_X, mean_X + sd_X)
+interval_95 <- c(mean_X - 2 * sd_X, mean_X + 2 * sd_X)
+interval_997 <- c(mean_X - 3 * sd_X, mean_X + 3 * sd_X)
+
+interval_68
+interval_95
+interval_997
+
+# d) 
+quantiles <- quantile(df$X, c(0.003, 0.025, 0.1587, 0.5, 0.8413, 0.975, 0.997))
+quantiles
+
+# e)
+intervals_qnorm <- qnorm(c(0.0015, 0.025, 0.1587, 0.5, 0.8413, 0.975, 0.9985), mean = mean_X, sd = sd_X)
+
+intervals_qnorm
+
+
+# f)
+
+#pop mean estimate
+sample_mean <- mean(df$X)
+sample_mean
+
+#sd
+sample_sd <- sd(df$X)
+sample_size <- length(df$X)
+#estimated error
+estimated_se <- sample_sd / sqrt(sample_size)
+estimated_se
+#critical value
+diff <- sample_size - 1
+critical_value_t <- qt(0.86, diff)
+critical_value_t
+
+confidence_interval_lower <- sample_mean - (critical_value_t * estimated_se)
+confidence_interval_upper <- sample_mean + (critical_value_t * estimated_se)
+
+confidence_interval_lower
+confidence_interval_upper
+
+```
+b) Without any formal tests and purely based on visual aid, column x appears to be normally distributed because the graph closely conforms with the normal distribution bell curve.
+
+e) comparing these intervals, we can see that the intervals obtained from part (e) using qnorm() are closest to the intervals from part (c) calculated using the mean and standard deviation. 
+
+## Question 2
+
+
+```{r}
+
+library(dplyr)
+# a) 
+names <- starwars$name
+
+
+# b) 
+nchar(names[c(7, 19, 31)])
+
+# c)
+num_char <- numeric(length(names))
+
+for (i in 1:length(names)) {
+  num_char[i] <- nchar(names[i])
+}
+
+
+# d)
+num_char <- sapply(names[c(7, 19, 31)], nchar)
+
+
+
+```
+
+## Question 3
+
+
+```{r}
+library(ggplot2)
+data <- read.csv("homework3Data.csv")
+set.seed(123)
+
+# a)
+n_bootstrap <- 10000
+sample_size <- 250
+n_replicate <- 10000
+
+bootstrap_medians <- numeric(n_bootstrap)
+
+for (i in 1:n_bootstrap) {
+  bootstrap_sample <- sample(data$Y, size = sample_size, replace = TRUE)
+  bootstrap_medians[i] <- median(bootstrap_sample)
+}
+
+# b)
+ggplot(data.frame(bootstrap_medians), aes(x = bootstrap_medians)) +
+  geom_histogram(fill = "gray", color = "black", bins = 30) +
+  labs(x = "Median of Y", y = "Frequency", title = "Sampling Distribution of Median")
+
+# c)
+estimated_median <- median(data$Y)
+
+# d)
+lower_ci <- quantile(bootstrap_medians, 0.025)
+upper_ci <- quantile(bootstrap_medians, 0.975)
+
+```

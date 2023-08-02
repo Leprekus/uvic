@@ -1,0 +1,246 @@
+---
+title: "202305 Midterm 2"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+## Instructions:
+
+### 1.Show both commands and outputs unless specified otherwise.
+### 2.For visualization, always use ggplot() commands, unless specified otherwise.
+
+
+### Question 1: Download the file people.csv from Brightspace. Import the file and save it as a data frame named "features".
+
+a. Which variables are categorical, which ones are numerical?
+
+b. Produce a bar graph showing the distribution of hair colours with the following:
+
+   Different colour for different bars
+
+   A title.
+
+   A x-axis label.
+
+c. Produce a side-by-side boxplot of weight by gender with y-axis label "Weight in kg".
+
+
+```{r question 1}
+
+#set working directory first
+library(tidyverse)
+features <- read_csv('people.csv')
+head(features)
+
+# (a) Answer below:
+#hair col is categorical
+#eye col is categorical 
+#gender col is categorical
+#height col is numerical 
+#weight col is numerical
+
+# (b) Answer below:
+#Produce a bar graph showing the distribution of hair colours with the following:
+
+ #  Different colour for different bars
+
+  # A title.
+
+   #A x-axis label.
+   
+ggplot(data = features, aes(x = hair)) + 
+  geom_bar(fill=c('Black', 'Yellow', 'Brown', 'Red')) + 
+  labs(tag = 'Hair Distribution') + 
+  xlab('Hair Color')
+
+  
+
+
+# (c) Answer below:
+  #c. Produce a side-by-side boxplot of weight by gender with y-axis label "Weight in kg".
+
+ ggplot(features, aes(x = gender, y = weight)) + 
+   geom_boxplot() + 
+   ylab("Weight in kg")
+
+```
+
+
+### Question 2 Use the "features" data frame.
+
+a. Compute and display the total number of people with "Hazel" eyes.
+
+b. Compute and display the sample proportion of people with Hazel eyes.
+
+
+```{r question 2}
+
+#a
+head(features)
+hazel_count<-0
+for(color in features$eye) {
+  if(color == 'Hazel') {
+    hazel_count <- hazel_count + 1
+  }
+}
+hazel_count
+#b
+sample_proportion <- hazel_count / length(features$eye) 
+sample_proportion
+
+
+```
+
+
+### Question 3: Use the features data frame for the following:
+
+(a) Bootstrap 5000 sample variances of height. Save your bootstrapped variances
+    to a vector called boot_var. 
+
+(b) Give an estimate for the variance of height from the bootstrapped sample. 
+
+(c) Compute a 95% bootstrapped confidence interval for the true value of the 
+    variance of height. 
+
+
+```{r question 3}
+
+# (a) Answer below:
+boot_var <- numeric(5000)
+for (i in 1:5000) {
+    resampled_data <- sample(features$height, replace = TRUE)
+    boot_var[i] <- var(resampled_data)
+}
+boot_var
+
+# (b) Answer below:
+var(boot_var)
+
+# (c) Answer below:
+lower_quantile <- quantile(boot_var, 0.05)
+upper_quantile <- quantile(boot_var, 0.95)
+
+bootstrapped_confidence_interval <- c(lower_quantile, upper_quantile)
+bootstrapped_confidence_interval
+
+```
+
+### Question 4: Use the features data frame and perform the following:
+
+a. Create a data frame named "male.features" that contains information only for 
+   male. There should be 279 observations in this new data frame. Show the first
+   six observations of male.features.
+   
+For part b to e, use the data frame "male.features". If you don't know how to do
+part a, then use the features data frame. Some mark will be deducted.
+
+b. Produce a ggplot histogram of weight with the following:
+   
+   blue border
+   
+   green bar
+   
+   (no title needed)
+ 
+c. Write a command to take a sample of 144 weights without replacement and named
+this vector x. Do not display the vector x.
+
+d. Compute the mean, standard deviation, estimated standard error for the sample and save them as some variable names of your choice.
+
+e. Compute a 84% confidence interval for male weight.
+
+
+```{r}
+
+library(dplyr)
+#a
+
+#Create a data frame named "male.features" that contains information only for 
+ #  male. There should be 279 observations in this new data frame. Show the first
+  # six observations of male.features.
+   
+#For part b to e, use the data frame "male.features". If you don't know how to do
+#part a, then use the features data frame. Some mark will be deducted.
+
+
+filtered <- features %>% 
+  filter(gender == 'Male')%>% 
+  group_by(gender) 
+
+  
+male.features <- data.frame(filtered)
+male.features[1:6,]
+#b
+ggplot(male.features, aes(x = weight)) + 
+  geom_histogram(color = 'blue', fill = 'green')
+
+#c
+#set.seed(12345)
+#x <- sample(male.features$weights, size = 144, replace = FALSE)
+#x
+
+
+
+#d
+#Compute the mean, standard deviation, estimated standard error for the sample and save them as #some variable names of your choice.
+
+mean <- mean(male.features)
+mean_sd <- sd(mean)
+#standard_error <- sd(male.features)
+
+mean_sd
+#standard_error
+
+
+
+
+#e
+
+mean_weight <- mean(male.features$weight)
+
+
+lower_quantile <- quantile(male.features$weight, 0.016)
+upper_quantile <- quantile(male.features$weight, 0.84)
+
+confidence_interval <- c(lower_quantile, upper_quantile)
+confidence_interval
+
+```
+
+
+### Question 5: Use the "male.features" data frame again.
+
+(a) Produce a scatterplot of height versus weight. Set the x-axis to be height.
+
+(b) Describe the direction and form of the relationship. 
+
+(c) Compute the correlation between the two variables and describe what this implies for the linearity and strength of the relationship. 
+
+```{r Question 5}
+
+# (a) Answer below:
+ggplot(male.features, aes(x = height, y = weight)) + 
+  geom_point()
+
+
+
+# (b) Answer below:
+
+
+# (c) Answer below:
+args(cor)
+cor(x = male.features$height, y = male.features$weight)
+
+
+
+```
+c) the correlation indicates a strong positive relationship between weight and height. Meaning that the taller an individual is, the heavier he or she will be.  
+
+### When you're finished or when time is up, knit the Rmarkdown to a html file and submit it to the Midterm 2 folder.Comment out (don't delete) the commands that don't run and submit the output.To be safe, you can also submit the rmd file together with the html file.
+
