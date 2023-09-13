@@ -1,0 +1,339 @@
+---
+title: "Final Exam (Long Answer)"
+output: html_document
+#output: pdf_document
+---
+
+## Instructions
+
+You must answer all questions in this file. Follow all instruction in the questions.
+
+For plots, you must produce ggplots to get marks unless specified otherwise.
+
+For other R questions, you can use any R commands that we covered in class. If you code is overly complicated, marks will be deducted. 
+
+## When you finish the test, knit this file as a html. Open the output html file in your preferred browser. Print it as a pdf document. Make sure the file is readable before submitting to Brightspace. 
+
+Run the first chunk of code now.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#define packages to install
+packages <- c('tidyverse', 'gapminder', 'palmerpenguins', 'GGally')
+
+#install all packages that are not already installed
+install.packages(setdiff(packages, rownames(installed.packages())))
+
+library(tidyverse)
+library(gapminder)
+library(palmerpenguins)
+library(GGally)
+
+```
+
+
+Question 1: Consider the penguins data frame in the palmerpenguins package.
+
+(a) Create a new data frame called female_penguins which contains only island and species variables for female penguins. Show the first few observations of female_penguins.
+
+(b) Create a ggplot2 bar chart which displays the counts in female_penguins by species. Make sure your graph has the following properties:
+
+- a main title;
+- the bars are horizontally oriented; and
+- a different colour bar for each species.
+
+(c) Using the female_penguins data frame, display a contingency table by island and species that counts the number of penguins in each cell. Hint: it is a 3-by-3 table.
+
+
+```{r Question 1}
+
+# Answer (a) below:
+
+female_penguins <- penguins %>%
+  filter(sex == "female") %>%
+  select(island, species)
+
+head(female_penguins)
+# (b) ggplot2 bar chart by species
+
+# Answer (b) below:
+ggplot(female_penguins, aes(y = species, fill = species)) +
+  geom_bar() +
+  labs(
+    title = "Female Penguin Count by Species",
+    x = "Count",
+    y = "Species",
+    fill = "Species"
+  ) 
+
+
+# Answer (c) below:
+contingency_table <- table(female_penguins$island, female_penguins$species)
+contingency_table
+
+```
+
+
+
+Question 2: Consider the gapminder data set. 
+
+(a) Create a data frame called europe_21 which contains all gapminder data for the continent Europe after the year 1999. Show the first few observations.
+
+(b) Using the data frame europe_21, display a ggplot of the distribution of the life expectancy in European countries after 1999. On the same plot, draw a density curve. 
+
+The histogram should have blue borders, pink bars and binwidth of 0.5. The density curve should be black. The y-axis scale should be density scaled. No title or extra axis label is required.
+
+(c) Describe the shape of the distribution (symmetry, skewness, etc.). 
+
+(d) What is the best measure of the centre of the distribution? Compute and show this value. 
+
+(e) What is the best measure of the spread of the distribution? Compute and show the value(s). 
+
+(f) Suppose we are interested in a statistic that takes the third quartile subtract the first quartile of life expectancy. We will call this statistic "IQR". Compute and show the observed value of the IQR statistic for the sample of European life expectancy after 1999.
+
+(g) Bootstrap 10000 sample IQR's of European countries life expectancy after 1999. Save the bootstrapped vector as boot_iqr.
+
+** Note ** If you are unable to bootstrap this particular statistic, then bootstrap the standard deviations in order to be able to answer the remainder of the question. 
+
+(h) Plot the distribution of the bootstrapped IQR. Basic R histogram will suffice. 
+
+(i) Describe the shape of the distribution. Does it appear normally distributed? 
+
+(j) Compute and show a bootstrapped 90% confidence interval for the population IQR.
+
+```{r Question 2}
+
+# (a) Create a data frame called europe_21 which contains all gapminder data for 
+# the continent Europe after the year 1999. Show the first few observations.
+europe_21 <- gapminder %>%
+  filter(continent == "Europe" & year > 1999)
+head(europe_21)
+# Answer (a) below: 
+
+
+# (b) Using the data frame europe_21, display a ggplot of the distribution of the 
+# life expectancy in European countries after 1999. On the same plot, draw a 
+# density curve. 
+
+# The histogram should have blue borders, pink bars and binwidth of 0.5. The density 
+# curve should be black. The y-axis scale should be density scaled. No title or 
+# extra axis label is required.
+
+# Answer (b) below:
+ggplot(europe_21, aes(x = lifeExp)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.5, fill = "pink", color = "blue") +
+  geom_density(color = "black") +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) 
+
+
+# (c) Describe the shape of the distribution (symmetry, skewness, etc.).
+
+# Answer (c) below:
+
+ # the curve exhibits an asymmetrical, bimodal distribution with two distinct peaks at both ends. The left peak has low kurtosis and is relatively smaller, while the right peak has high kurtosis and is more defined. This indicates that the data in the right peak has heavier tails, contributing to the pronounced peak. The curve is positively skewed, which means it's skewed towards the right, evidenced by the larger peak on the right side. Additionally, there's a small gap in the middle of the distribution.
+
+
+# (d) What is the best measure of the centre for the distribution in (b)? 
+# Compute and show this value. 
+
+left_peak <- europe_21 %>%
+  filter(lifeExp < 76)
+
+right_peak <- europe_21 %>%
+  filter(lifeExp > 76)
+
+center <- (mean(left_peak$lifeExp) + mean(right_peak$lifeExp)) / 2
+# Answer (d) below:
+center
+
+# (e) What is the best measure of the spread of the distribution in (b)? 
+# Compute and show the value(s). 
+
+# Answer (e) below:
+left_peak_iqr <- quantile(left_peak$lifeExp, 0.75) - quantile(left_peak$lifeExp, 0.25)
+right_peak_iqr <-  quantile(right_peak$lifeExp, 0.75) - quantile(right_peak$lifeExp, 0.25)
+left_peak_iqr
+right_peak_iqr
+
+
+
+# (f) Suppose we are interested in a statistic that takes the third quartile subtract 
+# the first quartile of life expectancy. We will call this statistic "IQR". Compute 
+# and show the observed value of the IQR statistic for the sample of European life 
+# expectancy after 1999.
+
+# Answer (f) below:
+
+q1 <- quantile(europe_21$lifeExp, 0.25)
+q3 <- quantile(europe_21$lifeExp, 0.75)
+iqr <- q3 - q1
+iqr
+# (g) Bootstrap 10000 sample IQR's of European countries life expectancy 
+# after 1999. Save the bootstrapped vector as boot_iqr. 
+
+# ** Note ** If you are unable to bootstrap this particular statistic,
+# then bootstrap the standard deviation instead in order to be able to answer the
+# remainder of the question.
+
+# Answer (g) below:
+
+library(boot)
+calculate_iqr <- function(data, indices) {
+  sampled_data <- data[indices, ]
+  q1 <- quantile(sampled_data$lifeExp, 0.25)
+  q3 <- quantile(sampled_data$lifeExp, 0.75)
+  iqr <- q3 - q1
+  return(iqr)
+}
+
+set.seed(123)
+boot_iqr <- boot(data = europe_21, statistic = calculate_iqr, R = 10000)
+boot_iqr_vector <- boot_iqr$t
+
+#boot_iqr_vector
+
+
+# (h) Plot the distribution of the bootstrapped IQRs. Basic R histogram will suffice.
+
+# Answer (h) below: 
+hist(boot_iqr_vector, main = "Bootstrapped IQRs Distribution",
+     xlab = "Bootstrapped IQR", ylab = "Frequency",
+     col = "lightblue", border = "black")
+
+# (i) Describe the shape of the distribution. Does it appear normally
+# distributed?
+
+# Answer (i) below:
+# The distribution appears to have high kurtosis and a slight postitive skew.
+# Furthermore it appears to be assymetrical since it is not close to a mirror
+# image if split in half.
+
+
+# (j) Compute and show a bootstrapped 90% confidence interval for the IQR.
+
+# Answer (j) below:
+conf_interval <- boot.ci(boot_iqr, type = "perc", conf = 0.90)
+conf_interval
+
+
+```
+
+
+Question 3: Download, save, and read in the file "insurance.csv" and name the data frame insurance. This dataset contains the age, the gender, body mass index of the person who has purchased the insurance policy, the number of children/dependents the insured person has, and the amount charged for the insurance policy, which is the response variable in this dataset.
+
+Note: For the variable gender, female = 1, male = 0.
+
+(a) Produce a correlation matrix of all variables except gender using the ggpairs() command.
+
+(b) Fit a linear regression model including all of the explanatory variables. Be sure to write out the regression equation. 
+
+(c) Determine which variable(s) (if any) are not significant in the model using 0.05 as the criteria. Fit a new model including only significant variable(s). Write out the new regression equation.
+
+(d) Using the model from part (c) to predict the amount of charges for a female aged 35 with 2 children, a bmi of 33. Show the predicted charge.
+
+
+```{r Question 3}
+
+# (a) Produce a correlation matrix of all variables except gender using the ggpairs()
+# command.
+
+# Answer (a) below
+insurance <- read_csv('insurance.csv')
+
+genderless_insurance <- select(insurance, -gender)
+head(genderless_insurance)
+args(lm)
+
+# (b) Fit a linear regression model including all of the explanatory
+# variables. Be sure to write out the regression equation.
+
+# Answer (b) below:
+model <- lm(charges ~ age + bmi + children, data = genderless_insurance)
+model
+
+# regression equation:
+
+
+# (c) Display the summary of your model. Determine which variable(s) (if any) 
+# are not significant in the model using 0.05 as the criteria. IF there are any,
+# fit a new model including only significant variable(s). Write the new regression 
+# equation.
+
+# Answer (c) below:
+summary(model)
+non_significant_vars <- summary(model)$coefficients[,"Pr(>|t|)"] > 0.05
+
+significant_vars <- names(non_significant_vars)[!non_significant_vars]
+non_significant_vars
+
+# New regression equation:
+new_model <- lm(charges ~ age + bmi, data = genderless_insurance)
+new_model
+
+# (d) Use the model from part (c) to predict the amount of charges for a female 
+# aged 35 with 2 children, and a bmi of 33. Show the predicted charge.
+
+# Answer (d) below: 
+new_data <- data.frame(age = 35, bmi = 33)
+predicted_charge <- predict(new_model, newdata = new_data)
+predicted_charge
+
+```
+Question 4: 
+
+(a) Use the data frame insurance, create a data frame two.child which contains data for all purchasers with 2 children. Show the first few observations.
+
+Do the following calculations using the data frame two.child:
+
+(b) Compute and display the sample mean and standard deviation for the variable charges.
+
+(c) Compute and display the estimated standard error for the sample mean.
+
+(d) Compute and display the critical value for a 94% confidence interval for the mean insurance charges.
+
+(e) Compute and display the 94% confidence interval for the mean insurance charges for purchasers with 2 children.
+
+
+```{r Question 4}
+
+# (a) Use the data frame insurance, create a single variable two.child which contains 
+#     the charges for all purchasers with 2 children. Show the first few observations.
+insurance$two.child <- ifelse(insurance$children == 2, insurance$charges, NA)
+head(insurance$two.child)
+
+# Do the following calculations using the data frame two.child:
+
+
+# (b) Compute and display the sample mean and standard deviation for the variable 
+#     charges.
+
+sample_mean <- mean(insurance$two.child, na.rm = TRUE)
+sample_sd <- sd(insurance$two.child, na.rm = TRUE)
+sample_mean
+sample_sd
+
+
+# (c) Compute and display the estimated standard error for the sample mean.
+n <- sum(!is.na(insurance$two.child))
+se <- sample_sd / sqrt(n)
+se
+
+# (d) Compute and display the critical value for a 94% confidence interval 
+# for the mean insurance charges.
+critical_value <- qt(0.97, df = n - 1)
+critical_value
+
+# (e) Compute and display the 94% confidence interval for the mean insurance charges 
+# for purchasers with 2 children.
+margin_of_error <- critical_value * se
+confidence_interval <- c(sample_mean - margin_of_error, sample_mean + margin_of_error)
+margin_of_error
+confidence_interval
+
+
+```
+
+### When you're finished or when time is up, knit the Rmarkdown to a html file. Open the file in a browser and print it as a pdf. Submit the pdf file to the Final Exam (long answer) foler. Comment out (don't delete) the commands that don't run and submit the output.To be safe, you can also submit the rmd file together with the html file.
+
+
