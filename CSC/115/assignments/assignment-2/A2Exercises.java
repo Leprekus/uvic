@@ -6,7 +6,10 @@ public class A2Exercises {
 	 * Returns: int - the total of units sold of the more sold bike
 	 */
 	public static int moreSoldUnits(Bike bike1, Bike bike2) {
-		return 0; // so it compiles
+		int unitsBike1 = bike1.getSoldUnits();
+		int unitsBike2 = bike2.getSoldUnits();
+		
+		return unitsBike1 > unitsBike2 ? unitsBike1 : unitsBike2; // so it compiles
 	}
 	
 	/*
@@ -21,9 +24,17 @@ public class A2Exercises {
 	 * Preconditions: The array is not empty
 	 */
 	public static Bike mostSoldBike(Bike[] array) {
-		Bike most = array[0];
+
+		Bike mostSold = array[0];
+		for(Bike item: array) {
+			int soldUnits = item.getSoldUnits();
+			
+			if(soldUnits > mostSold.getSoldUnits()) {
+				mostSold = item;
+			}
+		}
 				
-		return most; // so it compiles
+		return mostSold; // so it compiles
 	}
 	
 	/*
@@ -39,8 +50,9 @@ public class A2Exercises {
 	 */
 	public static Bike mostSoldBikeFromBrand(Brand brand) {
 		Bike[] array = brand.getPortfolio();
+		Bike mostSold = mostSoldBike(array);
 
-		return array[0]; // so it compiles
+		return mostSold; // so it compiles
 	}
 
 	/*
@@ -51,9 +63,14 @@ public class A2Exercises {
 	 *                of Bikes in the brand's portfolio
 	 */	
 	public static int totalBikesSoldFromBrand(Brand brand) {
-		int count = 0;
+		Bike[] array = brand.getPortfolio();
+
+		int unitsSold = 0;
+		for(Bike item: array) {
+			unitsSold += item.getSoldUnits();
+		}
 		
-		return count;  // so it compiles
+		return unitsSold;  // so it compiles
 	}
 	
 	/*
@@ -70,9 +87,17 @@ public class A2Exercises {
 	 * Preconditions: The array is not empty
 	 */
 	public static Brand brandWithHighestSales(Brand[] array) {
-		Brand highestSalingBrand = array[0];
+		Brand brandWithHighestSale = array[0];
+
+		for(Brand item: array) {
+			double currentSale = item.totalSales();
+			if(currentSale > brandWithHighestSale.totalSales()) {
+				brandWithHighestSale = item;
+			}
+		}
+
 		
-		return highestSalingBrand; // so it compiles
+		return brandWithHighestSale; // so it compiles
 	}
 	
 }

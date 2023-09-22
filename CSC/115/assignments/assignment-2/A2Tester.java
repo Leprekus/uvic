@@ -7,18 +7,18 @@ public class A2Tester {
 		
 		// Part 1
 		testBikeConstructor();
-		// testToString();
-		// testEquals();
-		// testIsLocatedIn();
-		// testHasInPortfolio();
-		// testTotalSales();
+		 testToString();
+		testEquals();
+		 testIsLocatedIn();
+		 testHasInPortfolio();
+		 testTotalSales();
 	
-		// Part 2
-		// testMoreSoldUnits();
-		// testMostSoldBike();
-		// testMostSoldBikeFromBrand();
-		// testTotalBikesSoldFromBrand();
-		// testBrandWithHighestSales();
+		 //Part 2
+		 testMoreSoldUnits();
+		 testMostSoldBike();
+		 testMostSoldBikeFromBrand();
+		 testTotalBikesSoldFromBrand();
+		 testBrandWithHighestSales();
 		
 		System.out.println("PASSED " + testPassCount + " / " + testCount + " tests");
 	}
@@ -90,6 +90,61 @@ public class A2Tester {
 
 		// add tests until you are confident your implementation works correctly
 		
+		
+		
+		try {
+			Bike illegalModel = new Bike("", "", -1, -0.1);
+			illegalModel.getModel();
+			
+		} catch(IllegalArgumentException e) {
+			
+			actualModel = e.getMessage();
+			expectedModel = "Model's name must be greater than 0";
+			
+			
+			displayResults(actualModel.equals(expectedModel), "Bike constructor model set: " + expectedModel + " Actual: " + actualType );
+		}
+
+		try {
+			Bike illegalType = new Bike("valid", "", -1, -0.1);
+			illegalType.getType();
+			
+		} catch(IllegalArgumentException e) {
+			
+			actualModel = e.getMessage();
+			expectedModel = "Type's length must be greater than 0";
+			
+			
+			displayResults(actualModel.equals(expectedModel), "Bike constructor type set: " + expectedModel + " Actual: " + actualType );
+		}
+
+		try {
+			Bike illegalSoldUnits = new Bike("valid", "valid", -1, -0.1);
+			illegalSoldUnits.getSoldUnits();
+			
+		} catch(IllegalArgumentException e) {
+			
+			actualModel = e.getMessage();
+			expectedModel = "Sold units cannot be less than 0";
+			
+			
+			displayResults(actualModel.equals(expectedModel), "Bike constructor soldUnits set: " + expectedModel + " Actual: " + actualType );
+		}
+
+		try {
+			Bike illegalUnitPrice = new Bike("valid", "valid", -1, -0.1);
+			illegalUnitPrice.getUnitPrice();
+			
+		} catch(IllegalArgumentException e) {
+			
+			actualModel = e.getMessage();
+			expectedModel = "Sold units cannot be less than 0";
+			
+			
+			displayResults(actualModel.equals(expectedModel), "Bike constructor soldUnits set: " + expectedModel + " Actual: " + actualType );
+		}
+		
+
 
 	}
 	
@@ -120,7 +175,39 @@ public class A2Tester {
 		result = bike4a.toString();
 		displayResults(result.equals(expected), "bike4a toString: " + result);
 
+
+		
 		// add tests until you are confident your implementation works correctly
+
+
+		expected = new String("Anthem Advanced Pro 29(mountain)");
+		result = bike3.toString();
+		displayResults(result.equals(expected), "bike3 toString: " + result);
+
+		expected = new String("Allez Sport(mountain)");
+		result = bike4b.toString();
+		displayResults(result.equals(expected), "bike4b toString: " + result);
+
+		expected = new String("Allez Sport(road)");
+		result = bike5.toString();
+		displayResults(result.equals(expected), "bike5 toString: " + result);
+
+		expected = new String("Turbo Vado SL(city)");
+		result = bike6.toString();
+		displayResults(result.equals(expected), "bike6 toString: " + result);
+
+		expected = new String("Aurum A1(road)");
+		result = bike7.toString();
+		displayResults(result.equals(expected), "bike7 toString: " + result);
+
+		expected = new String("Scene 2(city)");
+		result = bike8.toString();
+		displayResults(result.equals(expected), "bike8 toString: " + result);
+
+		Bike bikeIllegal = new Bike("\"name\"", "\"type\"", 0, 0);
+		expected = new String("\"name\"(\"type\")");
+		result = bikeIllegal.toString();
+		displayResults(result.equals(expected), "bikeIllegal toString: " + result + " Actual: " + result);
 
 	}
 
@@ -149,12 +236,20 @@ public class A2Tester {
 		result = bike2.equals(bike5);
 		displayResults(result==false, "bike2 equals bike5: " + result);
 		result = bike4a.equals(bike4b);
-		displayResults(result==true, "bike4a equals bike4b: " + result);
+		displayResults(result==false, "bike4a equals bike4b: " + result);
+
 		result = bike4a.equals(bike5);
-		displayResults(result==false, "bike4a equals bike5: " + result);
-
+		displayResults(result==false, "bike4a equals bike5: " + result + " " + bike4a + " " + bike5);
+		
 		// add tests until you are confident your implementation works correctly
+		Bike _bike1a = new Bike("Same", "same", 00, 00);
+		Bike _bike1b = new Bike("same", "Same", 00, 00);
+		result = _bike1a.equals(_bike1b);
+		displayResults(result == false, "My _bike1a equals _bike1b " + result);
 
+		Bike _bike2a = new Bike("x", "x", 00, 0.0);
+		Bike _bike2b = new Bike("x", "x", 00, 00);
+		displayResults(result == false, "My _bike1a equals _bike1b " + result);
 	}
 	
 	public static void testIsLocatedIn() {
@@ -179,6 +274,18 @@ public class A2Tester {
 		displayResults(result==expected, "brand2 isLocatedIn: expected " + expected +", returned "+ result);
 
 		// add tests until you are confident your implementation works correctly
+		try {
+			Brand emptyBrand = new Brand("", null, "");
+			String brand = emptyBrand.getCountry();
+
+
+		} catch(IllegalArgumentException e) {
+			String resultMessage = e.getMessage();
+			String expectedMessage = "Location must be at least 1 character";
+			displayResults(resultMessage.equals(expectedMessage), "Brand empty location expected message: " + expectedMessage);
+		}
+	
+	
 
 	}
 
@@ -219,6 +326,12 @@ public class A2Tester {
 		displayResults(result==expected, "brand1 hasInPortfolio bike5: expected " + expected +", returned "+ result);
 		
 		// add tests until you are confident your implementation works correctly
+		Bike emptyBike = new Bike(" "," ",0,0);
+		result = brand1.hasInPortfolio(emptyBike);
+		expected = false;
+		displayResults(expected==result, "brand1 hasInPortfolio empty: expected " + expected + ", returned "+ result);
+
+
 		
 	}
 
@@ -296,6 +409,11 @@ public class A2Tester {
 		displayResults(result==expected, "moreSoldUnits bike4 vs. bike7: expected " + expected +", returned "+ result);
 		
 		// add tests until you are confident your implementation works correctly
+		Bike bikeSame = new Bike("Propel Advanced SL", "road", 1700, 10999.00);
+		Bike bikeSame2 = new Bike("Propel Advanced SL", "road", 1700, 10999.00);
+		result = A2Exercises.moreSoldUnits(bikeSame, bikeSame2);
+		expected = 1700;
+		displayResults(result == expected, "more soldUnits bikeSame vs bikeSame1 " + expected + "returned " + result);
 		
 	}
 	
@@ -328,7 +446,14 @@ public class A2Tester {
 		displayResults(result==expected, "mostSoldBike bike1, bike4, bike7: expected " + expected +", returned "+ result);
 
 		// add tests until you are confident your implementation works correctly
-		
+		result = A2Exercises.mostSoldBike(array3);
+		expected = bike8;
+		displayResults(result==expected, "mostSoldBike: expected " + expected +", returned "+ result);
+
+		result = A2Exercises.mostSoldBike(array4);
+		expected = bike8;
+		displayResults(result==expected, "mostSoldBike: expected " + expected +", returned "+ result);
+
 	}
 	
 	
@@ -364,7 +489,10 @@ public class A2Tester {
 		displayResults(result==expected, "mostSoldBikeFromBrand brand2: expected " + expected +", returned "+ result);
 
 		// add tests until you are confident your implementation works correctly
-		
+		result = A2Exercises.mostSoldBikeFromBrand(brand3);
+		expected = bike8;
+		displayResults(result==expected, "mostSoldBikeFromBrand brand3: expected " + expected +", returned "+ result);
+
 	}
 	
 		
@@ -396,6 +524,19 @@ public class A2Tester {
 		displayResults(result==expected, "totalBikesSoldFromBrand brand1: expected " + expected + ", returned " + result);
 
 		// add tests until you are confident your implementation works correctly
+		result = A2Exercises.totalBikesSoldFromBrand(brand1);
+		expected = 1700+9000+500;
+		displayResults(result==expected, "totalBikesSoldFromBrand brand1: expected " + expected + ", returned " + result);
+
+		result = A2Exercises.totalBikesSoldFromBrand(brand2);
+		expected = 19000;
+		displayResults(result==expected, "totalBikesSoldFromBrand brand1: expected " + expected + ", returned " + result);
+
+		result = A2Exercises.totalBikesSoldFromBrand(brand3);
+		expected = 34000;
+		displayResults(result==expected, "totalBikesSoldFromBrand brand1: expected " + expected + ", returned " + result);
+
+
 		
 	}
 	
@@ -437,6 +578,14 @@ public class A2Tester {
 		displayResults(result==expected, "brandWithHighestSales brand2, brand3: expected " + expected +", returned "+ result);
 	
 		// add tests until you are confident your implementation works correctly
+		result = A2Exercises.brandWithHighestSales(array2);
+		expected = brand3;
+		displayResults(result==expected, "brandWithHighestSales array 2: expected " + expected +", returned "+ result);
+
+		result = A2Exercises.brandWithHighestSales(array4);
+		expected = brand3;
+		displayResults(result==expected, "brandWithHighestSales array: expected " + expected +", returned "+ result);
+
 
 	}
 

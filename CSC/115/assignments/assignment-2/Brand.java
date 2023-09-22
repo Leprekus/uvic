@@ -6,7 +6,7 @@ public class Brand {
 	public Brand(String title, Bike[] portfolio, String country) {
 		this.name = title;
 	    this.portfolio = portfolio;
-        this.country = country;
+        setCountry(country);
 	}
 
 	/*
@@ -14,6 +14,13 @@ public class Brand {
 	 * Parameters: none
 	 * Returns: String - this brand's name
 	 */
+	public void setCountry(String country) {
+		if(country.length() > 0) {
+			this.country = country;
+		} else {
+			throw new IllegalArgumentException("Location must be at least 1 character");
+		}
+	}
 	public String getName() {
 		return name;
 	}
@@ -73,6 +80,13 @@ public class Brand {
 	 */
 	public double totalSales() {
 		double sum = 0.0;
+		for(Bike item: this.portfolio) {
+			int units = item.getSoldUnits();
+			double price = item.getUnitPrice();
+			double total = units * price;
+			sum += total;
+
+		}
 		
 		return sum; // so it compiles
 	}
@@ -84,8 +98,16 @@ public class Brand {
 	 * Returns: boolean - true if this given bike is in the brand's portfolio
 	 */
 	public boolean hasInPortfolio(Bike alias) {
-		boolean found = false;
 		
-		return found; // so it compiles
+		boolean isFound;
+		
+		for(Bike item: this.portfolio) {
+
+			if(item.equals(alias))
+				return true;
+		
+		}
+		
+		return false; // so it compiles
 	}
 }

@@ -5,10 +5,43 @@ public class Bike {
 	private double unitPrice;
 	
 	public Bike(String model, String type, int soldUnits, double unitPrice) {
-		this.model = "a new model";
-		this.type = "type";
-		this.soldUnits = -1;
-		this.unitPrice = 0.0;
+		// this.model = model;
+		// this.type = type;
+		// this.soldUnits = soldUnits;
+		// this.unitPrice = unitPrice;
+		setModel( model );
+		setType( type );
+		setSoldUnits( soldUnits );
+		setUnitPrice( unitPrice );
+
+	}
+	public void setModel(String model) {
+		if(model.length() > 0) {
+			this.model = model;
+		} else {
+			throw new IllegalArgumentException("Model's name must be greater than 0");
+		}
+	}
+	public void setType(String type) {
+		if(type.length()  > 0){
+			this.type = type;
+		} else {
+			throw new IllegalArgumentException("Type's length must be greater than 0");
+		}
+	}
+	public void setSoldUnits(int soldUnits) {
+		if(soldUnits >= 0) {
+			this.soldUnits = soldUnits;
+		} else {
+			throw new IllegalArgumentException("Sold units cannot be less than 0");
+		}
+	}
+	public void setUnitPrice(double unitPrice) {
+		if(unitPrice >= 0) {
+			this.unitPrice = unitPrice;
+		} else {
+			throw new IllegalArgumentException("Unit price cannot be less than 0");
+		}
 	}
 	
 	/*
@@ -64,7 +97,13 @@ public class Bike {
 	 *           the same model and type)
 	 */
 	public boolean equals(Bike other) {
-		return this.model.equals(other.model);
+		boolean isModel =  this.getModel().equals(other.getModel());
+		boolean isSoldUnits =  this.getSoldUnits() == other.getSoldUnits();
+		boolean isType =  this.getType().equals(other.getType());
+		boolean isUnitPrice =  this.getUnitPrice() == other.getUnitPrice();
+		boolean isEqual = isModel && isSoldUnits && isType && isUnitPrice;
+		
+		return isEqual;
 	}
 	
 }
