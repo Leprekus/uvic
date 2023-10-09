@@ -31,7 +31,7 @@ public class A3Tester {
 		
 		/* Part 2 */
 		testInsertInto();
-testRotate();
+		testRotate();
 		
 		System.out.println("Passed " + testPassCount + " / " + testCount + " tests");
     }

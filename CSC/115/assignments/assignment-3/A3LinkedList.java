@@ -151,30 +151,8 @@ public class A3LinkedList implements A3List {
 		//handle edge cases
 		if(head == null || n == 0 || n == length) return;
 
-		// int skip = length - (n % length);
-
-		// A3Node current = head;
-		// for(int i = 1; i <= skip; i++) {
-		// 	current = current.getNext();
-		// 	System.out.print("running 1 ");
-		// }
-
-		// A3Node temp = current.getPrev();
-		// head = cu
-
-		// if(current.getNext() != null) {
-		// 	A3Node temp = head;
-		// 	head = current;
-
-		// 	head.setNext(temp);
-		// 	head.setPrev(null);
-
-		// 	temp.setPrev(head);
-		// 	System.out.print("running 2 ");
-
-		// }
-
-		// System.out.print("running 3 ");
+		
+	
 
 		
 	}
