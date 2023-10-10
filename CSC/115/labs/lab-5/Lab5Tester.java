@@ -11,7 +11,7 @@ public class Lab5Tester {
 		try {
 			testBasicStack();
 			testStackUseFunctions();
-			// testQueue();
+			testQueue();
 		} catch (Exception e) {
 			System.out.println("Your code threw an Exception.");
 			System.out.println("Perhaps a stack trace will help:");
@@ -53,11 +53,30 @@ public class Lab5Tester {
 	 * Returns: boolean - true if brackets are matched, false otherwise
 	 */
 	public static boolean doBracketsMatch(String str) {
-		Stack stk = new StackArrayBased();
 		
+		char[] string_chars = str.toCharArray();
+		int currentOpen = 0;
+		int currentClosing = 0;
+
 		// TODO: complete the implementation
-		
-		return false; // so it compiles
+		/**
+		 * Explanation: if at any given moment there are more closing
+		 * brackets than opening brackets, we can assume that the brackets do not match.
+		 *
+		 * Since we are counting while iterating through the elements, even if the brackets
+		 * are out of order the condition currentClosing > currentOpen will be true
+		 */
+		for(char c: string_chars) { 
+
+			if(currentClosing > currentOpen) return false;
+
+			if(c == '(') { currentOpen++; }
+			if(c == ')') { currentClosing++; }
+			
+		}
+
+		//if there are more closing brackets than open it's false
+		return currentClosing == currentOpen ? true: false;
 	}
 
 	public static void testBasicStack() {
@@ -192,12 +211,14 @@ public class Lab5Tester {
 		for (int i = 0; i < subtestSize; i++) {
 			q.enqueue(i);
 		}
+		
 		displayResults(!q.isEmpty(), "isEmpty - queue with multiple elements");
 		displayResults(q.size() == subtestSize, "size - queue with multiple elements");
 
 		subtestResult = true;
 		for (int i = 0; i < subtestSize; i++) {
 			int removed = q.dequeue();
+			System.out.println("removed " + removed );
 			subtestResult = subtestResult && removed==i;
 		}
 		displayResults(subtestResult, "dequeue - queue with multiple elements");
