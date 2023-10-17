@@ -57,7 +57,6 @@ public class A4Stack<T> implements Stack<T> {
 		}
 		A4Node<T> popped = current.next;
 		current.next = null;
-		System.out.println("popped " + popped.getData() + " tail " + current.getData());
 		return popped.getData();
 		
 	 };

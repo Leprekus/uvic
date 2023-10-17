@@ -5,10 +5,10 @@ public class A4Tester {
 	private static int testCount = 0;
 	
 	public static void main(String[] args) {
-		//testStackOperations();
-		//testStackIsGeneric();
+		testStackOperations();
+		testStackIsGeneric();
 		testStackedCorrectly();
-		//testInsertPlate();
+		testInsertPlate();
 		
 		System.out.println("Passed " + testPassCount + " / " + testCount + " tests");
 	}
@@ -26,6 +26,22 @@ public class A4Tester {
 		displayResults(result==2, "top works after initial push");
 		
 		//TODO: add more tests here
+		 A4Stack<Integer> myStack = new A4Stack<Integer>();
+		 myStack.push(1);
+		 myStack.push(1);
+		 myStack.push(1);
+		 myStack.push(1);
+
+		 myStack.pop();
+		 myStack.pop();
+		 myStack.pop();
+		 myStack.pop();
+
+		 displayResults(myStack.isEmpty() == true, "test is emptied with pop");
+
+		 displayResults(myStack.pop() == null, "pop on empty returns null");
+
+
 				
 		System.out.println();
 	}
