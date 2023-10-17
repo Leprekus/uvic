@@ -30,7 +30,7 @@ public class Lab5Tester {
 	 * Returns: String - the reversed result String
 	 */
 	public static String reverseString(String str) {
-		Stack stk = new StackArrayBased();
+		_Stack stk = new StackArrayBased();
 		char[] string_chars = str.toCharArray();
 		// - pushes each character in str onto a new stack
 		for(char c : string_chars) { stk.push(c); }

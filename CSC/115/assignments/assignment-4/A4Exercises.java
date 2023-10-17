@@ -10,9 +10,16 @@ public class A4Exercises {
 	 * Post-condition: the contents of s are not modified
 	 */
 	public static boolean stackedCorrectly(Stack<Plate> s) {
-		Stack<Plate> temp = new A4Stack<Plate>();
-		
-		return false; // so it compiles
+
+		if(s.isEmpty()) return true;
+
+		int top = s.pop().getDiameter();
+
+		if(s.top() == null) return true;
+		int penultimate = s.top().getDiameter();
+
+		if(penultimate < top) return false;
+		return stackedCorrectly(s);
 	}
 	
 	/*

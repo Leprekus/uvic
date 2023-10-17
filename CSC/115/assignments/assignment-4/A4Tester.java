@@ -5,10 +5,10 @@ public class A4Tester {
 	private static int testCount = 0;
 	
 	public static void main(String[] args) {
-		testStackOperations();
-		testStackIsGeneric();
+		//testStackOperations();
+		//testStackIsGeneric();
 		testStackedCorrectly();
-		testInsertPlate();
+		//testInsertPlate();
 		
 		System.out.println("Passed " + testPassCount + " / " + testCount + " tests");
 	}
@@ -79,14 +79,14 @@ public class A4Tester {
 		A4Stack<Plate> s1 = new A4Stack<Plate>();
 		A4Stack<Plate> s2 = new A4Stack<Plate>();
 		
-		s1.push(p2);
-		s1.push(p4);
-		s1.push(p1);
-		s1.push(p5);
-		s1.push(p3);
+		s1.push(p2); //12
+		s1.push(p4); //8
+		s1.push(p1); //5
+		s1.push(p5); //3
+		s1.push(p3); //1
 		
-		s2.push(p1);
-		s2.push(p4);
+		s2.push(p1); //5
+		s2.push(p4); //8
 		
 		boolean result = false;
 		

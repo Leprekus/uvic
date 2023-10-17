@@ -1,4 +1,4 @@
-public interface Stack {
+public interface _Stack {
 
 	/*
 	 * Purpose: insert an item onto the top of the stack
