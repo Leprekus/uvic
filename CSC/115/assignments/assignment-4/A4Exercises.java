@@ -34,7 +34,41 @@ public class A4Exercises {
 	 * Pre-condition: plates in s have been stacked correctly
 	 */
 	public static void insertPlate(Stack<Plate> s, Plate p) {
-		Stack<Plate> temp = new A4Stack<Plate>();
+		/**
+		 * Edge Cases handled:
+		 * Insertion at top of the stack
+		 * Insertion at the bottom of the stack
+		 * Insertion at an empty stack
+		 */
+		if(s.top() == null) { //handle empty
+			s.push(p);
+			return;
+		}
+		if(s.top() != null && p.getDiameter() <= s.top().getDiameter()) { //handle p being at top
+			s.push(p);
+			return;
+		}
+		
+		if(s.isEmpty()) return;
+		
+		Plate top = s.pop();
+		
+
+		insertPlate(s, p);
+
+		Plate penultimate = s.top();
+		//check if p is between top and penultimate
+		if(
+			top.getDiameter() <= p.getDiameter() && //handle insertion between plates or at bottom
+			(penultimate == null || p.getDiameter() <= penultimate.getDiameter())
+			
+			) {
+				s.push(p);
+			}
+			
+
+			s.push(top);
+			
 		
 	}
 }

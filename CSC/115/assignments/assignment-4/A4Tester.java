@@ -124,20 +124,51 @@ public class A4Tester {
 		Plate p3 = new Plate(1);
 		Plate p4 = new Plate(8);
 		Plate p5 = new Plate(3);
+
 		
 		Plate insert = new Plate(6);
 		
 		A4Stack<Plate> s1 = new A4Stack<Plate>();
 		
-		s1.push(p2);
-		s1.push(p4);
-		s1.push(p1);
-		s1.push(p5);
-		s1.push(p3);
 		
+		s1.push(p2); //12
+		s1.push(p4); //8
+		s1.push(p1); //5
+		s1.push(p5); //3
+		s1.push(p3); //1
+
+		System.out.println(s1.toString());
 		A4Exercises.insertPlate(s1, insert);
-		displayResults(A4Exercises.stackedCorrectly(s1), "insert into empty stack");
+		displayResults(A4Exercises.stackedCorrectly(s1)==true, "insert into empty stack");
 		
+		Plate p13 = new Plate(13);
+		s1.push(p2); //12
+		s1.push(p4); //8
+		s1.push(p1); //5
+		s1.push(p5); //3
+		s1.push(p3); //1
+
+		System.out.println(s1.toString());
+		A4Exercises.insertPlate(s1, p13);
+		
+		displayResults(A4Exercises.stackedCorrectly(s1)==true, "Insert at bottom of stack");
+		
+		s1.push(p2); //12
+		s1.push(p4); //8
+		s1.push(p1); //5
+		s1.push(p5); //3
+		s1.push(p3); //1
+		
+		Plate p0 = new Plate(0);
+		A4Exercises.insertPlate(s1, p0);
+
+		displayResults(A4Exercises.stackedCorrectly(s1)==true, "Insert at top of stack");
+		
+		
+		A4Exercises.insertPlate(s1, p0);
+		System.out.println(s1.toString());
+		displayResults(A4Exercises.stackedCorrectly(s1)==true, "Insert on empty stack");
+
 		//TODO: add more tests here
 	}
 

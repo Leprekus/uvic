@@ -36,5 +36,6 @@ interface Stack<T> {
 	 * Returns: void - nothing
 	 */
 	public void popAll();
+	
 
 }

@@ -45,8 +45,9 @@ public class A4Stack<T> implements Stack<T> {
 		if(head == null) return null;
 
 		if(head.next == null) {
+			A4Node<T> temp = head;
 			head = null;
-			return null;
+			return temp.getData();
 		}
 
 		A4Node<T> current = head;
@@ -84,5 +85,16 @@ public class A4Stack<T> implements Stack<T> {
 	 * Returns: void - nothing
 	 */
 	public void popAll(){ head = null; };
+
+	public String toString() {
+		A4Node<T> current = head;
+		String result = "{";
+		while(current != null) {
+			result += current.getData() + ", ";
+			current = current.next;
+		}
+		result += "}";
+		return result;
+	}
 	
 }
