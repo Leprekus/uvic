@@ -12,10 +12,10 @@ public class A5Tester {
 		// implement and test each of the following methods
 		// found in A5Exercises.java, one at a time
 		
-		testSumEven();
-		testAddXToAll();
-		testGetMaximum();
-		testComesAfter();
+		// testSumEven();
+		//testAddXToAll();
+		// testGetMaximum();
+		//testComesAfter();
 
 		// PART II
 		// implement and test each of the following methods
@@ -23,10 +23,10 @@ public class A5Tester {
 		// Documentation can be found in A5Exercises.java
 
 		testBeadsCount();
-		testBeadBoxesCount();
-		testTotalWeight();
-		testAverageWeight();
-		testStackedCorrectly();
+		// testBeadBoxesCount();
+		// testTotalWeight();
+		// testAverageWeight();
+		// testStackedCorrectly();
 		
 		System.out.println("Passed " + testPassCount + " / " + testCount + " tests");
 	}
@@ -149,6 +149,7 @@ public class A5Tester {
 		displayResults(result==expected, "an 8 comes after first 7 in arr2");
 		
 		result = A5Exercises.comesAfter(arr2, 9, 8);
+		System.out.println("result of test " + result);
 		expected = false;
 		displayResults(result==expected, "a 9 comes after first 8 in arr2");
 		

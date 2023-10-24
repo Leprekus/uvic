@@ -1,5 +1,5 @@
 public class A5Exercises {
-
+	
 	// PART 1
 
 	/*
@@ -10,7 +10,12 @@ public class A5Exercises {
 	 */
 	public static int sumEven(int[] arr) {
 		// TODO: implement this
-		return -1; // so it compiles
+		int sum = 0;
+		for(int n: arr) {
+			if(n % 2 == 0) sum += n;
+		}
+
+		return sum; // so it compiles
 	}
 	
 	/*
@@ -20,7 +25,12 @@ public class A5Exercises {
 	 * Returns: void - nothing
 	 */
 	public static void addXToAll(int[] array, int x) {
-		// TODO: implement this
+		
+		for(int i = 0; i < array.length; i++) {
+			int item = array[i] + x;
+			array[i] = item;
+		}
+
 	}
 	
 	/*
@@ -32,7 +42,14 @@ public class A5Exercises {
 	 */
 	public static int getMaximum(int[] array) {
 		// TODO: implement this
-		return -1; // so it compiles
+		if(array.length == 0) return -1;
+		if(array.length == 1) return array[0];
+
+		int max = array[0];
+		for(int n: array) {
+			if( n > max ) max = n;
+		}
+		return max; // so it compiles
 	}
 	
 	/*
@@ -44,8 +61,32 @@ public class A5Exercises {
 	 * Returns: boolean - true if there is at least one occurrence
 	 *                    of x after the occurrence of y
 	 */
+	private static String stringify(int[] array) {
+		String result = "{ ";
+		for(int n : array) { result += "" + n  + ", ";}
+		result += "}";
+		return result;
+	}
 	public static boolean comesAfter(int[] array, int x, int y) {
 		// TODO: implement this
+		if(array.length < 2) return false;
+
+		boolean isFirstSeen = false;
+		int first = y;
+
+		boolean isSecondSeen = false;
+		int second = x;
+		
+		for(int i = 0; i < array.length; i++) {
+			int current = array[i];
+
+			if(current == first) { isFirstSeen = true; }
+			if(current == second) { isSecondSeen = true; }
+
+			if(isSecondSeen && !isFirstSeen){ return false; }
+		}
+	
+		if(isFirstSeen && isSecondSeen){ return true; }
 		return false; // so it compiles
 	}
 	
@@ -61,9 +102,18 @@ public class A5Exercises {
 	 * Returns: int - the total number of beads
 	 * Post-condition: s is not modified
 	 */
+
 	public static int beadsCount(Stack<BeadBox> s) {
 		// TODO: implement this
-		return -1; // so it compiles
+		BeadBox current = s.pop();
+		int sum = 0;
+		while(current != null) {
+			sum += current.getNumberBeads();
+			current = s.pop();
+
+		}
+
+		return sum; // so it compiles
 	}
 
 	/*
