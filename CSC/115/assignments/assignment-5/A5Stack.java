@@ -19,7 +19,7 @@ public class A5Stack<T> implements Stack<T> {
 			T toReturn = head.getData();
 			head = head.next;
 			return toReturn;
-		} 		
+		} 
 	}
 	
 	public T top() {

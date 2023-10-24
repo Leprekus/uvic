@@ -1,4 +1,4 @@
-public class A4Stack<T> implements Stack<T> {
+public class A4Stack<T> implements _Stack<T> {
 	private A4Node<T> head;
 
 	public A4Stack() {

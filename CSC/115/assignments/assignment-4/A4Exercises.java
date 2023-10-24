@@ -11,7 +11,7 @@ public class A4Exercises {
 	 */
 	
 	
-	public static boolean stackedCorrectly(Stack<Plate> s) {
+	public static boolean stackedCorrectly(_Stack<Plate> s) {
 
 		Plate top = s.pop();
 		while(!s.isEmpty()) {
@@ -33,7 +33,7 @@ public class A4Exercises {
 	 * Returns: void - nothing
 	 * Pre-condition: plates in s have been stacked correctly
 	 */
-	public static void insertPlate(Stack<Plate> s, Plate p) {
+	public static void insertPlate(_Stack<Plate> s, Plate p) {
 		/**
 		 * Edge Cases handled:
 		 * Insertion at top of the stack

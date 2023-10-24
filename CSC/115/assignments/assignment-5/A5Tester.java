@@ -12,10 +12,10 @@ public class A5Tester {
 		// implement and test each of the following methods
 		// found in A5Exercises.java, one at a time
 		
-		// testSumEven();
-		//testAddXToAll();
-		// testGetMaximum();
-		//testComesAfter();
+		testSumEven();
+		testAddXToAll();
+		testGetMaximum();
+		testComesAfter();
 
 		// PART II
 		// implement and test each of the following methods
@@ -23,10 +23,10 @@ public class A5Tester {
 		// Documentation can be found in A5Exercises.java
 
 		testBeadsCount();
-		// testBeadBoxesCount();
-		// testTotalWeight();
-		// testAverageWeight();
-		// testStackedCorrectly();
+		 testBeadBoxesCount();
+		 testTotalWeight();
+		 testAverageWeight();
+		testStackedCorrectly();
 		
 		System.out.println("Passed " + testPassCount + " / " + testCount + " tests");
 	}
@@ -204,7 +204,7 @@ public class A5Tester {
 		
 		result = A5Exercises.beadsCount(s2);
 		expected = 200 + 500 + 1000;
-		// System.out.println(result);
+		 System.out.println("expected " + expected + " actual " + result);
 		displayResults(result==expected, "total beads in s2");
 		displayResults(s2.toString().equals(Arrays.toString(arr2)), "stack contents unchanged");
 		
@@ -346,7 +346,7 @@ public class A5Tester {
 		result = A5Exercises.averageWeight(s3);
 		expected = (2.00 + 5.00 + 20.00 + 50.00 + 40.00 + 100.00)/6.0;
 		// System.out.println(result);
-		displayResults(Math.abs(result-expected)<THRESHOLD, "average weight in s3");	
+		displayResults(Math.abs(result-expected)<THRESHOLD, "average weight in s3");
 		displayResults(s3.toString().equals(Arrays.toString(arr3)), "stack contents unchanged");
 	}
 	
@@ -397,6 +397,7 @@ public class A5Tester {
 		expected = false;
 		displayResults(result==expected, "s3 stacked correctly");
 		displayResults(s3Contents.equals(s3.toString()), "stack unchanged");
+
 
 		// TODO: add more tests here
 		

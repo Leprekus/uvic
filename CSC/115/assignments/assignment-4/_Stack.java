@@ -1,4 +1,4 @@
-interface Stack<T> {
+interface _Stack<T> {
 	
 	/*
 	 * Purpose: insert an item onto the top of the stack

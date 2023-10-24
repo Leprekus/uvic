@@ -103,17 +103,20 @@ public class A5Exercises {
 	 * Post-condition: s is not modified
 	 */
 
-	public static int beadsCount(Stack<BeadBox> s) {
-		// TODO: implement this
+	private static void calculateBeadsCount(A5Stack<BeadBox> s, int[] sum) {
+		if(s.isEmpty()) return ;
 		BeadBox current = s.pop();
-		int sum = 0;
-		while(current != null) {
-			sum += current.getNumberBeads();
-			current = s.pop();
-
-		}
-
-		return sum; // so it compiles
+		sum[0] += current.getNumberBeads();
+		calculateBeadsCount(s, sum);
+		s.push(current);
+	}
+	public static int beadsCount(A5Stack<BeadBox> s) {
+		// TODO: implement this
+		
+		int[] sum = new int[] { 0 };
+		calculateBeadsCount(s, sum);
+		System.out.println("result " + sum[0]);
+		return sum[0]; // so it compiles
 	}
 
 	/*
@@ -122,9 +125,22 @@ public class A5Exercises {
 	 * Returns: int - the total number of bead boxes
 	 * Post-condition: s is not modified
 	 */
-	public static int beadBoxesCount(Stack<BeadBox> s) {
-		// TODO: implement this
-		return -1; // so it compiles
+	private static void calculateBeadBoxesCount(A5Stack<BeadBox> s, int[] sum) {
+		if(s.isEmpty()) {
+			return;
+		}
+		BeadBox current = s.pop();
+		sum[0] += 1;
+		calculateBeadBoxesCount(s, sum);
+		s.push(current);
+	}
+	public static int beadBoxesCount(A5Stack<BeadBox> s) {
+		
+		if(s == null) return 0;
+
+		int[] sum = { 0 };
+		calculateBeadBoxesCount(s, sum);
+		return sum[0]; // so it compiles
 	}
 	
 	/*
@@ -133,9 +149,21 @@ public class A5Exercises {
 	 * Returns: double - the total weight of all boxes
 	 * Post-condition: s is not modified
 	 */
-	public static double totalWeight(Stack<BeadBox> s) {
-		// TODO: implement this
-		return -1.0; // so it compiles
+
+	private static void calculateTotalWeight(A5Stack<BeadBox> s, double[] sum) {
+		if(s.isEmpty()) return ;
+		BeadBox current = s.pop();
+		sum[0] += current.boxWeight();
+		calculateTotalWeight(s, sum);
+		s.push(current);
+	}
+	public static double totalWeight(A5Stack<BeadBox> s) {
+		if(s == null) return 0.0;
+
+		double[] sum = { 0.0 };
+		calculateTotalWeight(s, sum);
+
+		return sum[0]; // so it compiles
 	}
 
 	/*
@@ -145,9 +173,25 @@ public class A5Exercises {
 	 *                   0.0 if there are no bead boxes in s
 	 * Post-condition: s is not modified
 	 */
-	public static double averageWeight(Stack<BeadBox> s) {
-		// TODO: implement this
-		return -1.0; // so it compiles
+	private static void calculateAverageWeight(A5Stack<BeadBox> s, double[] sum, int index) {
+		if(s.isEmpty()){
+			sum[0] = sum[0] / (index);
+			return ;
+			}
+		BeadBox current = s.pop();
+		sum[0] += current.boxWeight();
+		calculateAverageWeight(s, sum, ++index);
+		s.push(current);
+	}
+	public static double averageWeight(A5Stack<BeadBox> s) {
+		if(s == null) return 0;
+
+		if(s.isEmpty()) return 0;
+
+		double[] sum = { 0.0 };
+		calculateAverageWeight(s, sum, 0);
+
+		return sum[0]; // so it compiles
 	}
 
 	/*
@@ -158,9 +202,45 @@ public class A5Exercises {
 	 * Returns: boolean - true if bead boxes in s are stacked correctly
 	 * Post-condition: s is not modified
 	 */
-	public static boolean stackedCorrectly(Stack<BeadBox> s) {
-		// TODO: implement this
-		return false; // so it compiles
+	private static void calculateStackedCorrectly(A5Stack<BeadBox> s, boolean[] isCorrect, BeadBox prev) {
+		if(s.isEmpty()){
+			//check if value has not been previously mutated
+			if(isCorrect[1] == false) {
+				isCorrect[0] = true;
+				isCorrect[1] = true;
+				}
+				return ;
+			}
+		BeadBox current = s.pop();
+		if(prev != null) {
+			//if(prev.boxWeight() < current.boxWeight()) this is ok
+			if(prev.boxWeight() > current.boxWeight()) {
+				//check if value has not been previously mutated
+				if(isCorrect[1] == false) {
+					isCorrect[0] = false;
+					isCorrect[1] = true;
+				}
+
+			} else { 
+				//check if value has not been previously mutated
+				if(isCorrect[1] == false) {
+					isCorrect[0] = true;
+					isCorrect[1] = true;
+				}
+			}
+		}
+
+		calculateStackedCorrectly(s, isCorrect, current);
+		s.push(current);
+	}	
+	public static boolean stackedCorrectly(A5Stack<BeadBox> s) {
+		
+		if(s == null) return false;
+		//[0] is result [1] indicates whether result is mutated
+		//if [1] = true, then we shouldn't mutate [0] again
+		boolean[] isCorrect = { false, false };
+		calculateStackedCorrectly(s, isCorrect, null);
+		return isCorrect[0]; // so it compiles
 	}
 
 }

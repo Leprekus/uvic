@@ -1,4 +1,4 @@
-public class StackArrayBased implements Stack {
+public class StackArrayBased implements _Stack {
 	private static final int INIT_SZ = 4;
 	private char[] data;
 	private int top;

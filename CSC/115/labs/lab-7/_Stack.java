@@ -1,4 +1,4 @@
-public interface Stack {
+public interface _Stack {
 	/*
 	 * Purpose:
 	 *   return the number of items currently pushed onto the stack.

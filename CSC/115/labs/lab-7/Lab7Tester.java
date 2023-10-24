@@ -23,7 +23,7 @@ public class Lab7Tester {
 		
 		System.out.println("testBasicStack: start");
 		
-		Stack s;
+		_Stack s;
 		int subtestSize;
 		boolean subtestResult;
 		
@@ -162,7 +162,7 @@ public class Lab7Tester {
 	public static String reverseString(String str) {
 		String result = "";
 		
-		Stack stk = new StackArrayBased();
+		_Stack stk = new StackArrayBased();
 		for(int i=0; i<str.length(); i++) {
 			stk.push(str.charAt(i));
 		}
@@ -186,7 +186,7 @@ public class Lab7Tester {
 	 */
 	public static boolean doBracketsMatch(String str) {
 		
-		Stack stk = new StackArrayBased();
+		_Stack stk = new StackArrayBased();
 		char c = ' ';
 		char popped = ' ';
 		for(int i=0; i<str.length(); i++) {
@@ -351,7 +351,16 @@ public class Lab7Tester {
 		//            // we should get here - test passes
 		//            displayResults(true, "exception thrown when it should be");
 		//        }
-		
+		try {
+			StackArrayBased s = new StackArrayBased();
+			s.pop();
+			displayResults(false, "exception thrown when it should not be");
+
+
+		} catch(StackEmptyException e ) {
+			displayResults(true, "exception thrown when it should be");
+
+		}
 		System.out.println("testing Queue: end");
 		System.out.println();
 		
