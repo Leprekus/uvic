@@ -250,7 +250,7 @@ public class Lab7Tester {
 	public static void testQueue() {
 		System.out.println("testBasicQueue: start");
 		
-		Queue<Integer> q;
+		_Queue<Integer> q;
 		int subtestSize;
 		boolean subtestResult;
 		

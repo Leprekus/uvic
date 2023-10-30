@@ -1,4 +1,4 @@
-public class QueueRefBased<T> implements Queue<T> {
+public class QueueRefBased<T> implements _Queue<T> {
 
     private QueueNode<T> front;
     private QueueNode<T> back;

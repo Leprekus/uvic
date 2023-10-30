@@ -1,4 +1,4 @@
-public interface Queue<T> {
+public interface _Queue<T> {
     /*
      * Purpose:
      *   return the number of items currently pushed onto the queue.

@@ -188,7 +188,7 @@ public class Lab5Tester {
 	public static void testQueue() {
 		System.out.println("testBasicQueue: start");
 
-		Queue q = new QueueRefBased();
+		_Queue q = new QueueRefBased();
 		int subtestSize;
 		boolean subtestResult;
 

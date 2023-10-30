@@ -1,4 +1,4 @@
-public interface Queue {
+public interface _Queue {
 	
 	/*
 	 * Purpose: get the number of items currently in the queue.
