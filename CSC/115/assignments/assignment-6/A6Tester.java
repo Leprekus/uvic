@@ -3,7 +3,7 @@ public class A6Tester {
 	private static int testCount = 0;	
 	
 	public static void main(String[] args) {
-		queueTests();
+		//queueTests();
 		danceClubTests();
 		
 		System.out.println("Passed " + testPassCount + " / " + testCount + " tests");
@@ -89,7 +89,7 @@ public class A6Tester {
 			displayResults(true, "exception thrown when it should have been");
 		} catch (Exception e) {
 			displayResults(false, "incorrect exception thrown");
-		}		
+		}
 		
 		Queue<String> q2 = new GenericQueue<String>();
 
@@ -231,14 +231,18 @@ public class A6Tester {
 		
 		try {
 			inserted = d.nextVIP(p7, 2);
+
 			displayResults(inserted==true, "inserted into specific pos");
 		} catch (Exception e) {
+			e.printStackTrace();
 			displayResults(false, "inserted into specific pos");
 		}
 		
 		try {
 			result = d.nextClubber();
 			expected = p2;
+			System.out.println("actual " + result + " expected " + expected);
+			
 			if (result == null) {
 				displayResults(false, "handled first clubber in line 2");
 			} else {
@@ -265,10 +269,11 @@ public class A6Tester {
 		try {
 			result = d.nextClubber();
 			expected = p7;
+			System.out.println("actual " + result + " expected " + expected);
 			if (result == null) {
 				displayResults(false, "handled first clubber in line 4");
 			} else {
-				displayResults(result.equals(expected), "handled first clubber in line 4");
+				displayResults(result.equals(expected), "handled first clubber in line 4 actual ");
 			}
 		} catch (Exception e) {
 			System.out.println("exception thrown");
@@ -318,7 +323,8 @@ public class A6Tester {
 		displayResults(d.clubbersInLine()==2, "clubbers in line 10");	
 
 		try {
-			inserted = d.nextVIP(p3, 2); 
+			inserted = d.nextVIP(p3, 2);
+
 			displayResults(inserted==true, "inserted into specific pos");
 		} catch (Exception e) {
 			displayResults(false, "inserted into specific pos");

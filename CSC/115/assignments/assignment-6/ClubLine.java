@@ -24,6 +24,7 @@ public class ClubLine {
 	 */
 	public void enterLine(Clubber cl) {
 		// TODO: implement this
+		lineup.enqueue(cl);
 	}
 	
 	/*
@@ -33,7 +34,8 @@ public class ClubLine {
 	 */
 	public int clubbersInLine() {
 		// TODO: implement this
-		return -1; // so it compiles
+		
+		return lineup.size(); // so it compiles
 	}
 	
 	/*
@@ -46,7 +48,13 @@ public class ClubLine {
 	 */
 	public Clubber nextClubber() {
 		// TODO: implement this
-		return null; // so it compiles
+		try {
+			Clubber popped  = lineup.dequeue();
+			return popped;
+		} catch(EmptyQueueException e) {
+			return null;
+		}
+		
 	}
 	
 	/*
@@ -59,8 +67,24 @@ public class ClubLine {
 	 */
 	public int nextGroup(int num) {
 		// TODO: implement this
-		return -1; // so it compiles
+		int size = lineup.size();
+		if(num >= size) {
+			lineup.dequeueAll();
+			return size;
+		}
+		try {
+
+			int counter = 0;
+			while (counter < num){
+				lineup.dequeue();
+				++counter;
+			}
+			return num; // so it compiles
+		} catch(EmptyQueueException e){
+			return 0;
+		}
 	}
+
 	
 	/*
 	 * Purpose: accepts a bribe to put someone into a specific
@@ -71,7 +95,34 @@ public class ClubLine {
 	 */
 	public boolean nextVIP(Clubber vip, int pos) {
 		// TODO: implement this
-		return false; // so it compiles
+		if(pos > lineup.size() || pos < 0) return false;
+		if(pos == lineup.size()){
+			lineup.enqueue(vip);
+			return true;
+		}
+		try {
+			int len = lineup.size();
+			Clubber[] items = new Clubber [ len ];
+			for(int i = 0; i < len; ++i) {
+				Clubber item = lineup.dequeue();
+				items[i] = item;
+			}
+			//get array in lifo correct order
+			for(int i = 0, counter = 0; i < len; ++i, ++counter) {
+				if(counter == pos) {
+					lineup.enqueue(vip);
+				}
+				
+				Clubber item = items[i];
+				lineup.enqueue(item);
+				
+			}
+			return true;
+
+		} catch(EmptyQueueException e) {
+			System.out.println(e.getStackTrace());
+			return false;
+		}
 	}
 	
 }

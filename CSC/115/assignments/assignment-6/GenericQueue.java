@@ -3,7 +3,9 @@ public class GenericQueue<T> implements Queue<T> {
 	private Node<T> front;
 	private Node<T> back;
 	// no numElements for this implementation
-
+	private void handleEmptyException(String m) throws EmptyQueueException{
+		if(isEmpty()) throw new EmptyQueueException(m);
+	}
 	public GenericQueue() {
 		front = null;
 		back = null;
@@ -35,6 +37,7 @@ public class GenericQueue<T> implements Queue<T> {
 	}
 
 	public T dequeue() throws EmptyQueueException {
+		handleEmptyException("Cannot call dequeue on empty queue");
 		T val = front.getValue();
 		front = front.getNext();
 		if (front == null) {
@@ -44,8 +47,10 @@ public class GenericQueue<T> implements Queue<T> {
 	}
 
 	public T peek() throws EmptyQueueException  {
+		handleEmptyException("Cannot call peek on empty queue.");
 		return front.getValue();
 	}
+
 
 	public void dequeueAll() {
 		front = null;
