@@ -10,10 +10,17 @@ public class ArrayBasedBinaryTree implements BinaryTree {
     protected int size;
     
 	public ArrayBasedBinaryTree() {
-		// TODO...
-		// allocate space for data array.
-		// What index are you choosing the root to be?
-		// initialize your size as the number of elements in the empty tree
+		
+		// [ x ] allocate space for data array.
+		// [ x ] What index are you choosing the root to be?
+		// [ x ] initialize your size as the number of elements in the empty tree
+
+		/**
+		 * index of the left child = 2 * index of the current node + 1
+		 * index of the right child = 2 * index of the current node + 2
+		 */
+		data = new Integer[ CAPACITY ];
+		size = 0;
 	}
 
 	/*
@@ -23,11 +30,34 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 * Parameters: Integer value - value to insert
 	 * Returns: nothing
 	 */
+
+
 	public void insert(Integer value) {
 		// TODO...
 		// NOTE: The underlying data structure is an array,
 		//  but we are just USING the array to store the data.
 		//  The way we traverse the data will expose its binary tree structure
+		if(size == 0) { //insert root
+			data[size++] = value;
+			return;
+		}
+		if(size == data.length - 1) expandAndCopy();
+
+		int idx = 0;
+		Integer current = data[idx];
+		while(idx < size) {
+			if(value == current) return;
+			if(value < current) {
+				data[idx] = value;
+				value = current;
+				current = data[++idx];
+				continue;
+			}
+			++idx;
+		}
+		data[size++] = value;
+		return;
+
 	}
 
 	protected void expandAndCopy() {
@@ -45,7 +75,7 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 */
 	protected int getLeft(int t) {
 		// TODO...
-		return 0;
+		return  2 * t + 1;
 	}
 
 	/*
@@ -54,23 +84,41 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 * Returns: int - index of right child
 	 */
 	protected int getRight(int t) {
-		// TODO...
-		return 0;
+		return 2 * t + 2;
 	}
 
+	private void traverse(int idx) {
+		/*
+		 * takes in a "root" node
+		 * and traverses the tree
+		 * printing the values
+		 */
+		if(idx >= size) return;
 
+		traverse(getLeft(idx));
+		System.out.println(data[idx]);
+		traverse(getRight(idx));
+	}
 	public void inOrder(){
 		// TODO...
+		/**
+		 * the left subtree to the root then to the right subtree.
+		 */
+		traverse(0);
 	}
-
 
 	public void preOrder(){
 		// TODO...
+		System.out.println(data[0]); //root node
+		traverse(1);//left node
+		traverse(2);//right node
 	}
-
 
 	public void postOrder(){
 		// TODO...
+		traverse(1);//left node
+		traverse(2);//right node
+		System.out.println(data[0]); //root node
 	}
 
 
@@ -89,12 +137,13 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 *       the height of a node in a tree is equal to 
 	 *       1 + the height of its largest subtree
 	 */
+
 	protected int height(int t) {
 		if (t >= size) {
             return 0;
         } 
 		// TODO: complete the rest
-		return 0; // so it compiles
+		return (int) Math.floor((Math.log(t + 1) / Math.log(2)));
 	}
 	
 
@@ -115,13 +164,22 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	private String toString(int t) {
         if (t >= size) {
             return "";
-        } 
+        }
         String s = "";
         s += toString(getLeft(t));
         s += data[t] + " ";
         s += toString(getRight(t));
 
         return s;
+	}
+
+	public String stringify() {
+		String result = "{";
+		for(int i = 0; i < size; ++i) {
+			result += " " + data[i] + " ";
+		}
+		result += "}";
+		return result;
 	}
 
 	public static void main(String[] args) {
