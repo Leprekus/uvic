@@ -1,4 +1,9 @@
 import java.lang.Math;
+/*
+ * RefBasedBinaryTree.java
+ *
+ * A ref-based BinaryTree meant to store values of type Integer
+ */
 public class RefBasedBinaryTree implements BinaryTree {
 	protected TreeNode root;
 
@@ -50,68 +55,24 @@ public class RefBasedBinaryTree implements BinaryTree {
 	 * Returns: int - the height
 	 * NOTE: a BinaryTree with no node is height 0
 	 */
-	private int calculateHeight(TreeNode current, TreeNode needle, int idx){
-		if (current == null) {
-			return -1; // Handle the case where the "needle" node is not found
-		}
-		if (current == needle) {
-			return idx; // Return the index when the "needle" node is found
-		}
-	
-		int leftIndex = calculateHeight(current.left, needle, 2 * idx + 1);
-		if (leftIndex != -1) {
-			return leftIndex; // If found in the left subtree, return the index
-		}
-	
-		int rightIndex = calculateHeight(current.right, needle, 2 * idx + 2);
-		return rightIndex; //
-	}
 	protected int height(TreeNode t) {
 		// TODO...
-		
-		TreeNode needle = t;
-		int idx = calculateHeight(root, needle, 0);
-        return (int) Math.floor((Math.log(idx + 1) / Math.log(2)));
-	
-		
+		return 0;
 	}
 
-	private void traverse(TreeNode current){
-		if(current == null) return;
 
-		traverse(current.getLeft());
-		System.out.print(" " + current.data + " ");
-		traverse(current.getRight());
-	}
 	public void inOrder(){
 		// TODO...
-		traverse(root.getLeft());
-		System.out.print(" " + root.data + " ");
-		traverse(root.getRight());
-
 	}
 
 
 	public void preOrder(){
 		// TODO...
-		traverse(root.left);//left node
-		traverse(root.right);//right node
-		System.out.print( " " + root.data + " "); //root node
 	}
 
-	private void postOrder(TreeNode t) {
-		if(t == null) return;
-		postOrder(t.getLeft());
-		postOrder(t.getRight());
-		System.out.print(" " + t.getValue() + " ");
-	}
+
 	public void postOrder(){
 		// TODO...
-		// traverse(root.getLeft());//left node
-		// traverse(root.getRight());//right node
-		// System.out.print(" " + root.getValue() + " "); //root node
-		// if(t )
-		postOrder(root);
 	}
 
 	/*
@@ -138,7 +99,7 @@ public class RefBasedBinaryTree implements BinaryTree {
 	public static void main(String[] args) {
 		
 		RefBasedBinaryTree myTree = new RefBasedBinaryTree();
-		for(int i=3; i<=20; i++) {
+		for(int i=2; i<=8; i++) {
 			myTree.insert(i);
 		}
 		System.out.println("in:");

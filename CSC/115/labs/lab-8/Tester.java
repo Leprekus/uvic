@@ -4,10 +4,19 @@ public class Tester {
 
     public static void main(String[] args) {
         testArrayBasedBinaryTree();
-
+        //testRefBasedBinaryTree();
         System.out.println("Tests passed: " + testPassCount + "/" + testCount);
     }
 
+    public static void testRefBasedBinaryTree(){
+        RefBasedBinaryTree tree = new RefBasedBinaryTree();
+        tree.insert(0);
+        tree.insert(1);
+        tree.insert(2);
+        
+        
+        
+    }
     public static void testArrayBasedBinaryTree() {
         System.out.println("Test Array Based Binary Tree");
 
