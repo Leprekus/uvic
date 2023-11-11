@@ -1,21 +1,29 @@
+/*
+ * ArrayBasedBinaryTree.java
+ *
+ * An array-based BinaryTree meant to store values of type Integer
+ */
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.lang.Math;
 public class ArrayBasedBinaryTree implements BinaryTree {
-    private static final int CAPACITY = 100;
+    private static final int CAPACITY = 5;
     protected Integer[] data;
     protected int root;
     protected int size;
+
+	static int testCount;
+	static int testsPassed;
     
 	public ArrayBasedBinaryTree() {
-		
-		// [ x ] allocate space for data array.
-		// [ x ] What index are you choosing the root to be?
-		// [ x ] initialize your size as the number of elements in the empty tree
-
-		/**
-		 * index of the left child = 2 * index of the current node + 1
-		 * index of the right child = 2 * index of the current node + 2
-		 */
+		// TODO...
+		// allocate space for data array.
+		// What index are you choosing the root to be?
+		// initialize your size as the number of elements in the empty tree
 		data = new Integer[ CAPACITY ];
 		size = 0;
+	
 	}
 
 	/*
@@ -25,33 +33,19 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 * Parameters: Integer value - value to insert
 	 * Returns: nothing
 	 */
-
-
 	public void insert(Integer value) {
 		// TODO...
 		// NOTE: The underlying data structure is an array,
 		//  but we are just USING the array to store the data.
 		//  The way we traverse the data will expose its binary tree structure
-		if(size == 0) { //insert root
+
+		if(size == 0) {
+
 			data[size++] = value;
 			return;
 		}
-		if(size == data.length - 1) expandAndCopy();
-
-		int idx = 0;
-		Integer current = data[idx];
-		while(idx < size) {
-			if(value == current) return;
-			if(value < current) {
-				data[idx] = value;
-				value = current;
-				current = data[++idx];
-				continue;
-			}
-			++idx;
-		}
+		if(size >= data.length) expandAndCopy();
 		data[size++] = value;
-		return;
 
 	}
 
@@ -70,7 +64,7 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 */
 	protected int getLeft(int t) {
 		// TODO...
-		return  2 * t + 1;
+		return 2 * t + 1;
 	}
 
 	/*
@@ -79,45 +73,50 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 * Returns: int - index of right child
 	 */
 	protected int getRight(int t) {
+		// TODO...
 		return 2 * t + 2;
 	}
 
-	private void traverse(int idx) {
-		/*
-		 * takes in a "root" node
-		 * and traverses the tree
-		 * printing the values
-		 */
-		if(idx >= size) return;
 
-		traverse(getLeft(idx));
+	private void traverseInOrder(int idx) {
+
+		if(idx >= size) return;
+		traverseInOrder(getLeft(idx));
 		System.out.print(" " + data[idx] + " ");
-		traverse(getRight(idx));
+		traverseInOrder(getRight(idx));
 	}
 	public void inOrder(){
 		// TODO...
-		/**
-		 * the left subtree to the root then to the right subtree.
-		 */
-		traverse(1);
-		System.out.print(" " + data[0] + " ");
-		traverse(2);
+		traverseInOrder(0);
+		System.out.println("");
 	}
 
+
+	private void traversePreOrder(int idx) {
+
+		if(idx >= size) return;
+		System.out.print(" " + data[idx] + " ");
+		traversePreOrder(getLeft(idx));
+		traversePreOrder(getRight(idx));
+	}
 	public void preOrder(){
 		// TODO...
-		System.out.print(" " + data[0] + " "); //root node
-		traverse(1);//left node
-		traverse(2);//righ2t node
+		traversePreOrder(0);
+		System.out.println("");
 	}
 
+	private void traversePostOrder(int idx) {
+
+		if(idx >= size) return;
+		traversePostOrder(getLeft(idx));
+		traversePostOrder(getRight(idx));
+		System.out.print(" " + data[idx] + " ");
+	}
 	public void postOrder(){
 		// TODO...
-		traverse(1);//left node
-		traverse(2);//right node
-		System.out.print(" " + data[0] + " "); //root node
+		traversePostOrder(0);
+		System.out.println("");
 	}
-
 
 	public int height() {
 		return height(root);
@@ -134,13 +133,19 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	 *       the height of a node in a tree is equal to 
 	 *       1 + the height of its largest subtree
 	 */
-
 	protected int height(int t) {
-		if (t >= size) {
+		if (t > size) {
             return 0;
-        } 
+        }
+		//traverse right
+		//traverse left
+		//return biggest int
+		int left = height(getLeft(t));
+		int right = height(getRight(t));
+		
+		
 		// TODO: complete the rest
-		return (int) Math.floor((Math.log(t + 1) / Math.log(2)));
+		return Math.max(left, right) + 1; // so it compiles
 	}
 	
 
@@ -161,7 +166,7 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	private String toString(int t) {
         if (t >= size) {
             return "";
-        }
+        } 
         String s = "";
         s += toString(getLeft(t));
         s += data[t] + " ";
@@ -171,25 +176,79 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 	}
 
 	public String stringify() {
-		String result = "{";
-		for(int i = 0; i < size; ++i) {
+		String result = "";
+		for(int i = 0; i < size; ++i)
 			result += " " + data[i] + " ";
-		}
-		result += "}";
 		return result;
+	}
+	
+	public static void verifyOutput(Runnable code, String expectedMessage) {
+        // Save the current System.out
+        PrintStream originalOut = System.out;
+        // Create a ByteArrayOutputStream to redirect output
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PrintStream newOut = new PrintStream(outputStream);
+        // Redirect System.out to the new stream
+        System.setOut(newOut);
+        // Execute the provided code
+        code.run();
+        // Reset System.out to the original stream
+        System.setOut(originalOut);
+        // Convert the output stream to a string for comparison
+        String outputString = outputStream.toString();
+        // Verify the output
+		String successMessage;
+		if(outputString.trim().equals(expectedMessage.trim())) {
+			successMessage = "Passed";
+			++testsPassed;
+		} else {
+			successMessage = "Failed";
+		}
+		++testCount;
+
+		System.out.println(successMessage);
+		System.out.println("expected: " + expectedMessage);
+		System.out.println("  actual: " + outputString);
+    }
+
+	private static void tester() {
+		ArrayBasedBinaryTree tree = new ArrayBasedBinaryTree();
+		for(int i= 0; i < 7; ++i)
+			tree.insert(i);
+
+		
+		////////////////////////////////////////////////////////////////////////
+		String expected = " 3  1  4  0  5  2  6 ";
+		System.out.println("InOrder\n");
+		verifyOutput(() ->tree.inOrder(), expected);
+
+		////////////////////////////////////////////////////////////////////////
+		
+        // Your code that uses System.out.println
+		System.out.println("PreOrder\n");
+		expected = " 0  1  3  4  2  5  6 ";
+		verifyOutput(() ->tree.preOrder(), expected);
+
+		////////////////////////////////////////////////////////////////////////
+		System.out.println("PostOrder\n");
+		expected = " 3  4  1  5  6  2  0 ";
+		verifyOutput(() ->tree.postOrder(), expected);
 	}
 
 	public static void main(String[] args) {
 		
+		tester();
+		System.out.println("Tests passed: " + testsPassed + "/" + testCount);
+
 		ArrayBasedBinaryTree myTree = new ArrayBasedBinaryTree();
-		for(int i=2; i<=20; i++) {
+		for(int i=2; i<8; i++) {
 			myTree.insert(i);
 		}
-		System.out.println("in");
+		System.out.println("in:");
 		myTree.inOrder();
-		System.out.println("pre");
+		System.out.println("pre:");
 		myTree.preOrder();
-		System.out.println("post");
+		System.out.println("post:");
 		myTree.postOrder();
 		
 		System.out.println("toString\n" + myTree);
