@@ -21,7 +21,7 @@ public class HeapPriorityQueue<T extends Comparable<T>> implements PriorityQueue
 	
 	// Feel free to change rootIndex to 0 if you want to 
 	// use 0-based indexing (either option is fine)
-	private static final int rootIndex = 1;
+	private static final int rootIndex = 0;
 
 	/*
 	 * Constructor that initializes the array to hold DEFAULT_SIZE elements
@@ -54,6 +54,12 @@ public class HeapPriorityQueue<T extends Comparable<T>> implements PriorityQueue
 		}
 		currentSize = 0;
 	}
+	private void handleHeapFullException() throws HeapFullException {
+		if(currentSize + 1 > storage.length) throw new HeapFullException();
+	}
+	private void handleHeapEmptyException() throws HeapEmptyException {
+		if(currentSize - 1 < 0) throw new HeapEmptyException();
+	}
 
 	public void insert (T element) throws HeapFullException {
 		// TODO: implement this
@@ -62,7 +68,13 @@ public class HeapPriorityQueue<T extends Comparable<T>> implements PriorityQueue
 		// a 0-based on 1-based implementation. (By default, the root
 		// index is set to 1 for you above. Whatever you choose,
 		// make sure your implementation for the rest of the program
-		// is consistent with this choice.		
+		// is consistent with this choice.
+		handleHeapFullException();
+		if(currentSize == 0) {
+			storage[currentSize++] = element;
+			return;
+		}
+		storage[currentSize++] = element;
     }
 	
 	private void bubbleUp(int index) {
@@ -70,10 +82,34 @@ public class HeapPriorityQueue<T extends Comparable<T>> implements PriorityQueue
 	}
 			
 	public T removeMin() throws HeapEmptyException {
-		// TODO: implement this
-		
-		return null; // so it compiles
+		handleHeapEmptyException();
+		if(currentSize == 1) {
+			--currentSize;
+			return storage[0];
+		}
+		int minIdx = 0;
+		for (int i = 1; i < currentSize; ++i) {
+			/*
+			 * a.compareTo(b)
+			 * -1 -> a < b
+			 *  0 -> a == b
+			 *  1 -> a > b
+			 */
+			if (storage[i].compareTo(storage[minIdx]) < 0) {
+				minIdx = i;
+			}
+		}
+
+		T min = storage[minIdx];
+		for (int i = minIdx; i < currentSize; ++i) {
+			if(i + 1 < currentSize) storage[i] = storage[i + 1];
+		}
+	
+		currentSize--;
+	
+		return min;
 	}
+	
 	
 	private void bubbleDown(int index) {
 		// TODO: implement this
@@ -82,19 +118,19 @@ public class HeapPriorityQueue<T extends Comparable<T>> implements PriorityQueue
 	public boolean isEmpty(){
 		// TODO: implement this
 		
-		return false; // so it compiles
+		return currentSize == 0; // so it compiles
 	}
 	
 	public boolean isFull() {
 		// TODO: implement this
 		
-		return false; // so it compiles
+		return currentSize == storage.length; // so it compiles
 	}
 	
 	public int size () {
 		// TODO: implement this
 		
-		return -1; // so it compiles
+		return currentSize; // so it compiles
 	}
 	
 	// FOR DEBUGGING:

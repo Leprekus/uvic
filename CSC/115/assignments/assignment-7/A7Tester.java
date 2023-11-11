@@ -18,16 +18,16 @@ public class A7Tester {
 
 		System.out.println("Testing " + (testHeapSolution ? "Heap" : "Linked" ) + " implementation.");
 		
-		testSize();
-		// testInsertionAndRemoval();
+		//testSize();
+		//testInsertionAndRemoval();
 		// testExceptions();
 		// testGeneric();
-		// testDuplicates();
+		//  testDuplicates();
 		// testMixed();
 		// stressTest();
 
-		System.out.println("Testing Application using Priority Queue.");
-		// testTask();
+		// System.out.println("Testing Application using Priority Queue.");
+		 testTask();
 		// testToDoList();
 		
 
@@ -98,11 +98,15 @@ public class A7Tester {
 		pq.insert(2);
 		pq.insert(1);
 
+		System.out.println("queue " + pq);
 		result = pq.removeMin();
+		System.out.println("removed " + result);
 		displayResults(result.equals(1), "insert + remove on multiple element PQ");
 		displayResults(pq.size() == 2, "insert + remove + size on multiple element PQ");
 
+		System.out.println("queue " + pq);
 		result = pq.removeMin();
+		System.out.println("removed " + result);
 		displayResults(result.equals(2), "insert + remove on multiple element PQ");
 		displayResults(pq.size() == 1, "insert + remove + size on multiple element PQ");
 
@@ -114,7 +118,6 @@ public class A7Tester {
 	public static void testExceptions() {
 		System.out.println("\nTesting of exceptions");
 		PriorityQueue<Integer> pq = createNewPriorityQueue(Integer.class, 2);
-
 		try {
 			pq.removeMin();
 			displayResults(false, "exception should have been thrown");
@@ -299,7 +302,7 @@ public class A7Tester {
 
 	}
 
-	public static void stressTest() {		
+	public static void stressTest() {
 		System.out.println("\nStress Tests.");
 		displayResults(testRandomArray(100), "inserts + removes");
 		displayResults(testRandomArray(10000), "inserts + removes");
