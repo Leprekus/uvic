@@ -33,6 +33,11 @@ public class ToDoList {
 	 */
 	public void addTask(Task t) {
 		// TODO: implement this
+		try {
+			tasks.insert(t);
+		} catch(HeapFullException e) {
+			System.err.println("DIVIDE AND CONQUER!");
+		}
 	}
 
 
@@ -42,7 +47,7 @@ public class ToDoList {
 	 */
 	public int numberTasksToDo() {
 		// TODO: implement this
-		return -1; // so it compiles
+		return tasks.size(); // so it compiles
 	}
 
 
@@ -51,8 +56,13 @@ public class ToDoList {
 	 * Returns: Task - the next Task, null if there is no more Tasks.
 	 */
 	public Task nextTask() {
-		// TODO: implement this
-		return null; // so it compiles
+		// TODO:
+		try {
+			return tasks.removeMin();
+		} catch(HeapEmptyException e) {
+			return null;
+		}
+
 	}
 }
 

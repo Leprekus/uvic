@@ -60,7 +60,8 @@ public class Task implements Comparable<Task>{
 	 */
 	public int compareTo(Task other) {
 		// TODO: implement this
-		return -1; // so it compiles;
+		return Integer.compare(this.priorityLevel, other.priorityLevel);
+
 	}
 
 	/* Method Name: equals
@@ -72,7 +73,7 @@ public class Task implements Comparable<Task>{
 	 */
 	public boolean equals(Task other) {
 		// TODO: implement this
-		return false; // so it compiles;
+		return this.title.equals(other.title); // so it compiles;
 	}
 }
 

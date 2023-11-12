@@ -18,17 +18,17 @@ public class A7Tester {
 
 		System.out.println("Testing " + (testHeapSolution ? "Heap" : "Linked" ) + " implementation.");
 		
-		//testSize();
-		//testInsertionAndRemoval();
-		// testExceptions();
-		// testGeneric();
-		//  testDuplicates();
-		// testMixed();
-		// stressTest();
+		testSize();
+		testInsertionAndRemoval();
+		testExceptions();
+		testGeneric();
+		testDuplicates();
+		testMixed();
+		//stressTest();
 
-		// System.out.println("Testing Application using Priority Queue.");
-		 testTask();
-		// testToDoList();
+		System.out.println("Testing Application using Priority Queue.");
+		testTask();
+		testToDoList();
 		
 
 		System.out.println("PASSED " + testPassCount + "/" + testCount + " tests");
