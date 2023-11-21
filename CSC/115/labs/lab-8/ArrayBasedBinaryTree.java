@@ -252,6 +252,25 @@ public class ArrayBasedBinaryTree implements BinaryTree {
 		myTree.postOrder();
 		
 		System.out.println("toString\n" + myTree);
+
+		ArrayBasedBinaryTree tree = new ArrayBasedBinaryTree();
+		tree.insert(2);
+		tree.insert(1);
+		tree.insert(5);
+		tree.insert(7);
+		tree.insert(0);
+		tree.insert(4);
+		tree.insert(6);
+		
+		System.out.println("LAB 9 Tree");
+		System.out.println("LAB 9 inorder");
+		tree.inOrder();
+
+		System.out.println("LAB 9 preorder");
+		tree.preOrder();
+
+		System.out.println("LAB 9 postOrder");
+		tree.postOrder();
 	}
     
 }
