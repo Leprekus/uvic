@@ -1,7 +1,31 @@
 public class ArrayBasedBinarySearchTree extends ArrayBasedBinaryTree{
 
 
-    
+    private void insertHelper(int idx, int value) {
+        Integer item = data[idx];
+
+        if(item == null) {
+            data[idx] = value;
+            return;
+        }
+
+        if(value < item) {
+            idx = getLeft(idx);
+            insertHelper(idx, value);
+        }
+        if(value > item) {
+            idx = getRight(idx);
+            insertHelper(idx, value);
+        }
+    }
+
+    public void insert(Integer value) {
+        int idx = 0;
+        insertHelper(idx, value);
+        size++;
+        return;
+    }
+
     public static void main(String[] args) {
         ArrayBasedBinarySearchTree emptyTree = new ArrayBasedBinarySearchTree();
         
