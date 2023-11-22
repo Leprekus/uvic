@@ -67,16 +67,16 @@ public class A8Tester {
 		testPassCount = 0;
 
 		try {
-			//test_insert_size_height();
-			// test_insert_find();
+			test_insert_size_height();
+			test_insert_find();
 
 			tree1_test();
-			// tree2_test();
-			// tree3_test();
-			// tree4_test();
+			tree2_test();
+			tree3_test();
+			tree4_test();
 
-			// map1_test();
-			// map2_test();
+			map1_test();
+			map2_test();
 		}
 		catch (Exception e) {
 			System.out.println("Unhandled exception in tester: " + e);
@@ -99,7 +99,7 @@ public class A8Tester {
 
 		while (!failed && i.hasNext()) {
 			Entry<String,Integer> e = i.next();
-
+			//System.out.println("pos " + pos + " key " + e.key + " value " + e.value);
 			if (!e.getKey().equals(key_expected[pos]) || !e.getValue().equals(value_expected[pos])) {
 				// System.out.println("expected pos " + pos + " key " + key_expected[pos] + " value " + value_expected[pos]);
 				// System.out.println("actual pos " + pos + " key " + e.key + " value " + e.value);
@@ -108,7 +108,7 @@ public class A8Tester {
 			}
 			pos++;
 		}
-		displayResults(!failed, "end of comparing lists");
+		displayResults(!failed, "end of comparing lists failed");
 	}
 
 	static void tree1_test() {

@@ -268,8 +268,8 @@ class BinarySearchTree <K extends Comparable<K>, V>  {
 		Entry<K, V> e = new Entry<K, V>(n.key, n.value);
 		
 		entries.add(e);
-		inOrderRec(n.left, entries);
-		inOrderRec(n.right, entries);
+		preOrderRec(n.left, entries);
+		preOrderRec(n.right, entries);
 	}
 
 	private void postOrderRec (BSTNode<K,V> n, List <Entry<K,V>> entries) {
@@ -277,8 +277,8 @@ class BinarySearchTree <K extends Comparable<K>, V>  {
 		if(n == null) return;
 		Entry<K, V> e = new Entry<K, V>(n.key, n.value);
 		
-		inOrderRec(n.left, entries);
-		inOrderRec(n.right, entries);
+		postOrderRec(n.left, entries);
+		postOrderRec(n.right, entries);
 		entries.add(e);
 	}
 }
