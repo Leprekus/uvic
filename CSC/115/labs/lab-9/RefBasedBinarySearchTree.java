@@ -40,21 +40,21 @@ public class RefBasedBinarySearchTree extends RefBasedBinaryTree {
         return sum[0];
     }
 
-    private void findVal(int val, boolean[] found, TreeNode current) {
+    private void findHelper(int val, boolean[] found, TreeNode current) {
         if(current == null) return;
         if(current.getValue() == val) {
             found[0] = true;
             return;
         }
-        findVal(val, found, current.left);
-        findVal(val, found, current.right);
+        findHelper(val, found, current.left);
+        findHelper(val, found, current.right);
     }
 
     public boolean find(int val) {
         if(root == null) return false;
 
         boolean[] found = { false };
-        findVal(val, found, root);
+        findHelper(val, found, root);
         return found[0];
     }
 
@@ -64,7 +64,7 @@ public class RefBasedBinarySearchTree extends RefBasedBinaryTree {
         getMaxHelper(current.left, max);
         getMaxHelper(current.right, max);
     }
-    private int _getMax() throws TreeEmptyException {
+    private int getMaxHelper() throws TreeEmptyException {
         if(root == null) throw new TreeEmptyException();
         int[] max = { 0 };
         getMaxHelper(root, max);
@@ -74,7 +74,7 @@ public class RefBasedBinarySearchTree extends RefBasedBinaryTree {
 
     public int getMax() {
         try {
-            return _getMax();
+            return getMaxHelper();
         } catch(TreeEmptyException e) {
             return 0;
         }
