@@ -186,7 +186,7 @@ class BinarySearchTree <K extends Comparable<K>, V>  {
 	public List<Entry<K,V>>	entryList() {
 		// list to add all the nodes to
 		List<Entry<K,V> > l = new LinkedList<Entry<K,V>>();
-		
+	
 		// queue of nodes that need to be added
 		LinkedList<BSTNode<K,V>> q = new LinkedList<BSTNode<K,V> >();
 		
