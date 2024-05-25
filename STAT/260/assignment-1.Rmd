@@ -1,0 +1,66 @@
+---
+title: "STAT 260 R Assignment 1"
+author: "Rodriguez Castro Raul V01030827"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhead[CO,CE]{Rodriguez Castro, Raul V01030827}
+#- \fancyfoot[CO,CE]{And this is a fancy footer}
+#- \fancyfoot[LE,RO]{\thepage}
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#tinytex::install_tinytex()
+```
+
+# Question 1
+  ## a. 
+  ```{r 1a}
+  ```
+  ## b.
+    ```{r 1b}
+    ```
+  ## c.
+  ```{r 1c}
+  ```
+  
+# Question 2
+  ## a. 
+  ```{r 2a}
+  ```
+  ## b.
+  ```{r 2b}
+  ```
+  ## c.
+  ```{r 2c}
+  ```
+  ## d.
+  ```{r 2d}
+  ```
+  
+# Question 3
+  ## a. 
+  ```{r 3a}
+  ```
+  ## b.
+  ```{r 3b}
+  ```
+  ## c.
+  ```{r 3c}
+  ```
+  ## d.
+  ```{r 3d}
+  ```
+  
+# Question 4
+  ## a. 
+  ```{r 4a}
+  ```
+  ## b.
+  ```{r 4b}
+  ```
+  ## c.
+  ```{r 4c}
+  ```

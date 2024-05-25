@@ -1,0 +1,352 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead[CO,CE]{Rodriguez Castro, Raul V01030827}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={STAT 260 R Assignment 2},
+  pdfauthor={Rodriguez Castro Raul V01030827},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{STAT 260 R Assignment 2}
+\author{Rodriguez Castro Raul V01030827}
+\date{}
+
+\begin{document}
+\maketitle
+
+P(X = 2) -\textgreater{} dbinom(2, size=18, prob=0.171) P(X ≤ 3)
+-\textgreater{} pbinom(3, size=18, prob=0.171)
+
+\hypertarget{question-1}{%
+\section{Question 1}\label{question-1}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{lambda }\OtherTok{=} \FloatTok{4.5} \SpecialCharTok{*} \FloatTok{7.5} \CommentTok{\#seconds * duration}
+\end{Highlighting}
+\end{Shaded}
+
+\#\# Section a P(X \textless= 35) i.e cdf
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \FunctionTok{ppois}\NormalTok{(}\AttributeTok{q =} \DecValTok{35}\NormalTok{, }\AttributeTok{lambda =}\NormalTok{ lambda)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.6282507
+\end{verbatim}
+
+\#\# Section b
+
+P(X = 33) i.e pmf (discrete) or pdf (continuous)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \FunctionTok{dpois}\NormalTok{(}\DecValTok{33}\NormalTok{, lambda)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.06869264
+\end{verbatim}
+
+\#\# Section c P(30 \textless= X \textless= 36) = P(X \textless= 36) -
+P(X \textless= 29) scale down to sample space
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ppois}\NormalTok{(}\DecValTok{36}\NormalTok{, lambda) }\SpecialCharTok{{-}} \FunctionTok{ppois}\NormalTok{(}\DecValTok{29}\NormalTok{, lambda)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.4536192
+\end{verbatim}
+
+\hypertarget{question-2}{%
+\section{Question 2}\label{question-2}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{  blades\_total }\OtherTok{=} \DecValTok{196}
+\NormalTok{  blades\_prob }\OtherTok{=} \FloatTok{0.11}
+\end{Highlighting}
+\end{Shaded}
+
+\#\# Section a
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \CommentTok{\# P(X \textgreater{}= 20) = 1 {-} P(X \textless{}= 19)}
+
+\NormalTok{  at\_least\_20 }\OtherTok{=} \DecValTok{1} \SpecialCharTok{{-}} \FunctionTok{pbinom}\NormalTok{(}\DecValTok{19}\NormalTok{, }\AttributeTok{size =}\NormalTok{ blades\_total, }\AttributeTok{prob =}\NormalTok{ blades\_prob)}
+
+  \CommentTok{\#P(X = 20)}
+\NormalTok{  equals\_20 }\OtherTok{=} \FunctionTok{dbinom}\NormalTok{(}\DecValTok{20}\NormalTok{, }\AttributeTok{size =}\NormalTok{ blades\_total, }\AttributeTok{prob =}\NormalTok{ at\_least\_20)}
+\end{Highlighting}
+\end{Shaded}
+
+\#\# Section b
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{x }\OtherTok{=} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{50}\NormalTok{, }\AttributeTok{by =} \DecValTok{1}\NormalTok{)}
+\NormalTok{y }\OtherTok{=} \FunctionTok{dbinom}\NormalTok{(x, }\AttributeTok{size =}\NormalTok{ blades\_total, }\AttributeTok{prob =} \FloatTok{0.11}\NormalTok{)}
+
+\FunctionTok{plot}\NormalTok{(x, y, }\AttributeTok{type =} \StringTok{\textquotesingle{}h\textquotesingle{}}\NormalTok{,}
+     \AttributeTok{main =} \StringTok{\textquotesingle{}Title\textquotesingle{}}\NormalTok{,}
+     \AttributeTok{xlab =} \StringTok{\textquotesingle{}X title\textquotesingle{}}
+\NormalTok{     )}
+\FunctionTok{grid}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{assignment-2_files/figure-latex/2b-1.pdf} \#\# Section
+c
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \CommentTok{\#(P X \textgreater{}= 20) = 1 {-} P(X \textgreater{}= 19)}
+  
+\NormalTok{  s }\OtherTok{=} \FunctionTok{sqrt}\NormalTok{(blades\_total }\SpecialCharTok{*}\NormalTok{ blades\_prob }\SpecialCharTok{*}\NormalTok{ (}\DecValTok{1} \SpecialCharTok{{-}}\NormalTok{ blades\_prob)) }\CommentTok{\# sqrt(npq)}
+\NormalTok{  mu }\OtherTok{=}\NormalTok{ blades\_total }\SpecialCharTok{*}\NormalTok{ blades\_prob}
+
+\NormalTok{  approximation }\OtherTok{=} \DecValTok{1} \SpecialCharTok{{-}} \FunctionTok{pnorm}\NormalTok{(}\DecValTok{19}\NormalTok{, }\AttributeTok{mean =}\NormalTok{ mu, }\AttributeTok{sd =}\NormalTok{ s)}
+\NormalTok{  approximation}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.7205291
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \CommentTok{\#1 {-} pbinom(19, size = blades\_total, prob = blades\_prob)}
+\end{Highlighting}
+\end{Shaded}
+
+\#\# Section d
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{    random\_X }\OtherTok{=} \FunctionTok{dnorm}\NormalTok{(x, }\AttributeTok{mean =}\NormalTok{ mu, }\AttributeTok{sd =}\NormalTok{ s)}
+    \FunctionTok{plot}\NormalTok{(x, random\_X, }\AttributeTok{type =} \StringTok{\textquotesingle{}h\textquotesingle{}}\NormalTok{,}
+     \AttributeTok{main =} \StringTok{\textquotesingle{}Probability They Get Replaced\textquotesingle{}}\NormalTok{,}
+     \AttributeTok{xlab =} \StringTok{\textquotesingle{}number of blades\textquotesingle{}}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{assignment-2_files/figure-latex/2d-1.pdf}
+
+\hypertarget{question-3}{%
+\section{Question 3}\label{question-3}}
+
+\#\# Section a
+
+P(23.7 \textless= X \textless= 30.4) = P(X \textless= 30.4) - P(X
+\textless= 23.7) note self: continuous is inclusive P(X \textless= 23.7)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{  mean }\OtherTok{=} \FloatTok{28.3}
+\NormalTok{  sd }\OtherTok{=} \FloatTok{2.39}
+\NormalTok{  x }\OtherTok{=}  \FloatTok{23.7}
+  
+  \FunctionTok{pnorm}\NormalTok{(}\FloatTok{30.4}\NormalTok{, }\AttributeTok{mean =}\NormalTok{ mean, }\AttributeTok{sd =}\NormalTok{ sd) }\SpecialCharTok{{-}} \FunctionTok{pnorm}\NormalTok{(x, }\AttributeTok{mean =}\NormalTok{ mean, }\AttributeTok{sd =}\NormalTok{ sd)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.7830732
+\end{verbatim}
+
+\#\# Section b
+
+P(X \textgreater= 27.4) = 1- P(X \textless= 27.3)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \DecValTok{1} \SpecialCharTok{{-}} \FunctionTok{pnorm}\NormalTok{(}\FloatTok{27.4}\NormalTok{, }\AttributeTok{mean =}\NormalTok{ mean, }\AttributeTok{sd =}\NormalTok{ sd)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.646753
+\end{verbatim}
+
+\#\# Section c
+
+P(25 \textless= X \textless= 31.6) = P(X \textless= 31.6) - P(X
+\textless= 25)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \FunctionTok{pnorm}\NormalTok{(}\FloatTok{31.6}\NormalTok{, }\AttributeTok{mean =}\NormalTok{ mean, }\AttributeTok{sd =}\NormalTok{ sd) }\SpecialCharTok{{-}} \FunctionTok{pnorm}\NormalTok{(}\DecValTok{25}\NormalTok{, }\AttributeTok{mean =}\NormalTok{ mean, }\AttributeTok{sd =}\NormalTok{ sd)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.8326451
+\end{verbatim}
+
+\#\# Section d
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \FunctionTok{qnorm}\NormalTok{(}\FloatTok{0.35}\NormalTok{, }\AttributeTok{mean =}\NormalTok{ mean, }\AttributeTok{sd =}\NormalTok{ sd)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 27.37908
+\end{verbatim}
+
+\hypertarget{question-4}{%
+\section{Question 4}\label{question-4}}
+
+\#\# Section a
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \FunctionTok{set.seed}\NormalTok{(}\DecValTok{111}\NormalTok{)}
+\NormalTok{  simulation.data }\OtherTok{=} \FunctionTok{rbinom}\NormalTok{(}\DecValTok{2800}\NormalTok{, }\AttributeTok{size =} \DecValTok{72}\NormalTok{, }\AttributeTok{prob =} \FloatTok{0.36}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\#\# Section b
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \FunctionTok{hist}\NormalTok{(simulation.data, }
+     \AttributeTok{main =} \StringTok{"Histogram of Simulation Data"}\NormalTok{,}
+     \AttributeTok{xlab =} \StringTok{"Values of X"}\NormalTok{,}
+     \AttributeTok{ylab =} \StringTok{"Frequency"}\NormalTok{,}
+     \AttributeTok{col =} \StringTok{"skyblue"}\NormalTok{,  }
+     \AttributeTok{breaks =} \DecValTok{20}\NormalTok{) }
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{assignment-2_files/figure-latex/4b-1.pdf} Histogram is
+normally distributed with a slight right skew.
+
+\#\# Section c
+
+\begin{Shaded}
+\begin{Highlighting}[]
+  \FunctionTok{mean}\NormalTok{(simulation.data)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 25.87071
+\end{verbatim}
+
+The simulation is very close to the expected value indicating that the
+sample mean is a reliable estimate of the population mean.
+
+\end{document}

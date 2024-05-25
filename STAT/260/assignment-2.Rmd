@@ -1,0 +1,147 @@
+---
+title: "STAT 260 R Assignment 2"
+author: "Rodriguez Castro Raul V01030827"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhead[CO,CE]{Rodriguez Castro, Raul V01030827}
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+P(X = 2) -> dbinom(2, size=18, prob=0.171)
+P(X ≤ 3) -> pbinom(3, size=18, prob=0.171)
+
+# Question 1
+```{r 1k}
+lambda = 4.5 * 7.5 #seconds * duration
+```
+  ## Section a
+  P(X <= 35) i.e cdf
+
+```{r 1a}
+  
+  ppois(q = 35, lambda = lambda)
+```
+  ## Section b
+  
+  P(X = 33) i.e pmf (discrete) or pdf (continuous)
+```{r 1b}
+  dpois(33, lambda)
+```
+  ## Section c
+  P(30 <= X <= 36) = P(X <= 36) - P(X <= 29)
+  scale down to sample space
+```{r 1c}
+ppois(36, lambda) - ppois(29, lambda)
+
+```
+
+# Question 2
+```{r 2}
+  blades_total = 196
+  blades_prob = 0.11
+```
+  ## Section a
+```{r 2a}
+  # P(X >= 20) = 1 - P(X <= 19)
+
+  at_least_20 = 1 - pbinom(19, size = blades_total, prob = blades_prob)
+
+  #P(X = 20)
+  equals_20 = dbinom(20, size = blades_total, prob = at_least_20)
+  
+```
+  ## Section b
+```{r 2b}
+x = seq(0,50, by = 1)
+y = dbinom(x, size = blades_total, prob = 0.11)
+
+plot(x, y, type = 'h',
+     main = 'Title',
+     xlab = 'X title'
+     )
+grid()
+```
+  ## Section c
+```{r 2c}
+  #(P X >= 20) = 1 - P(X >= 19)
+  
+  s = sqrt(blades_total * blades_prob * (1 - blades_prob)) # sqrt(npq)
+  mu = blades_total * blades_prob
+
+  approximation = 1 - pnorm(19, mean = mu, sd = s)
+  approximation
+ 
+  #1 - pbinom(19, size = blades_total, prob = blades_prob)
+
+```
+  ## Section d
+```{r 2d}
+    
+    random_X = dnorm(x, mean = mu, sd = s)
+    plot(x, random_X, type = 'h',
+     main = 'Probability They Get Replaced',
+     xlab = 'number of blades')
+    
+```
+
+# Question 3
+
+  ## Section a
+  
+  P(23.7 <= X <= 30.4) = P(X <= 30.4) - P(X <= 23.7)
+  note self: continuous is inclusive P(X <= 23.7)
+```{r 3a}
+  mean = 28.3
+  sd = 2.39
+  x =  23.7
+  
+  pnorm(30.4, mean = mean, sd = sd) - pnorm(x, mean = mean, sd = sd)
+    
+    
+```
+  
+  ## Section b
+  
+  P(X >= 27.4) = 1- P(X <= 27.3)
+```{r 3b}
+  1 - pnorm(27.4, mean = mean, sd = sd)
+```
+ 
+  ## Section c
+  
+  P(25 <= X <= 31.6) = P(X <= 31.6) - P(X <= 25)
+```{r 3c}
+  pnorm(31.6, mean = mean, sd = sd) - pnorm(25, mean = mean, sd = sd)
+  
+```
+  ## Section d
+```{r 3d}
+  qnorm(0.35, mean = mean, sd = sd)
+```
+
+# Question 4
+  ## Section a
+```{r 4a}
+  set.seed(111)
+  simulation.data = rbinom(2800, size = 72, prob = 0.36)
+```
+  ## Section b
+```{r 4b}
+  hist(simulation.data, 
+     main = "Histogram of Simulation Data",
+     xlab = "Values of X",
+     ylab = "Frequency",
+     col = "skyblue",  
+     breaks = 20) 
+```
+  Histogram is normally distributed with a slight right skew.
+  
+  ## Section c
+```{r 4c}
+  mean(simulation.data)
+```
+The simulation is very close to the expected value indicating that the sample mean is a reliable estimate of the population mean.

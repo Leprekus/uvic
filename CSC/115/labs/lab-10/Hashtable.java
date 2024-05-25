@@ -88,15 +88,17 @@ private static final int TABLE_SZ = 7; // a prime number
 
 			
 			i = probe(s, i);
+			System.out.println("hash " + i );
 			counter++;
 		}
 		if(count == table.length) handleTableFullException();
-		
 
 		table[i] = s;
 		count++;
 		
 	}
+
+	
 
 
 

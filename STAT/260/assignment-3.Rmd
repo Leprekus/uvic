@@ -1,0 +1,96 @@
+---
+title: "STAT 260 R Assignment 3"
+author: "Rodriguez Castro Raul V01030827"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhead[CO,CE]{Rodriguez Castro, Raul V01030827}
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+# Question 1 
+
+```{r 1a}
+  repair_time <- c(159, 224, 222, 149, 280, 379, 362, 260, 101, 179, 168, 485, 212, 264, 250, 170)
+  sample_mean <- mean(repair_time)
+  sample_sd <- sd(repair_time)
+  t_score <- qt(0.975, df = length(repair_time) - 1)
+  margin_of_error <- t_score * (sample_sd / sqrt(length(repair_time)))
+  
+  lower_bound <- sample_mean - margin_of_error
+  upper_bound <- sample_mean + margin_of_error
+  
+  lower_bound
+  upper_bound
+```
+
+```{r 1b}
+  t_test_result <- t.test(repair_time, mu = 225, alternative = "greater")
+  t_test_result
+```
+
+c) t = 0.66852
+
+d) p-value = 0.257
+
+e) we fail to reject the null hypothesis since there is not enough evidence.
+
+f) (a) and (e) rely on the assumption that the repair times follow a normal distribution.
+
+
+# Question 2
+
+```{r 2a}
+
+  meanX=NULL
+  for (i in 1:1000){
+    X<-rgamma(n=200,shape=3, scale=2)
+    meanX[i]=mean(X)
+  }
+
+  hist(meanX, main = "meanX", xlab = "Mean Value", ylab = "Frequency")
+```
+a) The plot looks approximately normally distributed with a small left tail and a slightly bigger right tail.
+
+```{r 2b}
+  meanX <- NULL
+
+
+for (i in 1:1000) {
+  X <- runif(n = 200, min = 0, max = 1)
+  meanX[i] <- mean(X)
+}
+hist(meanX, main = "meanX", xlab = "Mean Value", ylab = "Frequency")
+```
+c) The plot looks approximately normally distributed with a small left tail and a slightly bigger right tail.
+
+# Question 3
+
+```{r 3a}
+F1 = c(177, 176, 198, 197, 185, 188, 206)
+F2 = c(206, 193, 192, 188, 207, 210, 197)
+
+sd_F1 <- sd(F1)
+sd_F2 <- sd(F2)
+
+threshold <- 0.1 * max(sd_F1, sd_F2)
+is_ratio_close <- (abs(sd_F1 - sd_F2) <= threshold)
+is_ratio_close
+sd_F1
+sd_F2
+```
+
+a) Since the standard deviations are not close to each other it is more appropriate to use unpooled procedures.
+
+``` {r 3b}
+t_test_result <- t.test(F1, F2, alternative = "less", var.equal = FALSE)
+t_test_result
+```
+
+c) p-value = 0.05283
+
+d) There is not enough evidence to reject the null hypothesis.
