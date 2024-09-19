@@ -1,0 +1,146 @@
+---
+title: "MATH 200 Assignment 1"
+author: "Rodriguez Castro Raul V01030827"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhead[CO,CE]{Rodriguez Castro, Raul V01030827}
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+# Question 1
+
+
+## a)
+ The given surface equations are $(z^2+x^2-x)^2=z^2+x^2$ and $y=0$.
+ 
+ We know the equation $Surface_2$ forms a plane in the $xz$ axes. So every point in $Surface_1$ intersects with $Surface_2$.
+ 
+ The next thing to do is to use polar coordinates to express $Surface_1$ in terms of $r=f(\theta)$ in the $xz$ plane.
+ 
+ We first rewrite $Surface_1$ to make it easier to work with.
+ $$
+\begin{align*}
+  (z^2+x^2-x)^2 &= z^2+x^2 \\
+  \Rightarrow z^2+x^2-x &= \sqrt{z^2+x^2} \\
+  \Rightarrow z^2+x^2 &= \sqrt{z^2+x^2} + x \\
+  \Rightarrow \sqrt{z^2+x^2} &= \sqrt{\sqrt{z^2+x^2} + x} \\
+  
+\end{align*}
+
+$$
+
+
+ Now apply the known identities to go from Cartesian to polar coordinates
+$$
+\begin{align}
+  &\Rightarrow r = \sqrt{r + r \space cos(\theta)} \\
+\end{align}
+$$
+Finally manipulate the equation once more to get it in terms of $r=f(\theta)$
+$$
+\begin{align*}
+  \Rightarrow& r^2 = r + r \space cos(\theta) \\
+  \Rightarrow& \frac{r^2 = r (1 + cos(\theta))}{r} \\
+  \Rightarrow& r= 1 + cos(\theta)
+\end{align*}
+$$
+as desired we expressed our curve in terms of $r=f(\theta)$
+
+## b)
+
+The graph illustrating these results is present in a separate attachment.
+
+## c)
+
+To determine the area trapped by the curve using 
+$\frac{1}{2}\int^{\beta}_{\alpha} f(\theta)^2 d\theta$
+
+We first determine the region over the $z$ axis. Which has the lower and upper bounds $[0, \pi]$ respectively. Since this accounts for half of our region and our curve is symmetric, we double it to account for the region over the $x$ axis.
+
+$$
+\begin{align*}
+  2(\frac{1}{2} &\int^{\pi}_{0} (1+cos(\theta))^2 d\theta) \\
+  \Rightarrow &\int^{\pi}_{0} 1 + 2cos(\theta) + cos^2(\theta) \space d\theta \\
+  \Rightarrow & [\theta + 2sin(\theta) +  \frac{1}{2}\theta + \frac{1}{4} sin(2\theta) \space ] \bigg|_0^\pi \\
+  
+  \Rightarrow & [\frac{3}{2}\theta + 2sin(\theta) + \frac{1}{4} sin(2\theta) \space ] \bigg|_0^\pi
+  
+\end{align*}
+$$
+
+Plugging the values into our equation we get the following expression
+
+$$
+\begin{align*}
+
+  &[\frac{3}{2}\pi + 2sin(\pi) + \frac{1}{4} sin(2\pi) \space ]
+  - [\frac{3}{2}\times0 + 2sin(0) + \frac{1}{4} sin(2\times 0) \space ] \\
+  
+  &\Rightarrow \frac{3}{2}\pi - \frac{3}{2} \\
+  & =\frac{3}{2}(\pi-1)
+\end{align*}
+$$
+
+## d)
+
+We are asked to find the volume of the region in $\mathbb{R}^3 $.
+The formula for the volume of a solid formed by revolving a polar curve is:
+
+$V = \pi \int_0^{2\pi} \left( r(\theta) \right)^2 \, d\theta$
+
+Substitute $r(\theta) = 1 + \cos(\theta)$
+
+$V = \pi \int_0^{2\pi} \left( 1 + \cos(\theta) \right)^2 \, d\theta$
+
+Expanding the integrand:
+
+$(1 + \cos(\theta))^2 = 1 + 2\cos(\theta) + \cos^2(\theta)$
+
+Thus, the volume integral becomes:
+
+$V = \pi \int_0^{2\pi} \left( 1 + 2\cos(\theta) + \cos^2(\theta) \right) d\theta$
+
+We can split this into three separate integrals:
+
+
+$V = \pi \left( \int_0^{2\pi} 1 \, d\theta + 2 \int_0^{2\pi} \cos(\theta) \, d\theta + \int_0^{2\pi} \cos^2(\theta) \, d\theta \right)$
+
+Evaluating each integral:
+
+$\int_0^{2\pi} 1 \, d\theta = 2\pi$
+
+
+$int_0^{2\pi} \cos^2(\theta) \, d\theta = \int_0^{2\pi} \frac{1 + \cos(2\theta)}{2} \, d\theta = \frac{1}{2} \int_0^{2\pi} 1 \, d\theta + \frac{1}{2$ \int_0^{2\pi} \cos(2\theta) \, d\theta
+\]
+
+Since \(\int_0^{2\pi} \cos(2\theta) \, d\theta = 0\), we have:
+
+\[
+\int_0^{2\pi} \cos^2(\theta) \, d\theta = \frac{1}{2} \cdot 2\pi = \pi
+\]
+
+Therefore, the total volume is:
+
+\[
+V = \pi \left( 2\pi + 0 + \pi \right) = \pi \cdot 3\pi = 3\pi^2
+\]
+
+Thus, the volume of the solid is:
+
+\[
+V = 3\pi^2
+\]
+
+
+ 
+ 
+ 
+
+
+
+

@@ -1,0 +1,131 @@
+---
+title: "STAT 260 R Assignment 2"
+author: "Rodriguez Castro Raul V01030827"
+header-includes:
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhead[CO,CE]{Rodriguez Castro, Raul V01030827}
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+# Question 1
+
+a)
+
+1. 
+```{r 1a_1}
+p <- 0.0065
+n <- 500
+prob_7_cracked <- dbinom(7, size = n, prob = p)
+prob_7_cracked
+
+```
+
+2. 
+```{r 1a_2}
+n <- 3000
+prob_20_to_25_cracked <- sum(dbinom(20:25, size = n, prob = p))
+prob_20_to_25_cracked
+
+```
+
+b)
+```{r 1b}
+lambda <- 4.8 * 10
+prob_50_earthquakes <- dpois(50, lambda = lambda)
+prob_50_earthquakes
+
+```
+
+c)
+```{r 1c}
+mean_zinc <- 159
+sd_zinc <- 13.1
+prob_zinc_between_160_165 <- pnorm(165, mean = mean_zinc, sd = sd_zinc) - pnorm(160, mean = mean_zinc, sd = sd_zinc)
+prob_zinc_between_160_165
+```
+
+d)
+```{r 1d}
+alpha <- 3.4
+beta <- 2.8
+prob_lifespan_no_more_than_7 <- pgamma(7, shape = alpha, scale = beta)
+prob_lifespan_no_more_than_7
+
+```
+
+# Question 2
+
+a)
+```{r 2a}
+p_fail <- 0.0021
+n_letters <- 4000
+lambda <- n_letters * p_fail
+prob_poisson_10_or_more <- 1 - ppois(9, lambda = lambda)
+prob_poisson_10_or_more
+
+```
+
+b)
+```{r 2b}
+mean_fail <- n_letters * p_fail
+sd_fail <- sqrt(n_letters * p_fail * (1 - p_fail))
+prob_normal_10_or_more_cont <- 1 - pnorm(9.5, mean = mean_fail, sd = sd_fail)
+prob_normal_10_or_more_cont
+
+```
+
+c)
+```{r 2c}
+prob_normal_10_or_more_no_cont <- 1 - pnorm(10, mean = mean_fail, sd = sd_fail)
+prob_normal_10_or_more_no_cont
+
+```
+
+d)
+```{r 2d}
+prob_binom_10_or_more <- 1 - pbinom(9, size = n_letters, prob = p_fail)
+prob_binom_10_or_more
+
+
+```
+
+# Question 3
+
+a)
+```{r 3a}
+lambda <- 4.3
+fish_per_day_week <- rpois(7, lambda = lambda)
+fish_per_day_week
+
+```
+
+b)
+```{r 3b}
+fish_per_day_200 <- rpois(200, lambda = lambda)
+fish_per_day_200
+
+```
+
+c)
+```{r 3c}
+hist(fish_per_day_200, main = "Histogram of Fish Passing Through FPS in 200 Days", xlab = "Number of Fish", ylab = "Frequency")
+
+
+```
+
+d)
+```{r 3d}
+mean_fish_200 <- mean(fish_per_day_200)
+mean_fish_200
+theoretical_mean <- lambda
+theoretical_mean
+
+
+```
+
+
