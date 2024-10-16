@@ -1,0 +1,11 @@
+input00 -> YES
+
+input01 -> YES
+
+input02 -> YES
+
+input03 -> NO
+
+input04 -> NO
+
+input05 -> YES
