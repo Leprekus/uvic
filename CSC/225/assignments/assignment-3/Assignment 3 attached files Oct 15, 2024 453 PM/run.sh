@@ -7,7 +7,7 @@ g++ ArrayMatch.cpp -o ArrayMatch -Wall -Wextra -Wpedantic -Werror -Wsequence-poi
 # Check if compilation was successful
 if [ $? -eq 0 ]; then
     # Run the program with input file
-    ./ArrayMatch input01.txt
+    ./ArrayMatch input000.txt
     
     # Remove the binary after running the program
     rm ArrayMatch

@@ -1,105 +1,99 @@
+#include <vector>
 #include <iostream>
 #include <fstream>
-#include <vector>
 #include <sstream>
 
-int size = -1;
-std::string filename = "";
-
-bool compare_arrays(int *a, int *b, int size){
-	for(int i = 0; i < size; i++)
-		if(a[i] != b[i])
-			return false;
-	return true;
-}
-std::vector<std::vector<int> > chunks;
+std::string filename;
+std::string line;
+bool debug_mode = false;
 bool flag = false;
-void compare(){
-	if(flag) return;
+int size = -1;
+bool compare_arrays(int a[], int b[], int size) {
+    for (int i = 0; i < size; ++i) {
+        if (a[i] != b[i]) {
+            return false;  
+        }
+    }
+    return true;  
+}
 
-	//for(size_t i = 0; i < chunks.size(); i++){
-	//	std::cout<<"[ ";
-	//	for(size_t j = 0; j < chunks.at(i).size(); j++){
-	//		std::cout<<chunks.at(i).at(j)<<" ";
-	//	}
-	//	std::cout<<"], ";
+bool mergesort(std::vector<int> a, std::vector<int>b){
+	if(debug_mode)
+		std::cout << "mergesort() state: "<<std::endl;
+	
+	if(flag) return flag;
+	
+	if(debug_mode)
+		std::cout << "a size: " << a.size() << " b size: " << b.size() << std::endl;
+
+	//compare once we've reached the minimum size 
+	//2 or when the size is no longer divisible by 2
+	if( (a.size() % 2 != 0) || (a.size() == 2) ){
+		//chunks_a.push_back(a);
+		//chunks_b.push_back(b);
+		//compare();
+		for(size_t i = 0; i < b.size(); i++){
+			if(debug_mode)
+				std::cout<< a.at(i) << " -> "<< b.at(i)<<std::endl;;
+			if(a.at(i) != b.at(i))
+				return false;
+		}
+			
+		return true;
+	
+	} 
+
+	int half = a.size() / 2;
+	//if(half % 2 != 0) {
+	//	flag = false;
+	//	return flag;
 	//}
-	//std::cout<<std::endl;
-	int half = (int)(chunks.size()/2);
-	//std::cout << "half " <<half <<" size "<<chunks.size()<<std::endl;
-	for(int i = 0, j = 1, k = half, l = half+1; j < half; i+=2, j+=2, k+=2, l+=2 ){
-		std::vector<int> a1 = chunks.at(i);
-		std::vector<int> a2 = chunks.at(j);
-		std::vector<int> b1 = chunks.at(k);
-		std::vector<int> b2 = chunks.at(l);
+	std::vector<int> a1(a.begin(), a.begin() + half);
+	std::vector<int> a2(a.begin() + half, a.end());
+	std::vector<int> b1(b.begin(), b.begin() + half);
+	std::vector<int> b2(b.begin() + half, b.end());
+	bool a1_b1 = mergesort(a1, b1);
+	bool a2_b2 = mergesort(a2, b2);
+	bool a1_b2 = mergesort(a1, b2);
+	bool a2_b1 = mergesort(a2, b1);
+	bool res = (a1_b1 && a2_b2) || (a1_b1 && a1_b2)|| (a2_b1 && a2_b2);
+	if(res)
+		flag = true;
+	return res;
+	//bool a1_b2 = mergesort(a1, b2);
+	//bool a2_b1 = mergesort(a2, b1);
 
-
-		size_t m = 0, n = 0, o = 0, p = 0;
-		while(m < a1.size() && n < a2.size() && o < b1.size() && p < b2.size()){
-			//std::cout << "a1[n]: " << a1.at(n) << " b1[n]: " << b1.at(n)<<"\n" 
-			//<< " a2[n]: " << a2.at(n) << " b2[n]: " << b2.at(n) << std::endl;
-			//a1 == b1 && a2 == b2
-			if(a1.at(m) ==  b1.at(m) && a2.at(m) == b2.at(m)){
-				m++;
-				continue;
-			}
-			//a1 == b1 && a1 == b2
-			else if(a1.at(n) == b1.at(n) && a1.at(n) == b2.at(n)){
-				n++;
-				continue;
-			}
-			//a2 == b1 && a2 == b2
-			else if(a2.at(o) == b1.at(o) && a2.at(o) == b2.at(o)){
-				o++;
-				continue;
-			}
-			else p++;
-		}
-
-		//std::cout<<"m "<<m<<"\n"<<"n "<<n<<"\n"<<"o "<<o<<"\n"<<"p "<<p<<std::endl;
-		if(m == a1.size() || n == a1.size() || o == a1.size()){
-			flag = true;
-			return;
-		}
-	}
-	flag = false;
-
+	//if(a1_b1 && a2_b2)
+	//	return true;
+	//if(a1_b1 && a1_b2)
+	//	return true;
+	//if(a2_b1 && a2_b2)
+	//	return true;
+	//return false;
 	
-//	if(l == a1.size() * 4){
-//		std::cout << "NO" << std::endl;
-//		return false;
-//	}
-
-	//return true;
-}
-std::vector<int> mergesort(std::vector<int> s){
-	
-	if(s.size() == 2){
-		chunks.push_back(s);
-		compare();
-		return s;
-	
-	}
-	int half = s.size() / 2;
-	std::vector<int> s1(s.begin(), s.begin() + half);
-	std::vector<int> s2(s.begin() + half, s.end());
-	
-	s1 = mergesort(s1);
-	s2 = mergesort(s2);
-
-	return s;
 }
 
-bool match(int a[], int b[]){
+bool match(int raw_a[], int raw_b[]){
+
+	if(debug_mode){
+		std::cout << "match() initial state:" << std::endl;
+		std::cout << "size: " << size << std::endl;
+		std::cout << "size is odd: " << ((size%2 != 0) ? "true" : "false") << std::endl;
+		std::cout << "or" << std::endl;
+		std::cout << "size less than 8: " << ((size < 8) ? "true" : "false") << std::endl;
+
+	}
 
 	if(size % 2 != 0 || size < 8)
-		return compare_arrays(a, b, size);
+		return compare_arrays(raw_a, raw_b, size);
 	//guaranteed to have full tree
-	std::vector<int> merged;
-	merged.insert(merged.end(), a, a + size);
-	merged.insert(merged.end(), b, b + size);
-	mergesort(merged);
-	return flag;
+	//std::vector<int> merged;
+	std::vector<int> a(raw_a, raw_a + size);
+	std::vector<int> b(raw_b, raw_b + size);
+	//merged.insert(merged.end(), b, b + size);
+	return mergesort(a, b);
+	//std::cout << (flag ? "YES" : "NO") ;
+//	return flag;
 }
 
 int main(int argc, char *argv[]) {
@@ -107,6 +101,13 @@ int main(int argc, char *argv[]) {
 		std::cerr << "Please input a filename \n";
 		return 1;
 	}
+	if(argc == 3 ){
+		std::string optional_flag = argv[2];
+		if(optional_flag == "--debug")
+			debug_mode = true;
+	}
+	if(debug_mode)
+		std::cout << "running in debugging mode."<<std::endl;
 	
 	std::string line;
 	std::vector<int> a;
@@ -133,7 +134,8 @@ int main(int argc, char *argv[]) {
 	InputFile.close();
 
 
-	std::cout << ((match(a.data(), b.data())) ? "YES" : "NO") ;
+	std::cout << ((match(a.data(), b.data())) ? "YES" : "NO")<< std::endl;
 	//match(a.data(), b.data());
+	//std::cout<<" end :D";
 	return 0;
 }
