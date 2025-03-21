@@ -1,0 +1,4 @@
+java -cp algs4.jar edu.princeton.cs.algs4.BreadthFirstPaths tinyG.txt 0
+
+java -cp algs4.jar edu.princeton.cs.algs4.DepthFirstOrder tinyG.txt
+

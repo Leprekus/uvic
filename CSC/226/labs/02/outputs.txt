@@ -1,0 +1,42 @@
+raulrodriguez@w134-87-190-181 02 % java -cp algs4.jar edu.princeton.cs.algs4.BreadthFirstPaths tinyG.txt 5
+5 to 0 (1):  5-0
+5 to 1 (1):  5-1
+5 to 2 (1):  5-2
+5 to 3 (2):  5-2-3
+5 to 4 (1):  5-4
+5 to 5 (0):  5
+5 to 6 (2):  5-8-6
+5 to 7 (2):  5-8-7
+5 to 8 (1):  5-8
+5 to 9 (2):  5-8-9
+raulrodriguez@w134-87-190-181 02 % java -cp algs4.jar edu.princeton.cs.algs4.DepthFirstPaths tinyG.txt 7
+7 to 0:  7-9-6-0
+7 to 1:  7-9-6-0-5-8-1
+7 to 2:  7-9-6-0-5-8-1-3-2
+7 to 3:  7-9-6-0-5-8-1-3
+7 to 4:  7-9-6-0-5-8-1-3-2-4
+7 to 5:  7-9-6-0-5
+7 to 6:  7-9-6
+7 to 7:  7
+7 to 8:  7-9-6-0-5-8
+7 to 9:  7-9
+raulrodriguez@w134-87-190-181 02 % java -cp algs4.jar edu.princeton.cs.algs4.DepthFirstSearch tinyG.txt 9
+0 1 2 3 4 5 6 7 8 9
+connected
+raulrodriguez@w134-87-190-181 02 % java -cp algs4.jar edu.princeton.cs.algs4.DepthFirstOrder tinyG.txt
+   v  pre post
+--------------
+   0    0    9
+   1    9    2
+   2    5    4
+   3    8    3
+   4    7    0
+   5    4    5
+   6    2    7
+   7    6    1
+   8    3    6
+   9    1    8
+Preorder:  0 9 6 8 5 2 7 4 3 1
+Postorder: 4 7 1 3 2 5 8 6 9 0
+Reverse postorder: 0 9 6 8 5 2 3 1 7 4
+raulrodriguez@w134-87-190-181 02 %
