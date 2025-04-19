@@ -1,7 +1,7 @@
+#include "vector.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "vector.h"
 
 void vec_init(Vec *v, int capacity) {
 	int *data = (int *)malloc(capacity * sizeof(int));

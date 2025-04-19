@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "vector.h"
 typedef struct {
 	unsigned size;
 	unsigned capacity;
@@ -95,52 +96,43 @@ unsigned *process_file( const char *string, size_t *size, size_t *nums_size){
 	return ret;
 }
 
-void factor(unsigned n, Hash *ht, unsigned *count){
-	(*count)++; //count 1 as divisor of n
+void factor(unsigned n, Vec *v){
 	for(unsigned i = 2; i*i <= n; i++){
-		
 		while(n % i == 0) {
-		if(1){
-		printf("ran ok i = %d", i);
-		}
-		
-			
-			if( !hash_get(ht, n) ){
-				hash_insert(ht, n); 
-				printf("ran ok n = %d", n);
-				exit(0);
-
-				(*count)++;
-			}
-			//vec_push(v, i); //store prime factor
+			vec_push(v, i);
 			n /= i; //remove prime factor from n
 		}
 	
 
 	}
-	if(n > 1 && !hash_get(ht, n) ) (*count)++; //push any remaining prime factors
+	if(n > 1) vec_push(v, n); //count any remaining prime factors
 };
+
+void get_divisors(const char *path) {
+}
+
 int main(int argc, char **argv) {
+	get_divisors(argv[1]);
 	size_t size;
 	char *string = read_file(argv[1], &size);
 
 	size_t nums_size;
 	unsigned *nums = process_file(string, &size, &nums_size);
 
-	unsigned count;
 	Hash ht;
 	hash_init(&ht, nums[0]);
-	//factor(nums[1], &ht, &count);
-	for(unsigned i = 2; i < nums[0]; i++){
-		if(!hash_get(&ht, i)){
-			hash_insert(&ht, i);
-			printf("inserting... ");
-		}
-		printf("inserted i = %d retrieved ht(i) =  %d\n", i, hash_get(&ht, i));
-	}
+	
+	Vec v;
+	vec_init(&v, 100);
+
+	factor(195, &v);
+	//printf("%d has %d divisors", 18, num_divisors);
+	for(unsigned i = 0; i < v.size; i++)
+		printf("%d ", v.data[i]);
 
 	free(string);
 	free(nums);
+	free(v.data);
 	free(ht.data);
 	return 0;
 }
