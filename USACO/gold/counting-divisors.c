@@ -109,12 +109,8 @@ void factor(unsigned n, Vec *v){
 };
 
 void get_divisors(const char *path) {
-}
-
-int main(int argc, char **argv) {
-	get_divisors(argv[1]);
 	size_t size;
-	char *string = read_file(argv[1], &size);
+	char *string = read_file(path, &size);
 
 	size_t nums_size;
 	unsigned *nums = process_file(string, &size, &nums_size);
@@ -126,13 +122,38 @@ int main(int argc, char **argv) {
 	vec_init(&v, 100);
 
 	factor(195, &v);
-	//printf("%d has %d divisors", 18, num_divisors);
-	for(unsigned i = 0; i < v.size; i++)
-		printf("%d ", v.data[i]);
+
+	unsigned count = 0;
+	for(unsigned i = 0; i < v.size; i++){
+		if( !hash_get(&ht, v.data[i]) ){
+			hash_insert(&ht, v.data[i]);
+			count++;
+		}
+		printf("divisor %d\n", v.data[i]);
+		for(unsigned j = 0; j < v.size; j++){
+			if(i == j) continue;
+			unsigned num = v.data[i] * v.data[j];
+			if( !hash_get(&ht, num) ){
+				hash_insert(&ht, num);
+				//printf("divisor %d\n", num);
+				count++;
+			}
+			continue;
+		}
+	}
+	count++; //count n | n
+	count ++; //count 1 | n
+
+	//printf("divisors %d", count);
 
 	free(string);
 	free(nums);
 	free(v.data);
 	free(ht.data);
-	return 0;
+
+}
+
+int main(int argc, char **argv) {
+	get_divisors(argv[1]);
+		return 0;
 }
