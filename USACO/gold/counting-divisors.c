@@ -108,20 +108,15 @@ void factor(unsigned n, Vec *v){
 	if(n > 1) vec_push(v, n); //count any remaining prime factors
 };
 
-void get_divisors(const char *path) {
-	size_t size;
-	char *string = read_file(path, &size);
-
-	size_t nums_size;
-	unsigned *nums = process_file(string, &size, &nums_size);
+unsigned get_divisors(const char *path, const unsigned num) {
 
 	Hash ht;
-	hash_init(&ht, nums[0]);
+	hash_init(&ht, num);
 	
 	Vec v;
 	vec_init(&v, 100);
 
-	factor(195, &v);
+	factor(num, &v);
 
 	unsigned count = 0;
 	for(unsigned i = 0; i < v.size; i++){
@@ -129,7 +124,6 @@ void get_divisors(const char *path) {
 			hash_insert(&ht, v.data[i]);
 			count++;
 		}
-		printf("divisor %d\n", v.data[i]);
 		for(unsigned j = 0; j < v.size; j++){
 			if(i == j) continue;
 			unsigned num = v.data[i] * v.data[j];
@@ -146,14 +140,56 @@ void get_divisors(const char *path) {
 
 	//printf("divisors %d", count);
 
-	free(string);
-	free(nums);
 	free(v.data);
 	free(ht.data);
 
+	return count;
+
 }
 
+unsigned *get_answers(const char *path) {
+	size_t size;
+	char *string = read_file(path, &size);
+
+	size_t nums_size;
+	unsigned *answers = process_file(string, &size, &nums_size);
+	return answers;
+}
+
+void compare_answers(const char *input_path, const char *compare_path){
+	size_t size;
+	char *string = read_file(input_path, &size);
+
+	size_t nums_size;
+	unsigned *nums = process_file(string, &size, &nums_size);
+	Vec ret;
+	vec_init(&ret, nums_size);
+
+	for(unsigned i = 0; i < nums_size; i++){
+	 	vec_push(&ret, get_divisors(input_path, nums[i]));
+		printf("vec %d\n", ret.data[ ret.size - 1 ]);
+	}
+	unsigned *answers = get_answers(compare_path);
+	for(unsigned i = 0; i < nums_size; i++)
+		printf("%s computed: %d, expected: %d\n", (ret.data[i] == answers[i]) ? "CORRECT" : "INCORRECT", ret.data[i], answers[i]);
+
+	free(string);
+	free(nums);
+	free(answers);
+	free(ret.data);
+};
 int main(int argc, char **argv) {
-	get_divisors(argv[1]);
-		return 0;
+
+	if(argc < 2){
+		printf("please provide input file");
+		exit(1);
+	}
+	if(argc > 3){
+		printf("usage: <program> <input_file> <compare_file>");
+		exit(1);
+	}
+
+	compare_answers(argv[1], argv[2]);
+
+	return 0;
 }
