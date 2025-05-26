@@ -53,64 +53,6 @@ function canPartition(nums: number[]): boolean {
     let satisfied =  false;
     const stack: number[] = [];
     const M: { [key: number]: number[] } = {}; nums.forEach(key => (M[key] = M[key] || []).push(key));
-    let w = nums[nums.length - 1];
-    M[w].pop(); //remove max from available elements
-    let dfs: number[] = [w]; //include max in our traversal
-    //ii) build a tree to find k out of remaining elements
-    // initialize with sum being set to the maximum element
-    const findK = (A: number[], k: number) => {
-	//initialize with all elements except max
-	if(A.length === nums.length) throw Error("omit max");
-	if(satisfied) return;
-        if(A.length === 0) return;
-	const s = A.reduce((a,b)=>a+b);
-	w += s;
-	if(w > k) {
-	    //stack.forEach(k => M[k].push(stack.pop()!));
-	    w -= s;
-	    return;
-	};
-	if(w === k) {
-	    satisfied = true;
-	    console.log('satisfied', sum, dfs);
-	    dfs = [...dfs, ...A];
-	    return;
-	}
-	console.log(sum, 'sublist ', A);
-	findK(A.slice(1, A.length), k, );
-	findK(A.slice(0, A.length - 1), k);
-
-    };
-    console.log('calling fn()');
-    findK(nums.slice(0, nums.length - 1), k);
-    dfs = dfs.length ? dfs : [0];
-    nums = (Object.values(M) as unknown as number[][]).flat();
-    console.log({ dfs, nums, satisfied: dfs.reduce((a,b) => (a||0)+(b||0)) === nums.reduce((a,b) => (a||0)+(b||0))});
-    //iii) see if remaining elements add up to k
-    return (sum % 2) === 0;
-    
-};
-canPartition(porno);
-
-function canPartition(nums: number[]): boolean {
-    nums = [...nums];
-    if(nums.length <= 1) return false;
-
-    nums.sort((a, b) => a - b);
-    const reduction = nums.slice(0, nums.length - 1)
-        .reduce((a, b) => a + b); //omit max elements
-    
-    //if max > sum(nums) - max there is no solution
-    if(nums[nums.length - 1] > reduction) return false;
-    const sum = reduction + nums[nums.length - 1];
-    //if sum has a remainder there is no solution
-    if(sum % 2) return false;
-    //TODO: 
-    //i)get k s.t. 2k = sum
-    const k = sum / 2;
-    let satisfied =  false;
-    const stack: number[] = [];
-    const M: { [key: number]: number[] } = {}; nums.forEach(key => (M[key] = M[key] || []).push(key));
     M[nums[nums.length - 1]].pop(); //remove max from available elements
     let dfs: number[] = []; //include max in our traversal
     //ii) build a tree to find k out of remaining elements
@@ -153,3 +95,90 @@ function canPartition(nums: number[]): boolean {
     return dfs.reduce((a,b) => (a||0)+(b||0)) === nums.reduce((a,b) => (a||0)+(b||0));
     
 }
+
+
+class Combinations{
+    A: number[];
+    r: number;
+    n: number;
+    M: { [k: number]: number[] }
+    partition: number[];
+    complement: number[];
+    constructor(A: number[], r: number){
+        this.A = A; 
+        this.r = r - 1;
+        this.n = A.length;
+        this.M = {};
+        this.partition = [];
+        this.complement = [];
+    }
+
+    private comUtil(
+        idx: number, r: number, data: number[], 
+        /*ret: number[][],*/ A: number[], sum: number,
+                             //B: number[], comSum: number,
+                             k: number, total: number
+    ){
+        //if(data.length > 0) ret.push([ ...data ]);
+        if(data.length === r) {
+            return;
+        }
+
+        for(let i = idx; i < this.n; i++){
+            sum += A[i];
+            data.push(A[i]);
+            if(this.M[sum] === undefined){
+                this.M[sum] = [...data];
+                
+                let complement, comSum = total - sum;
+                if(this.M[total - sum] === undefined){
+                    complement = this.getComplement(this.A, data);
+                    this.M[total - sum] = complement;
+                } else complement = M[total - sum];
+                console.log(data)
+                if(sum === comSum) {
+                    console.log('success');
+                    this.partition = [...data]
+                    this.complement = [...complement];
+                    return;
+                }
+                this.comUtil(i + 1, r, data, A, sum, k, total);
+            }
+            sum -= data.pop()!;
+        }
+    }
+    getCom(): boolean{
+        const data: number[] = [];
+        const total = this.A.reduce((a, b) => a + b);
+        const k: number = total / 2;
+        this.comUtil(0, this.r, data, this.A, 0, k, total);
+        //const complement: number[] = this.complement(this.A, this.partition);
+        //const L = this.partition.length && this.partition.reduce((a, b) => a + b);
+        //const R = complement.length && complement.reduce((a, b) => a + b);
+        //console.log('A', this.A);
+        //console.log('k', k);
+        //console.log('L', this.partition);
+        //console.log('R', complement);
+        return 0 > 1;
+    }
+    getComplement(A: number[], S: number[]):  number[]{
+        const M: { [k: number]: number } = {};
+        A.forEach(k => M[k] = (M[k] || 0) + 1);
+        S.forEach(k => M[k]--);
+        const keys: number[] = Object.keys(M).map(Number);
+        const ret: number [] = [];
+        keys.forEach((k: number) => {
+            while(M[k] > 0) ret.push(k), M[k]--;
+        });
+        return ret;
+    }
+}
+
+//k = 14
+//TODO: store the subarrays in a sum: sublist map,
+//all sublists that have a sum s will be mapped to the first sublist that sums up to s
+//const A = [14,9,8,4,3,2];
+//const A = [3,3,6,8,16,16,16,18,20];
+const A = [20,1,16,2,17,16,8,15,7];
+const com = new Combinations(A, A.length);
+console.log(com.getCom());
