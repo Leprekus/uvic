@@ -103,21 +103,18 @@ class Combinations{
     n: number;
     M: { [k: number]: number[] }
     partition: number[];
-    complement: number[];
     constructor(A: number[], r: number){
         this.A = A; 
         this.r = r - 1;
         this.n = A.length;
         this.M = {};
         this.partition = [];
-        this.complement = [];
     }
 
     private comUtil(
         idx: number, r: number, data: number[], 
-        /*ret: number[][],*/ A: number[], sum: number,
-                             //B: number[], comSum: number,
-                             k: number, total: number
+        A: number[], sum: number,
+        k: number
     ){
         //if(data.length > 0) ret.push([ ...data ]);
         if(data.length === r) {
@@ -129,39 +126,25 @@ class Combinations{
             data.push(A[i]);
             if(this.M[sum] === undefined){
                 this.M[sum] = [...data];
-                
-                let complement, comSum = total - sum;
-                if(this.M[total - sum] === undefined){
-                    complement = this.getComplement(this.A, data);
-                    this.M[total - sum] = complement;
-                } else complement = M[total - sum];
-                console.log(data)
-                if(sum === comSum) {
-                    console.log('success');
+                if(sum === k) {
                     this.partition = [...data]
-                    this.complement = [...complement];
                     return;
                 }
-                this.comUtil(i + 1, r, data, A, sum, k, total);
+                this.comUtil(i + 1, r, data, A, sum, k);
             }
             sum -= data.pop()!;
         }
     }
     getCom(): boolean{
         const data: number[] = [];
-        const total = this.A.reduce((a, b) => a + b);
-        const k: number = total / 2;
-        this.comUtil(0, this.r, data, this.A, 0, k, total);
-        //const complement: number[] = this.complement(this.A, this.partition);
-        //const L = this.partition.length && this.partition.reduce((a, b) => a + b);
-        //const R = complement.length && complement.reduce((a, b) => a + b);
-        //console.log('A', this.A);
-        //console.log('k', k);
-        //console.log('L', this.partition);
-        //console.log('R', complement);
-        return 0 > 1;
+        const k: number = this.A.reduce((a, b) => a + b) / 2;
+        this.comUtil(0, this.r, data, this.A, 0, k);
+        const complement: number[] = this.complement(this.A, this.partition);
+        const L = this.partition.length && this.partition.reduce((a, b) => a + b);
+        const R = complement.length && complement.reduce((a, b) => a + b);
+        return L === R;
     }
-    getComplement(A: number[], S: number[]):  number[]{
+    complement(A: number[], S: number[]): number[]{
         const M: { [k: number]: number } = {};
         A.forEach(k => M[k] = (M[k] || 0) + 1);
         S.forEach(k => M[k]--);
@@ -179,6 +162,6 @@ class Combinations{
 //all sublists that have a sum s will be mapped to the first sublist that sums up to s
 //const A = [14,9,8,4,3,2];
 //const A = [3,3,6,8,16,16,16,18,20];
-const A = [20,1,16,2,17,16,8,15,7];
+const A = [20, 1,16,2,17,16,8,15,7];
 const com = new Combinations(A, A.length);
 console.log(com.getCom());

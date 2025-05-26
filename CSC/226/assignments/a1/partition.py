@@ -1,3 +1,5 @@
+# RAUL RODRIGUEZ CASTRO
+# V01030827
 # partition.py
 # CSC 226 - Summer 2025
 # 
@@ -41,7 +43,6 @@ def partition(A):
     if sum(L) != sum(R):
         return None
     return (L, R)
-#partition([20,1,16,2,17,16,8,15,7])
-print(partition([x for x in range(0,32)]))
+
 
 
