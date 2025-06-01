@@ -21,22 +21,24 @@ where id in (
     intersect
     select id from d
 )
-and year >= 2000;
+and year >= 2000
+order by year asc;
 
 /*
-2) Which are the TV series (not episodes) with an average rating above 9.0 and at least 100,000 votes that
-were made since 2010 (year 2010 including).
+2) Which are the TV series (not episodes) with an average rating above 9.0 and at least 50,000 votes that
+were made since 2015 (year 2015 including).
  */
 
 with tvseries as (
 	select * from productions
 	where ptype = 'tvSeries'
-	and year >= 2010
+	and year >= 2015
 ),
 r as (
 	select id from ratings
 	where rating > 9.0
-	and votes >= 100000
+	and votes >= 50000
+	order by votes asc
 )
 select * from productions
 where id in (
@@ -85,32 +87,44 @@ with movies as (
 	and votes >= 500000
 ),
 dirs as (
-	select A.director, A.id from directors as A
-	inner join directors as B
-		on A.id <> B.id
-		and A.director = B.director
-),
-dirsTwo as (
-	select director, id from dirs 
+	select director, id from directors
 	where id in (select id from movies)
+),
+filtered as (
+	select distinct A.director, A.id from dirs A
+	inner join dirs B
+		on A.director = B.director
+		and A.id <> B.id
+),
+names as (
+	select personname, pid, id from persons
+	right join filtered
+		on pid = director
+),
+titles as (
+	select title, year, id from productions
+	where id in (select id from filtered)
 )
-select * from dirsTwo;
-	
+
+select personname as director, title, year from names
+	right join titles
+		on titles.id = names.id
+	order by director, title asc;
 
 -- PART III
--- What episodes of the tvMiniSeries with title Ahsoka do not have an average rating?
-with ahsoka as (
-	select id from productions
-	where title = 'Ahsoka'
+-- What episodes of the tvMiniSeries with title Andor do not have an average rating?
+with A as ( 
+	select id from productions where title = 'Andor' 
+	and ptype = 'tvSeries'
 ),
-eps as (
+epsids as (
 	select id from episodes
-	where episodeof in (select id from ahsoka)
+	where episodeof in (select id from A)
 ),
-avgrating as (
-	select rating from ratings
-	where id in (select id from ahsoka)
+nullids as (
+	select id from  epsids
+	where id not in (select id from ratings)
 )
-select id from ratings
-where id in (select id from eps)
-and rating <> (select rating from avgrating);
+select id, episodeof, season, episode from episodes
+where id in (select id from nullids);
+
