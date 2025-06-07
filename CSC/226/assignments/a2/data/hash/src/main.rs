@@ -157,7 +157,7 @@ fn main(){
         }
 
         if hash_double.size == hash_linear.capacity {
-            Writer::write(String::from("../records_double.csv"), hash_linear.records.clone());
+            Writer::write(String::from("../records_double.csv"), hash_double.records.clone());
             hash_double.clear();
         } else { 
             hash_double.insert(str); 

@@ -1,0 +1,20 @@
+# Ignore compiled files
+/target/
+
+# Ignore backup files
+**/*.rs.bk
+
+# Ignore Cargo.lock for libraries (keep it for binaries)
+/Cargo.lock
+
+# Ignore editor files
+**/*.swp
+**/*.swo
+**/*.tmp
+.idea/
+.vscode/
+.DS_Store
+
+# Ignore logs and output
+*.log
+
