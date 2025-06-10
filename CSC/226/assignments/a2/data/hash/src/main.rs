@@ -15,7 +15,6 @@ struct Hash {
     records: Vec<String>
 }
 
-
 impl Hash {
     pub fn new(capacity: usize, method: Method) -> Self {
         let headers = String::from("item number, key, status, load factor");
