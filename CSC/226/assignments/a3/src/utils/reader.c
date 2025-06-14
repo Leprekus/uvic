@@ -3,6 +3,7 @@
 FILE *fileOpen(const char *);
 void parseFile(const char *, size_t lineLen, callback cb);
 void tokenizeStr(const char *, char *, size_t, char *, size_t);
+size_t safeStrLen(const char *);
 void safeStrcpy(const char *, char *, size_t);
 
 FILE *fileOpen(const char *path) {
@@ -14,10 +15,14 @@ FILE *fileOpen(const char *path) {
 	return fptr;
 }
 
+size_t safeStrLen(const char *src){
+	size_t strLen = 0; while( src[strLen] != '\0') strLen++; 
+	return strLen;
+}
 void safeStrcpy(const char *src, char *buff, size_t buffLen) {
 	/* ensure at least 1 extra space for null terminator*/
-	size_t strLen = 0; while( strLen < buffLen - 1 && src[strLen] != '\0') strLen++; 
-
+	
+	size_t strLen = safeStrLen(src);
 	if(strLen >= buffLen) { /* exit if no extra space for null terminator*/
 		perror("safeStrcpy");
 		exit(EXIT_FAILURE);
