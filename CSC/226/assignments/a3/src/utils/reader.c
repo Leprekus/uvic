@@ -5,7 +5,7 @@
 FILE *fileOpen(const char *);
 void parseFile(const char *);
 void processLine(const char *);
-void tokenizeStr(const char *, char *, size_t, char *);
+void tokenizeStr(const char *, char *, size_t, char *, size_t);
 void safeStrcpy(const char *, char *, size_t);
 
 FILE *fileOpen(const char *path) {
@@ -28,10 +28,18 @@ void safeStrcpy(const char *src, char *buff, size_t buffLen) {
 	for(size_t i = 0; i < strLen; i++) buff[i] = src[i];
 	for(size_t i = strLen; i < buffLen; i++) buff[i] = '\0';
 }
-void tokenizeStr(const char *str, char *buff, size_t buffLen, char *del){
-	char *savePtr = NULL;
+/* 
+ * takes an array of delimiters as input and replaces matching
+ * characters in string with '\0' 
+ * */
+void tokenizeStr(const char *str, char *buff, size_t buffLen, char *del, size_t delLen){
 	safeStrcpy(str, buff, buffLen);
-	//strtok_r(buff, del, &savePtr);
+	for(size_t i = 0; i < buffLen; i++){
+		for(size_t j = 0; j < delLen; j++){
+			if( buff[i] == del[j] )
+				buff[i] = '\0';
+		}
+	}
 	/*
 	 * TODO: 
 	 * i) parse 24_735_503 edges
@@ -42,7 +50,7 @@ void tokenizeStr(const char *str, char *buff, size_t buffLen, char *del){
 
 void processLine(const char *line){
 	size_t tokensLen = 128;
-	char tokens[tokensLen]; tokenizeStr(line, tokens, tokensLen, "\t");
+	char tokens[tokensLen]; tokenizeStr(line, tokens, tokensLen, "\t-", 2);
 	for(size_t i = 0; i < tokensLen; i++)
 		if(tokens[i] != '\0') putchar(tokens[i]);
 	putchar('\n');
