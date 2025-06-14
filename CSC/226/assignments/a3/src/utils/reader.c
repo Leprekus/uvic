@@ -1,7 +1,7 @@
 #include "../include/utils/reader.h"
 
 FILE *fileOpen(const char *);
-void parseFile(const char *, callback cb);
+void parseFile(const char *, size_t lineLen, callback cb);
 void tokenizeStr(const char *, char *, size_t, char *, size_t);
 void safeStrcpy(const char *, char *, size_t);
 
@@ -47,10 +47,9 @@ void tokenizeStr(const char *str, char *buff, size_t buffLen, char *del, size_t 
 
 
 
-void parseFile(const char *path, callback cb) {
+void parseFile(const char *path, size_t lineLen, callback cb) {
 	FILE *f = fileOpen(path);
 
-	size_t lineLen = 128;
 	char line [lineLen];
 	
 
