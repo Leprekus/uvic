@@ -1,6 +1,7 @@
+#include <stdlib.h>
 /*
  * handles application specific logic
  * for high-level data ingestion and processing
  * dsa/graph.c contains reusable logic
  * */
-void processLine(const char *line);
+void processLine(const char *line, size_t lineLen);

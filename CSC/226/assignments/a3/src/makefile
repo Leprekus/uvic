@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Iinclude
-SRC = main.c utils/reader.c
+SRC = main.c $(wildcard utils/*.c)
 OBJ = $(SRC:.c=.o)
 TARGET = main
 
