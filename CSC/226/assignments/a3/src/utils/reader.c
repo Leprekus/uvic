@@ -1,10 +1,7 @@
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "../include/utils/reader.h"
 
 FILE *fileOpen(const char *);
-void parseFile(const char *);
-void processLine(const char *);
+void parseFile(const char *, callback cb);
 void tokenizeStr(const char *, char *, size_t, char *, size_t);
 void safeStrcpy(const char *, char *, size_t);
 
@@ -48,16 +45,9 @@ void tokenizeStr(const char *str, char *buff, size_t buffLen, char *del, size_t 
 	 * */
 }
 
-void processLine(const char *line){
-	size_t tokensLen = 128;
-	char tokens[tokensLen]; tokenizeStr(line, tokens, tokensLen, "\t-", 2);
-	for(size_t i = 0; i < tokensLen; i++)
-		if(tokens[i] != '\0') putchar(tokens[i]);
-	putchar('\n');
 
-}
 
-void parseFile(const char *path) {
+void parseFile(const char *path, callback cb) {
 	FILE *f = fileOpen(path);
 
 	size_t lineLen = 128;
@@ -66,7 +56,8 @@ void parseFile(const char *path) {
 
 	int count = 0;
 	while( fgets(line, (int)lineLen, f) ){
-		processLine(line);
+		cb(line, lineLen);
+		//TODO: delete 1000 limit
 		if(count >= 1000) break;
 		else count++;
 	}

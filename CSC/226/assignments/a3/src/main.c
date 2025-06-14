@@ -1,5 +1,6 @@
 #include "utils/reader.h"
+#include "utils/graphBuilder.h"
 int main(void) {
-	reader();
+	parseFile("../CC-Neuron_cci.tsv");
 	return 0;
 }
