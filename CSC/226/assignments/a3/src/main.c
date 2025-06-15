@@ -1,17 +1,7 @@
 #include "utils/reader.h"
 #include "utils/graphBuilder.h"
 
-#define EXTRACT_TOKEN(tokens, buff, i, j, len)                 \
-	for((i) = (i); (i) < (len); (i)++){\
-		if( (tokens)[(i)] == '\0' ) { \
-			while((i) < (len) - 1 && (tokens)[++(i)] == '\0'){} \
-     			break;\
-		}\
-     		else {\
-			(buff)[(j)++] = (tokens)[(i)];\
-		}\
-	} (buff)[(j)] = '\0';\
-
+void processLine(const char *, size_t);
 void processLine(const char *line, size_t lineLen){
 
 	/* tokenized with delimiters: \t, - 
@@ -34,8 +24,8 @@ void processLine(const char *line, size_t lineLen){
 
 	
 
-	for(size_t i = 0; i < lineLen; i++)
-		if(tokens[i] != '\0') putchar(tokens[i]);
+	for(size_t k = 0; k < lineLen; k++)
+		if(tokens[k] != '\0') putchar(tokens[k]);
 	putchar('\n');
 
 }
