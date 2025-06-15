@@ -16,7 +16,9 @@ Arena newArena(ptrdiff_t cap){
 	}
 	a.beg = buff;
 	a.end = a.beg + cap;
+	return a;
 }
+
 void *alloc(Arena *a, ptrdiff_t size, ptrdiff_t align, ptrdiff_t count){
 	
 	//get the number of bytes to advance to the next alignment
