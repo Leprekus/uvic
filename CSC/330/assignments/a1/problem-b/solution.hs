@@ -25,9 +25,14 @@ getAdj (u, w) ((start, end, weight):es)
     | u == end = (end, start, weight):getAdj (u, w) es
     | otherwise = getAdj (u, w) es
 
---relaxEdges :: Integer -> [(Integer, Integer)] -> [(Integer, Integer, Integer)] -> [(Integer, Integer)]
---relaxEdges _ distance [] = distance
---relaxEdges (d:ds) adj = [ (u, w) | (u, w) <- d, (_, _, w') <- adj, w + w' ]
+relaxEdges :: [(Integer, Integer)] -> [(Integer, Integer, Integer)] -> [(Integer, Integer)]
+relaxEdges distance [] = distance
+relaxEdges ((start, weight):ds) ((start', end, weight'):as)
+    | weight + weight' < prevAdjWeight = [y | y <- ] -- update distance
+    where
+        z = fromIntegral(end - 1)
+        prevAdjWeight = distance !! z -- index distance with adj vertex z
+        d = (start, weight):ds -- rename distance to use in list comprehension
 
             -- [(Node, Weight)], [Distance], [Adj])
 dijkstra :: ([(Integer, Integer)], [Integer], [(Integer, Integer, Integer)]) -> 
