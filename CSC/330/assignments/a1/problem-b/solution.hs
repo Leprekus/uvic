@@ -17,14 +17,18 @@ len = toInteger . length
 (nodes, items, edges) = problem1 
 numEdges = len edges
 
-distance = [0] ++ listFrom (nodes - 1) 999999
--- q contains the vertices in distance along with distance[i]
-q = queue [ (y + 1, distance !! (fromIntegral y)) | y <- [0..nodes - 1] ]
+
 getAdj :: (Integer, Integer) -> [(Integer, Integer, Integer)] -> [(Integer, Integer, Integer)]
 getAdj _ [] = []
-getAdj (u, w) edges = filter (\(u', z, w') -> (u == u') || (u == z)) edges
+getAdj (u, w) ((start, end, weight):es)
+    | u == start = (start, end, weight):getAdj (u, w) es
+    | u == end = (end, start, weight):getAdj (u, w) es
+    | otherwise = getAdj (u, w) es
 
-(n, it, adj) = problem1
+--relaxEdges :: Integer -> [(Integer, Integer)] -> [(Integer, Integer, Integer)] -> [(Integer, Integer)]
+--relaxEdges _ distance [] = distance
+--relaxEdges (d:ds) adj = [ (u, w) | (u, w) <- d, (_, _, w') <- adj, w + w' ]
+
             -- [(Node, Weight)], [Distance], [Adj])
 dijkstra :: ([(Integer, Integer)], [Integer], [(Integer, Integer, Integer)]) -> 
             ([(Integer, Integer)], [Integer], [(Integer, Integer, Integer)])
@@ -34,5 +38,12 @@ dijkstra (q:qs,  d:ds, a:as)
     where
         -- relax edges to adj nodes
         adj = getAdj q (a:as)
+        (u, _) = q
+        -- relaxedEdges = relaxEdges u (d:ds) adj
 
+(n, it, adj) = problem1
+distance = [0] ++ listFrom (nodes - 1) 999999
+-- q contains the vertices in distance along with distance[i]
+q = queue [ (y + 1, distance !! (fromIntegral y)) | y <- [0..nodes - 1] ]
+x = dijkstra (q, distance, adj)
 
