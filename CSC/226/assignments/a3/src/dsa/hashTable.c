@@ -1,15 +1,19 @@
 #include "../include/dsa/hashTable.h"
-#include "../include/dsa/arena.h"
 #include "../include/utils/reader.h"
 #include <stdint.h>
 
 void htInit(HashTable *, Arena *, uint32_t);
+uint32_t murmurhash (const char *, uint32_t, uint32_t);
+uint32_t h(const char *, uint32_t);
+Entry *htNewEntry(Arena *, Edge *);
+void htInsert(HashTable *, Arena *, const char *, Edge *);
+
 void htInit(HashTable *ht, Arena *a, uint32_t capacity){
 	ht->capacity = capacity;
 	ht->size = 0;
 	ht->count = 0;
 	ht->alpha = 0;
-	ht->edges =  NEW(a, Edge *, capacity);
+	ht->entries =  NEW(a, Entry *, capacity);
 }
 
 //taken from: https://github.com/jwerle/murmurhash.c/blob/master/murmurhash.c
@@ -29,7 +33,7 @@ uint32_t murmurhash (const char *key, uint32_t len, uint32_t seed) {
   const uint32_t *chunks = NULL;
   const uint8_t *tail = NULL; // tail - last 8 bytes
   int i = 0;
-  int l = len / 4; // chunk length
+  int l = (int)len / 4; // chunk length
 
   h = seed;
 
@@ -61,7 +65,9 @@ uint32_t murmurhash (const char *key, uint32_t len, uint32_t seed) {
   // remainder
   switch (len & 3) { // `len % 4'
     case 3: k ^= (tail[2] << 16);
+	__attribute__((fallthrough));
     case 2: k ^= (tail[1] << 8);
+	__attribute__((fallthrough));
 
     case 1:
       k ^= tail[0];
@@ -86,8 +92,24 @@ uint32_t h(const char *k, uint32_t capacity){
 	uint32_t hash = murmurhash(k, (uint32_t) safeStrLen(k), seed);
 	return hash % capacity;
 }
-void htInsert(HashTable *ht, const char *k, Edge *v){
+
+Entry *htNewEntry(Arena *a, Edge *v){
+	Entry *e = NEW(a, Entry, 1);
+	return e;
+}
+void htInsert(HashTable *ht, Arena *a, const char *k, Edge *v){
 	uint32_t idx = h(k, ht->capacity);
+	Entry *e = htNewEntry(a, v);
+
+	//case 1: insert to empty slot
+	if(ht->entries[idx] == NULL){
+		ht->entries[idx] = e;
+	} else {//case 2: append item to tail
+		Entry *oldHead = ht->entries[idx]; 
+		e->next = oldHead;
+		ht->entries[idx] = e;
+		
+	}
 
 }
 
