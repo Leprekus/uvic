@@ -62,7 +62,7 @@ void parseFile(const char *path, size_t lineLen, callback cb) {
 	while( fgets(line, (int)lineLen, f) ){
 		cb(line, lineLen);
 		//TODO: delete 1000 limit
-		//if(count >= 10000) break;
+		if(count >= 10000) break;
 		count++;
 	}
 	fclose(f);

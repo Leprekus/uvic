@@ -54,11 +54,11 @@ int main(void) {
 	 * ptrdiff_t is 8bytes long
 	 * we want to allocate 4gb so 4e+9
 	 * */
-	a = newArena(4e+9 * 2);
+	a = newArena(4e+9);
 	G = graphInit(&a, 49471033); //initialize a ht with a capacity of 250M items
 	const size_t lineLen = 128;
 	parseFile("../CC-Neuron_cci.tsv", lineLen, &processLine);
-	printf("HT \n --------------------\n size: %u\n count: %u\n capacity %u\n alpha %f \n edges: %u", 
+	printf("HT \n --------------------\n size: %u\n count: %u\n capacity %u\n alpha %f \n edges: %u\n", 
 	 G.ht.size, //number of slots available
 	 G.ht.count, //number of items stored 
 	 G.ht.capacity,  //total number of slots
@@ -66,6 +66,7 @@ int main(void) {
 	 G.edgeCount
 
 	);
+	printf("arena mem space left: %ld\n", a.end - a.beg);
 	return 0;
 
 }
