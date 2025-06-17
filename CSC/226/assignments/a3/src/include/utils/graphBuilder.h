@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include "../dsa/graph.h"
 /*
  * handles application specific logic
  * for high-level data ingestion and processing

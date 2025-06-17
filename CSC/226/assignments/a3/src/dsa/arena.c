@@ -34,7 +34,7 @@ void *alloc(Arena *a, ptrdiff_t size, ptrdiff_t align, ptrdiff_t count){
 	//ensure we have enough memory and that it is
 	//large enough to store our item COUNT times
 	if(available < 0 || count > available/size){
-		perror("alloc");
+		perror("alloc: failure");
 		exit(EXIT_FAILURE);
 	}
 	void *p = a->beg + padding; //create ptr to aligned address

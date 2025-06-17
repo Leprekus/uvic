@@ -3,24 +3,33 @@ M[u] = [(edge, weight)]
 M[v] = [(edge, weight)]
 Edge { edge, weight }
 */
-#include <stdint.h>
-#include "./graph.h"
-#include "./arena.h"
 
+#pragma once
+#include <stdint.h>
+#include "./arena.h"
+typedef struct Adjacent Adjacent;
+struct Adjacent {
+	char *to; //pointer to k of adjacent
+	int w; //weight of edge 'from' -> 'to'
+	struct Adjacent *next;
+};
 typedef struct Edge Edge;
 struct Edge {
-	const char *v; // starting node
-	const char *u; //adjacent node
-	const uint32_t w; // weight
+	char *from; // starting node
+	Adjacent *adj; //linked list of nodes adjacent to from
 };
 typedef struct Entry Entry;
 struct Entry {
-	Edge **edges;
+	Edge *edge;
 	Entry *next;
 
 };
+/*
+ * Note: since HashTable uses chaining
+ * the size may not match the count, and that is fine
+ * */
 typedef struct {
-	uint32_t size; //number of slots available
+	uint32_t size; //number of slots occupied 
 	uint32_t count;//number of items stored 
 	uint32_t capacity; //total number of slots
 	float alpha; //count/capacity
@@ -28,3 +37,6 @@ typedef struct {
 } HashTable;
 
 void htInit(HashTable *ht, Arena *a, uint32_t capacity);
+void htInsert(HashTable *ht, Arena *a, const char *k, Edge *v);
+Entry *htGet(HashTable *ht, const char *k);
+

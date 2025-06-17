@@ -7,6 +7,7 @@ uint32_t murmurhash (const char *, uint32_t, uint32_t);
 uint32_t h(const char *, uint32_t);
 Entry *htNewEntry(Arena *, Edge *);
 void htInsert(HashTable *, Arena *, const char *, Edge *);
+Entry *htGet(HashTable *, const char *);
 
 void htInit(HashTable *ht, Arena *a, uint32_t capacity){
 	ht->capacity = capacity;
@@ -89,12 +90,14 @@ uint32_t murmurhash (const char *key, uint32_t len, uint32_t seed) {
 }
 uint32_t h(const char *k, uint32_t capacity){
 	uint32_t seed = 0x9e3779b9; // retrieved from https://softwareengineering.stackexchange.com/questions/402542/where-do-magic-hashing-constants-like-0x9e3779b9-and-0x9e3779b1-come-from
-	uint32_t hash = murmurhash(k, (uint32_t) safeStrLen(k), seed);
-	return hash % capacity;
+	uint32_t hash1 = murmurhash(k, (uint32_t) safeStrLen(k), seed);
+	return hash1 % capacity;
 }
 
 Entry *htNewEntry(Arena *a, Edge *v){
 	Entry *e = NEW(a, Entry, 1);
+	e->edge = v;
+	e->next = NULL;
 	return e;
 }
 void htInsert(HashTable *ht, Arena *a, const char *k, Edge *v){
@@ -102,14 +105,29 @@ void htInsert(HashTable *ht, Arena *a, const char *k, Edge *v){
 	Entry *e = htNewEntry(a, v);
 
 	//case 1: insert to empty slot
+	//and update size
 	if(ht->entries[idx] == NULL){
 		ht->entries[idx] = e;
+		ht->size++;
 	} else {//case 2: append item to tail
+
 		Entry *oldHead = ht->entries[idx]; 
 		e->next = oldHead;
 		ht->entries[idx] = e;
 		
 	}
+	ht->count++;
+	ht->alpha = (float)ht->count/(float)ht->capacity;
 
 }
 
+Entry *htGet(HashTable *ht, const char *k) {
+	uint32_t idx = h(k, ht->capacity);
+	if(!ht->entries[idx]) return NULL;
+	Entry *curr = ht->entries[idx];
+	while(curr) {
+		if (memcmp(k, curr->edge->from, 16) == 0) return curr;	
+		else curr = curr->next;
+	}
+	return NULL;
+}
