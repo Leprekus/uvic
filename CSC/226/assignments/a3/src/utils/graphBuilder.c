@@ -10,3 +10,15 @@
  *
  * */
 
+void kruskal(Graph *);
+void boruvka(Graph *);
+void jarnik(Graph *);
+
+void kruskal(Graph *G) {
+
+}
+void boruvka(Graph *G) {
+
+}void jarnik(Graph *G) {
+
+}

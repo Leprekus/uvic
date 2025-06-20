@@ -67,6 +67,7 @@ int main(void) {
 
 	);
 	printf("arena mem space left: %ld\n", a.end - a.beg);
+	kruskal(&G);
 	return 0;
 
 }
