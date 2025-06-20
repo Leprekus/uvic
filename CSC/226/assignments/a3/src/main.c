@@ -3,7 +3,6 @@
 
 #include "utils/reader.h"
 #include "utils/graphBuilder.h"
-#include "dsa/graph.h"
 #include "dsa/arena.h"
 
 Arena a; 
@@ -67,7 +66,6 @@ int main(void) {
 
 	);
 	printf("arena mem space left: %ld\n", a.end - a.beg);
-	kruskal(&G);
 	return 0;
 
 }

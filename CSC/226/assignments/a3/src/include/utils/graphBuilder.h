@@ -5,7 +5,7 @@
  * dsa/graph.c contains reusable logic
  * */
 
-void kruskal(Graph *);
+void kruskal(Arena scratch, Graph *G);
 void boruvka(Graph *);
 void jarnik(Graph *);
 

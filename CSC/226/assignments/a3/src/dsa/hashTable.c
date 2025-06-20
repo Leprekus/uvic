@@ -121,11 +121,13 @@ void htInsert(HashTable *ht, Arena *a, const char *k, Edge *v){
 
 }
 
+
 Entry *htGet(HashTable *ht, const char *k) {
 	uint32_t idx = h(k, ht->capacity);
 	if(!ht->entries[idx]) return NULL;
 	Entry *curr = ht->entries[idx];
 	while(curr) {
+
 		if (memcmp(k, curr->edge->from, 16) == 0) return curr;	
 		else curr = curr->next;
 	}

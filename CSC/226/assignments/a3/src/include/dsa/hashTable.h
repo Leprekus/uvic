@@ -7,6 +7,8 @@ Edge { edge, weight }
 #pragma once
 #include <stdint.h>
 #include "./arena.h"
+
+
 typedef struct Adjacent Adjacent;
 struct Adjacent {
 	char *to; //pointer to k of adjacent
