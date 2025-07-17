@@ -24,6 +24,7 @@ export default class Edge<T>{
     }
 
     /*
+     * @params
      * compares edge a (caller) and edge b (argument)
      * returns: 
      * a < b: -1
