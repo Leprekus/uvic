@@ -24,4 +24,27 @@ export default class Graph<T> {
     public adjacent(u: T): Edges<T>{
         return this.edges.get(u) || [];
     }
+
+    public edgeIterator(): MapIterator<[T, Edges<T>]> {
+        return this.edges[Symbol.iterator]();
+    }
+
+    public getEdgeArray(): Edges<T> {
+        return Array.from(this.edgeIterator())
+                .flatMap(([_, v]) => v);
+    }
+
+    /**
+     * Returns a list of unique vertices in the graph.
+     *
+     * Uses `filter` to ensure each vertex appears only once:
+     * it keeps the vertex if its current index matches the index
+     * of its first occurrence in the array.
+     *
+     * @returns An array of unique vertices.
+     */
+    public getVertices(): T[] {
+        const v = Array.from(this.edges.keys()[Symbol.iterator]());
+        return v.filter((v, i, A) => A.indexOf(v) === i);
+    }
 }
