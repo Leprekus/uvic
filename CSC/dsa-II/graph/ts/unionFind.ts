@@ -1,4 +1,4 @@
-class UnionFindNode<T>{
+export class UnionFindNode<T>{
     element: T;
     parent: UnionFindNode<T>;
     size: number;
@@ -8,12 +8,17 @@ class UnionFindNode<T>{
         this.size = 1;
     }
 }
-class UnionFind<T> {
-    public union(a: UnionFindNode<T>, b: UnionFindNode<T>) {
+
+export default class UnionFind<T> {
+    public nodes: Map<T, UnionFindNode<T>>;
+    constructor () {
+        this.nodes = new Map<T, UnionFindNode<T>>;
+    }
+    public union(a: T, b: T): void {
         const p1 = this.find(a);
         const p2 = this.find(b);
         if(p1 === p2) return;
-        if(p1.size > p2.size) {
+        if(p1.size >= p2.size) {
             p2.parent = p1;
             p1.size += p2.size;
         } else {
@@ -21,11 +26,19 @@ class UnionFind<T> {
             p2.size += p1.size;
         }
     }
-    public find(a: UnionFindNode<T>): UnionFindNode<T> {
-        if(a.parent !== a) return this.find(a.parent);
+    private findHelper(a: UnionFindNode<T>): UnionFindNode<T> {
+        if(a.parent !== a) return this.findHelper(a.parent);
         return a;
     }
-    public add(element: T): UnionFindNode<T> {
-        return new UnionFindNode(element);
+
+    public find(k: T): UnionFindNode<T> {
+        const key = this.nodes.get(k); 
+        if(key === undefined) throw Error(`No node found with key ${k}`);
+        return this.findHelper(key);
+    }
+    public add(k: T): UnionFindNode<T> {
+        const v =  new UnionFindNode(k);
+        this.nodes.set(k , v);
+        return v;
     }
 }
