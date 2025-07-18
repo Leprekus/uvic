@@ -6,8 +6,7 @@ test('initializes nodes correctly', () => {
     let uf = new UnionFind<number>();
     for(let i = 0; i < 10; i++) {
         uf.add(i)
-        expect(uf.nodes[i].parent).toBe(uf.nodes[i]);
-        expect(uf.find(uf.nodes[i])).toBe(uf.nodes[i]);
+        expect(uf.find(i).parent).toBe(uf.find(i));
     }
     
 })
@@ -19,11 +18,11 @@ test('unions nodes correctly', () => {
         uf.add(i)
     }
 
-    for(let i = 1; i < uf.nodes.length; i++) {
-        uf.union(uf.nodes[i - 1], uf.nodes[i]);
+    for(let i = 1; i < uf.nodes.size; i++) {
+        uf.union(i - 1, i);
         
     }
-    expect(uf.nodes[0].size).toEqual(10);
+    expect(uf.find(0).size).toEqual(10);
     
 })
 
