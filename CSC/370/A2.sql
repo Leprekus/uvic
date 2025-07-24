@@ -52,8 +52,8 @@ select distinct person.personname, person.pid,
 with shows4seasons as (
 	select episodeof, A.id, season from episodes A
 	inner join productions
-		on A.id = productions.id
-	where exists (select id from episodes B where A.episodeof = B.episodeof and season >= 4)
+		using(id)
+	where A.id in (select id from episodes B where season >= 4)
 
 ),
 epscnt as (
@@ -86,7 +86,7 @@ ratingcnt as (
 		select episodeof, season, ratings.id, rating, votes from shows
 		left join ratings
 			on ratings.id = shows.id
-	)A 
+	) as A 
 	group by episodeof, season
 ),
 ret as (
