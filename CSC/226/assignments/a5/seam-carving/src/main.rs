@@ -1,9 +1,12 @@
-use image::{ ImageReader, DynamicImage, ImageError };
+use std::path::{ self, Path, PathBuf };
+use std::fs;
+use image::{ ImageReader };
 
-fn load_img() -> Result<DynamicImage, ImageError>{
-}
 fn main() {
-    let img = ImageReader::open("../../la-primavera-boticelli.jpg")?.decode()?;
- 
-    println!("Hello, world!");
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.pop();
+    path = path.join("la-primavera-boticelli.jpg");
+    let img = ImageReader::open(path.as_path())
+       .unwrap().decode().unwrap();
+    println!("{:?}", img);
 }
