@@ -15,15 +15,46 @@ fn get_sd(values: &Vec<u8>) -> f64 {
     sd
 }
 
-fn boundary() -> i32 {
+fn boundary(v: u32, neighbors: Vec<i32>) -> i32 {
     1
+}
+fn get_neighbors(u: u32, v: u32, width: u32, height: u32, pixels: &Vec<u8>) -> Vec<i32> {
+    let mut neighbors: Vec<i32> = Vec::new();
+
+    let u = u as i32;
+    let v = v as i32;
+    let width = width as i32;
+    let height = height as i32;
+
+    let directions = [
+        (-1, -1), (-1, 0), (-1, 1), // top-left, top, top-right
+        (0, -1),           (0, 1),  // left,       right
+        (1, -1),  (1, 0),  (1, 1),  // bottom-left, bottom, bottom-right
+    ];
+
+    for (du, dv) in directions {
+        let nu = u + du;
+        let nv = v + dv;
+
+        if nu >= 0 && nv >= 0 && nu < height && nv < width {
+            let n_idx = (nu * width + nv) as usize;
+            neighbors.push(pixels[n_idx] as i32);
+        }
+    }
+    neighbors
 }
 type Graph = Vec<Vec<i32>>;
 fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
-    let mut g: Graph = vec![ vec![0; width as usize]; height as usize];
+    
+    let mut g: Vec<Vec<i32>> = pixels
+        .chunks_exact(width as usize)
+        .map(|row| row.iter().map(|&p| p as i32).collect())
+        .collect();
     for u in 0..height {
         for v in 0..width {
-            g[u as usize][v as usize] = boundary();
+            let neighbors = get_neighbors(u, v, width, height, pixels);
+            let w = boundary(pixels[(u * width + v) as usize] as u32, neighbors);
+            g[u as usize][v as usize] = w; 
         }
     }
     g
