@@ -21,8 +21,8 @@ fn boundary(u: f64, v: f64, sigma: f64) -> f64 {
     (-numerator/denominator).exp()
 }
 
-fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> Vec<f64> {
-    let mut neighbors: Vec<f64> = Vec::new();
+fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> Vec<(usize, f64)> {
+    let mut neighbors: Vec<(usize, f64)> = Vec::new();
 
     let i = i as i32;
     let j = j as i32;
@@ -43,13 +43,14 @@ fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> V
         let nj = j + dj;
 
         if ni >= 0 && nj >= 0 && ni < height && nj < width {
-            let v = pixels[(ni * width + nj) as usize] as i32;
-            neighbors.push(boundary(u as f64, v as f64, 30 as f64));
+            let neighbor_idx = (ni * width + nj) as usize;
+            let v = pixels[neighbor_idx] as i32;
+            neighbors.push((neighbor_idx, boundary(u as f64, v as f64, 30 as f64)));
         }
     }
     neighbors
 }
-type Graph = Vec<Vec<f64>>;
+type Graph = Vec<Vec<(usize, f64)>>;
 fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
     
     (0..pixels.len()).map(|i|
