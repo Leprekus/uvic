@@ -15,12 +15,14 @@ fn get_sd(values: &Vec<u8>) -> f64 {
     sd
 }
 
-fn boundary() -> i32 {
-    1
+fn boundary(u: f64, v: f64, sigma: f64) -> f64 {
+    let numerator = (u - v).powi(2);
+    let denominator = 2.0 * sigma.powi(2);
+    (-numerator/denominator).exp()
 }
 
-fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> Vec<i32> {
-    let mut neighbors: Vec<i32> = Vec::new();
+fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> Vec<f64> {
+    let mut neighbors: Vec<f64> = Vec::new();
 
     let i = i as i32;
     let j = j as i32;
@@ -28,7 +30,7 @@ fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> V
     let height = height as i32;
 
 
-    let u = (i * width + j) as usize;
+    let u = pixels[(i * width + j) as usize] as i32;
 
     let directions = [
         (-1, -1), (-1, 0), (-1, 1), // top-left, top, top-right
@@ -40,27 +42,19 @@ fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> V
         let ni = i + di;
         let nj = j + dj;
 
-        if ni >= 0 && nj >= 0 && nu < height && nj < width {
-            let v = pixels[(ni * width + nj) as usize];
-            neighbors.push(boundary());
+        if ni >= 0 && nj >= 0 && ni < height && nj < width {
+            let v = pixels[(ni * width + nj) as usize] as i32;
+            neighbors.push(boundary(u as f64, v as f64, 30 as f64));
         }
     }
     neighbors
 }
-type Graph = Vec<Vec<i32>>;
+type Graph = Vec<Vec<f64>>;
 fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
     
-    let mut g: Vec<Vec<i32>> = pixels
-        .chunks_exact(width as usize)
-        .map(|row| row.iter().map(|&p| p as i32).collect())
-        .collect();
-    for i in 0..height {
-        for j in 0..width {
-            let idx = (i * width + j) as usize;
-            g[idx] = get_neighbors(i as u32, j as u32, width, height, pixels);
-        }
-    }
-    g
+    (0..pixels.len()).map(|i|
+        get_neighbors(i as u32 / width as u32, (i as u32 % width) as u32, width, height, pixels)
+    ).collect()
 }
 fn main() {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
