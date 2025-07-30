@@ -6,9 +6,10 @@ use image::{ GenericImageView, ImageReader };
 use kmeans_colors::{ get_kmeans, Kmeans, Sort };
 use palette::cast::from_component_slice;
 use palette::{IntoColor, Lab, Srgb};
+use rand::Rng;
 use statrs::distribution::{ Normal, Continuous };
 
-fn get_sd(values: &Vec<u8>) -> f64 {
+fn get_sd(values: &Vec<f32>) -> f64 {
     let (sum, count) = values.iter()
         .fold((0u32, 0u32), |(sum, count), &v| (sum + v as u32, count + 1) );
     let mean = sum as f64 / count as f64;
@@ -56,11 +57,22 @@ fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> V
     }
     neighbors
 }
+
+fn fit_normal(data: &Vec<f32>) -> Normal{
+    let mean = data.iter().copied().sum::<f32>() as f64 / data.len() as f64;
+    let std = get_sd(data);
+    Normal::new(mean, std).unwrap()
+
+}
 type Graph = Vec<Vec<(usize, f64)>>;
 fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
     
-    let seed = rand
-    let lab : Vec<Lab> = from_component_slice::<Srgb<u8>>(pixels)
+    let seed = rand::rng().random::<u64>();
+    let rgb_pixels = (0..pixels.len()).flat_map(|i| {
+        let x = pixels[i];
+        [x, x, x].into_iter()
+    }).collect::<Vec<u8>>();
+    let lab : Vec<Lab> = from_component_slice::<Srgb<u8>>(&rgb_pixels)
         .iter()
         .map(|x| x.into_linear().into_color())
         .collect();
@@ -72,9 +84,23 @@ fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
                 1e-4,
                 false,
                 &lab,
-                seed + 1 
+                seed + i
             );
+        if run_result.score < result.score {
+            result = run_result;
+        }
     }
+    let mut cluster_0 = Vec::new();
+    let mut cluster_1 = Vec::new();
+    result.indices.iter().enumerate().for_each(|(i, &label)| {
+        match label {
+            0 => cluster_0.push(lab[i].l),
+            1 => cluster_1.push(lab[i].l),
+            _ => unreachable!()
+        };
+    });
+    let g0 = fit_normal(&cluster_0);
+    let g1 = fit_normal(&cluster_1);
     (0..pixels.len()).map(|i|
         get_neighbors(i as u32 / width as u32, (i as u32 % width) as u32, width, height, pixels)
     )
@@ -92,7 +118,5 @@ fn main() {
     let img = img.to_luma8();
     let pixels: Vec<u8> = img.pixels().map(|p| p[0]).collect();
     let g = create_graph(&pixels, img.width(), img.height());
-    let sd = get_sd(&pixels); 
     let _ = img.save(dest_path.as_path());
-    println!("sd {:?}", sd);
 }
