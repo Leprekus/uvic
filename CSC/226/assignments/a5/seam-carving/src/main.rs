@@ -1,6 +1,12 @@
+use std::iter;
 use std::path::{ self, Path, PathBuf };
 use std::io::Cursor;
+use std::time::SystemTime;
 use image::{ GenericImageView, ImageReader };
+use kmeans_colors::{ get_kmeans, Kmeans, Sort };
+use palette::cast::from_component_slice;
+use palette::{IntoColor, Lab, Srgb};
+use statrs::distribution::{ Normal, Continuous };
 
 fn get_sd(values: &Vec<u8>) -> f64 {
     let (sum, count) = values.iter()
@@ -53,9 +59,26 @@ fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> V
 type Graph = Vec<Vec<(usize, f64)>>;
 fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
     
+    let seed = rand
+    let lab : Vec<Lab> = from_component_slice::<Srgb<u8>>(pixels)
+        .iter()
+        .map(|x| x.into_linear().into_color())
+        .collect();
+    let mut result = Kmeans::new();
+    for i in 0..10 {
+        let run_result = get_kmeans(
+                2,
+                50,
+                1e-4,
+                false,
+                &lab,
+                seed + 1 
+            );
+    }
     (0..pixels.len()).map(|i|
         get_neighbors(i as u32 / width as u32, (i as u32 % width) as u32, width, height, pixels)
-    ).collect()
+    )
+    .collect()
 }
 fn main() {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
