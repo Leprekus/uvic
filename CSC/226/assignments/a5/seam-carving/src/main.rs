@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::iter;
 use std::path::{ self, Path, PathBuf };
 use std::io::Cursor;
@@ -28,7 +29,7 @@ fn boundary(u: f64, v: f64, sigma: f64) -> f64 {
     (-numerator/denominator).exp()
 }
 
-fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> Vec<(usize, f64)> {
+fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<Lab>) -> Vec<(usize, f64)> {
     let mut neighbors: Vec<(usize, f64)> = Vec::new();
 
     let i = i as i32;
@@ -37,7 +38,7 @@ fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> V
     let height = height as i32;
 
 
-    let u = pixels[(i * width + j) as usize] as i32;
+    let u = pixels[(i * width + j) as usize].l;
 
     let directions = [
         (-1, -1), (-1, 0), (-1, 1), // top-left, top, top-right
@@ -51,7 +52,7 @@ fn get_neighbors(i: u32, j: u32, width: u32, height: u32, pixels: &Vec<u8>) -> V
 
         if ni >= 0 && nj >= 0 && ni < height && nj < width {
             let neighbor_idx = (ni * width + nj) as usize;
-            let v = pixels[neighbor_idx] as i32;
+            let v = pixels[neighbor_idx].l;
             neighbors.push((neighbor_idx, boundary(u as f64, v as f64, 30 as f64)));
         }
     }
@@ -65,6 +66,62 @@ fn fit_normal(data: &Vec<f32>) -> Normal{
 
 }
 type Graph = Vec<Vec<(usize, f64)>>;
+fn bfs(g: &Graph, parent: &mut Vec<usize>, flow: &Vec<Vec<f64>>)-> bool{
+    let source = g.len() - 2;
+    let sink = g.len() - 1;
+    let mut visited = vec![false; g.len()];
+    let mut queue = VecDeque::new();
+    queue.push_back(source);
+    visited[source] = true;
+    while let Some(u) = queue.pop_front() {
+        for &(v, w) in &g[u] {
+            if !visited[v] && w > flow[u][v]{
+                queue.push_back(v);
+                visited[v] = true;
+                parent[v] = u;
+                if v == sink {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+fn edmonds_karp(g: &Graph) -> f64 {
+    let mut parent: Vec<usize> = vec![usize::max_value(); g.len()];
+    let mut flow = vec![vec![0.0; g.len()]; g.len()];
+    let mut total_flow = 0.0;
+    let source = g.len() - 2;
+    let sink = g.len() - 1;
+    let mut count = 0;
+    while bfs(g, &mut parent, &flow) {
+            if count > (g.iter().fold(0u64, |acc, item| acc + item.iter().fold(0u64, |acc, item| acc + 1) )).pow(2) * g.len() as u64{
+                panic!("max iterations reached");
+            }
+            count += 1;
+            let mut path_flow = f64::MAX;
+            let mut s = sink;
+
+            while s != source {
+                let u = parent[s] as usize;
+                if let Some(&(_, cap)) = g[u].iter().find(|&&(v, _)| v == s) {
+                    path_flow = path_flow.min(cap - flow[u][s]);
+                }
+                s = u;
+            }
+
+            let mut v = sink;
+            while v != source {
+                let u = parent[v] as usize;
+                flow[u][v] += path_flow;
+                flow[v][u] -= path_flow;
+                v = u;
+            }
+
+            total_flow += path_flow;
+        }
+    total_flow
+}
 fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
     
     let seed = rand::rng().random::<u64>();
@@ -99,12 +156,29 @@ fn create_graph(pixels : &Vec<u8>, width: u32, height: u32) -> Graph{
             _ => unreachable!()
         };
     });
+    //feed clusters into gaussian
     let g0 = fit_normal(&cluster_0);
     let g1 = fit_normal(&cluster_1);
-    (0..pixels.len()).map(|i|
-        get_neighbors(i as u32 / width as u32, (i as u32 % width) as u32, width, height, pixels)
+
+    //feed labs into pdf
+    let g0_probs: Vec<f64> = lab.iter().map(|p| g0.pdf(p.l as f64)).collect();
+    let g1_probs: Vec<f64> = lab.iter().map(|p| g1.pdf(p.l as f64)).collect();
+
+    let rp_obj: Vec<f64> = g0_probs.iter().map(|&p| -p.ln()).collect(); // source → node
+    let rp_bkg: Vec<f64> = g1_probs.iter().map(|&p|  -p.ln()).collect(); //// node → sink
+
+    let source_edges: Vec<(usize, f64)> = rp_obj.iter().enumerate().map(|(i, &p)| (i, p)).collect();
+    let sink_edges: Vec<(usize, f64)>   = rp_bkg.iter().enumerate().map(|(i, &p)| (i, p)).collect();
+    let g: Graph = (0..lab.len()).map(|i|
+        get_neighbors(i as u32 / width as u32, (i as u32 % width) as u32, width, height, &lab)
     )
-    .collect()
+    //feed lab into gaussian and use output as edge weights for sink and source
+    // todo: check if correct gaussian was assigned to t and s, otherwise flip
+    .chain(iter::once(source_edges))
+    .chain(iter::once(sink_edges))
+    .collect();
+    let flow = edmonds_karp(&g);
+    g
 }
 fn main() {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
