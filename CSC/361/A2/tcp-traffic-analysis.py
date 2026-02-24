@@ -1,5 +1,6 @@
 import sys
 import struct
+import itertools
 from uuid import uuid4
 from ipaddress import IPv4Address
 from typing import Dict, List, Literal, Tuple, TypedDict
@@ -20,7 +21,7 @@ type State = Literal['S0F0', 'S1F0', 'S2F0', 'S1F1', 'S2F2', 'R']
 type Endian = Literal['>', '<']
 
 # TODO: remove total_cnt and pkt_cnt
-@dataclass(frozen=True)
+@dataclass
 class Packet:
     conn_id:   str
     pkt_id :   str
@@ -30,32 +31,35 @@ class Packet:
     dest_port: int 
     flags:     int
     pkt_size:  int # holds the size of the payload excluding headers
+    ts_sec:    int
+    ts_usec:   int
 
 ''' using first seen rule to determine src and dest addresses '''
 @dataclass
 class Connection:
-    conn_id:   str
-    src_addr:  int
-    dest_addr: int
-    src_port:  int
-    dest_port: int
-    status:    Tuple[int, int]
-    packets:   Dict[str, List[Packet]]
+    conn_id:     str
+    conn_number: int
+    src_addr:    int
+    dest_addr:   int
+    src_port:    int
+    dest_port:   int
+    status:      Tuple[int, int]
+    packets:     Dict[str, List[Packet]]
 
 
 
 @dataclass(frozen=True)
 class Summary:
-    conn_id: Tuple[int, int, int, int] # contains (src_ip, src_port, dest_addr, dest_port)
+    conn_id: str # contains (src_ip, src_port, dest_addr, dest_port)
     connection: int
     src_addr: int
     dest_addr: int
     src_port: int
     dest_port: int
-    state: List[int]
-    start: int
-    end: int
-    duration: int
+    state: str
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+    duration: Tuple[int, int] 
     packets_sent: int
     packets_recv: int
     packets_total: int
@@ -77,12 +81,14 @@ class Report(TypedDict):
     reset: Dict[str, Connection]
     complete: Dict[str, Connection]
     preestablished_cnt: int
+    conn_cnt: int
 
 report: Report = {
         'open': {},
         'reset': {},
         'complete' : {},
         'preestablished_cnt': 0,
+        'conn_cnt': 0,
 
     }
 def main():
@@ -131,8 +137,12 @@ def main():
 
             if incl_len > 0:
                 pkt = pkt_data_parse(incl_len, pkt_data, endian)
+                pkt.ts_sec = ts_sec
+                pkt.ts_usec = ts_usec # append timestamp
                 create_or_update_connection(pkt)
         print(total_cnt)
+        generate_complete_report()
+
 
 ''' parse ethernet, IPv4, and TCP/UDP headers '''
 def pkt_data_parse(size: int, data: bytes, 
@@ -187,7 +197,9 @@ def pkt_data_parse(size: int, data: bytes,
         src_port      = src_port,
         dest_port     = dest_port,
         flags         = tcp_flags,
-        pkt_size      = total_len - ihl - thl
+        pkt_size      = total_len - ihl - thl,
+        ts_sec        = 0,
+        ts_usec       = 0 # this gets updated inside the main while loop 
         )
 '''
 The entry-point is the open field, we will always 
@@ -240,8 +252,10 @@ def create_or_update_connection(pkt: Packet):
 def new_connection(pkt: Packet) -> Connection:
     src = pkt.src_addr
     dest = pkt.dest_addr
+    report['conn_cnt'] += 1
     return Connection(
         conn_id   = pkt.conn_id,
+        conn_number= report['conn_cnt'],
         src_addr  = pkt.src_addr,
         dest_addr = pkt.dest_addr,
         src_port  = pkt.src_port,
@@ -258,6 +272,41 @@ def update_connection(pkt: Packet) -> None:
     conn.status = (s + pkt.flags & SYN, f + pkt.flags & FIN)
     src = str(pkt.src_addr)
     conn.packets[src].append(pkt)
+def generate_complete_report():
+    for conn in report['complete'].values():
+        src, dest = conn.packets.values()
+        start = min(itertools.chain(src, dest), 
+                    key=lambda p: (p.ts_sec, p.ts_usec))
+        end   = max(itertools.chain(src, dest), 
+                    key=lambda p: (p.ts_sec, p.ts_usec))
+
+        pkts_sent = len(conn.packets[str(conn.src_addr)])
+        pkts_recv = len(conn.packets[str(conn.dest_addr)])
+        bytes_sent = sum(p.pkt_size for p in conn.packets[str(conn.src_addr)])
+        bytes_recv = sum(p.pkt_size for p in conn.packets[str(conn.dest_addr)])
+        summary = Summary(
+            conn_id = conn.conn_id, 
+            connection=  conn.conn_number,
+            src_addr = conn.src_addr,
+            dest_addr = conn.dest_addr,
+            src_port = conn.src_port,
+            dest_port = conn.dest_port,
+            state = '',
+            start = (start.ts_sec, start.ts_usec), 
+            end = (end.ts_sec, end.ts_usec),
+            duration = (
+                end.ts_sec - start.ts_sec,
+                end.ts_usec - start.ts_usec
+                ),
+            packets_sent = pkts_sent,
+            packets_recv = pkts_recv,
+            packets_total = pkts_sent + pkts_recv,
+            bytes_sent = bytes_sent,
+            bytes_recv = bytes_recv,
+            bytes_total = bytes_sent + bytes_recv
+        )
+        print(summary)
+        exit(1)
 
 if __name__ == '__main__':
     main()
@@ -274,3 +323,5 @@ if __name__ == '__main__':
         for pkts in conn.packets.values():
             pkt_cnt += len(pkts)
     print(pkt_cnt)
+
+
