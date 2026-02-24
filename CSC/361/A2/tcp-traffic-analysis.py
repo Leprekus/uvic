@@ -1,11 +1,12 @@
 import sys
 import struct
 from uuid import uuid4
+from ipaddress import IPv4Address
 from typing import Dict, List, Literal, Tuple, TypedDict
 from dataclasses import dataclass
 
-LITTLE_ENDIAN = 0xa1b2c3d4
-BIG_ENDIAN = 0xd4c3b2a1
+MAGIC_NATIVE = 0xa1b2c3d4
+MAGIC_SWAPPED = 0xd4c3b2a1
 
 #  Flags
 URG = 1 << 5
@@ -16,7 +17,9 @@ SYN = 1 << 1
 FIN = 1 << 0
 
 type State = Literal['S0F0', 'S1F0', 'S2F0', 'S1F1', 'S2F2', 'R']
+type Endian = Literal['>', '<']
 
+# TODO: remove total_cnt and pkt_cnt
 @dataclass(frozen=True)
 class Packet:
     conn_id:   str
@@ -96,14 +99,17 @@ def main():
         thiszone, sigfigs, snaplen, network = \
                 struct.unpack('<IHHIIII', global_header) # little-endian
 
-        if magic == BIG_ENDIAN:
+        if magic == MAGIC_SWAPPED:
             magic, version_major, version_minor, \
             thiszone, sigfigs, snaplen, network = \
             struct.unpack('>IHHIIII', global_header)
             endian = '>'
-        else:
+        elif magic == MAGIC_NATIVE:
             endian = '<'
+        else:
+            raise ValueError('Invalid PCAP file')
 
+        total_cnt = 0
         while True:
             pkt_header = f.read(16)
             pkt_data   = b''
@@ -113,11 +119,12 @@ def main():
 
             ''' packet header '''
             ts_sec, ts_usec, incl_len, orig_len = \
-                    struct.unpack(f'{endian}IIII', pkt_header)  
+                    struct.unpack(f'{endian}4I', pkt_header)  
 
             ''' packet data ''' 
             if incl_len:
                pkt_data = f.read(incl_len)
+               total_cnt += 1
 
             if len(pkt_data) != incl_len:
                 raise Exception(f'Packet data bytes mismatch, expected {incl_len}, got: {len(pkt_data)}')
@@ -125,11 +132,11 @@ def main():
             if incl_len > 0:
                 pkt = pkt_data_parse(incl_len, pkt_data, endian)
                 create_or_update_connection(pkt)
-
+        print(total_cnt)
 
 ''' parse ethernet, IPv4, and TCP/UDP headers '''
 def pkt_data_parse(size: int, data: bytes, 
-                   endian: Literal['>', '<']) -> Packet:
+                   endian: Endian) -> Packet:
 
     ''' sizes in bytes '''
     eth_header = 14
@@ -140,7 +147,7 @@ def pkt_data_parse(size: int, data: bytes,
     eth_bytes = data[:eth_header]
 
     dest_mac, src_mac, eth_type = \
-            struct.unpack(f'{endian} 6s 6s H', eth_bytes)
+            struct.unpack(f'> 6s 6s H', eth_bytes)
 
     
     ''' ipv4 header '''
@@ -149,7 +156,7 @@ def pkt_data_parse(size: int, data: bytes,
     ipver_ihl, tos, total_len, \
     identification, flags_and_offset, ttl, \
     protocol, ipv4_checksum, src_ip, dest_ip = \
-        struct.unpack(f'{endian} 2B 3H 2B H 2I', ipv4_bytes)
+        struct.unpack(f'> 2B 3H 2B H 2I', ipv4_bytes)
 
     ''' 
         tcp header 
@@ -167,7 +174,7 @@ def pkt_data_parse(size: int, data: bytes,
     src_port, dest_port, seq_num, \
     ack_num, offset_reserved, tcp_flags, \
     ws, tcp_checksum, urgent_ptr = \
-        struct.unpack(f'{endian} 2H 2I 2B H 2H', tcp_bytes)
+        struct.unpack(f'> 2H 2I 2B H 2H', tcp_bytes)
 
     pkt_id = (src_ip, src_port, dest_ip, dest_port)
     thl = ((offset_reserved >> 4) & 0x0F) * 4 # tcp header length in bytes
@@ -199,7 +206,6 @@ may exist.
 def create_or_update_connection(pkt: Packet):
     # TODO: implement line 39 & upwards on A2 writeup
     conn_seen = report['open'].get(pkt.conn_id)
-    
 
     if not conn_seen:
         if not pkt.flags & SYN: report['preestablished_cnt'] += 1
@@ -219,20 +225,21 @@ def create_or_update_connection(pkt: Packet):
 
     if conn_seen:
         ''' 
+        Update connection to include latest packet sent
         1. move from 'open' to 'reset' on rst 
         2. move from 'open' to 'complete' on FIN & no data
+        3. keep in 'open' otherwise
         '''
+        update_connection(pkt)
         if pkt.flags & RST: 
             report['reset'][uuid4().hex] = report['open'].pop(pkt.conn_id)
         elif pkt.flags & FIN and pkt.pkt_size == 0:
             report['complete'][uuid4().hex] = report['open'].pop(pkt.conn_id)
-        else:
-            update_connection(pkt)
 
 
 def new_connection(pkt: Packet) -> Connection:
     src = pkt.src_addr
-    host = pkt.dest_addr
+    dest = pkt.dest_addr
     return Connection(
         conn_id   = pkt.conn_id,
         src_addr  = pkt.src_addr,
@@ -242,14 +249,28 @@ def new_connection(pkt: Packet) -> Connection:
         status    = (pkt.flags & SYN, pkt.flags & FIN),
         packets   =    {
             f'{src}': [pkt],
-            f'{host}': []
+            f'{dest}': []
         }
     )
 def update_connection(pkt: Packet) -> None: 
     conn = report['open'][pkt.conn_id]
     s, f = conn.status
     conn.status = (s + pkt.flags & SYN, f + pkt.flags & FIN)
+    src = str(pkt.src_addr)
+    conn.packets[src].append(pkt)
 
 if __name__ == '__main__':
     main()
-    print(report)
+    pkt_cnt = 0
+    for conn in report['complete'].values():
+        for pkts in conn.packets.values():
+            pkt_cnt += len(pkts) 
+
+    for conn in report['open'].values():
+        for pkts in conn.packets.values():
+            pkt_cnt += len(pkts)
+
+    for conn in report['reset'].values():
+        for pkts in conn.packets.values():
+            pkt_cnt += len(pkts)
+    print(pkt_cnt)
