@@ -4,7 +4,6 @@ import struct
 import sys
 import statistics
 from ipaddress import ip_address 
-from typing import Dict, List, Literal, cast, dataclass_transform
 from collections import defaultdict
 from datetime import datetime
 '''
@@ -57,7 +56,7 @@ ipv4_protocols = {
     115: "L2TP",
     132: "SCTP"
 }
-def tcp_parse(pkts: List[Dict[str, float | int | bytes]]):
+def tcp_parse(pkts):
     ''' 
         tcp header 
 
@@ -72,7 +71,7 @@ def tcp_parse(pkts: List[Dict[str, float | int | bytes]]):
     for pkt in pkts:
         if pkt["protocol"] != TCP_PROTOCOL: continue
 
-        data = cast(bytes, pkt["data"])
+        data =  pkt["data"]
         assert len(data) >= 20
         tcp_bytes = data[:20]
 
@@ -313,7 +312,7 @@ def main():
     dest_node = str(ip_address(ipv4_pkts[0]["destination"]))
     intermediate_nodes = set()
     for pkt in ipv4_pkts:
-        data = cast(bytes, pkt["data"])
+        data = pkt["data"]
         if len(data) >= 8 and data[0] == 11: # 11 is the TIMEOUT type
             intermediate_nodes.add(
                     str(ip_address(pkt["source"])))
