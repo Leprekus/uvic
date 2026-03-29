@@ -287,16 +287,7 @@ def compute_traceroute_stats(origin, sorted_mapping):
     for ip, rtts in hop_stats.items():
         avg_rtt = sum(rtts) / len(rtts)
         std_dev = statistics.stdev(rtts) if len(rtts) > 1 else 0.0
-        output += f"\nThe avg RTT between {
-            ip_address(origin)
-        } and {
-            ip_address(ip)
-        } is {
-           avg_rtt 
-        } ms, the s.d is: {
-           std_dev 
-        } ms" 
-    
+        output += f"\nThe avg RTT between { ip_address(origin) } and { ip_address(ip) } is { avg_rtt } ms, the s.d is: { std_dev } ms" 
     return output
 '''
 Analyze IP datagrams created by traceroute and
@@ -365,16 +356,10 @@ def main():
     print("\n".join([
         f"The IP address of the source node: {src_node}",
         f"The IP address of the destination node: {dest_node}",
-        f"The IP addresses of the intermediate nodes: {
-           intermediates_str 
-        }",
+        f"The IP addresses of the intermediate nodes: { intermediates_str }",
         "\n",
-        f"The values in the protocol field of IP headers: {
-            proto_str
-        }",
-        f"The number of fragments created from the original datagram is: {
-           total_fragments 
-        }",
+        f"The values in the protocol field of IP headers: { proto_str }",
+        f"The number of fragments created from the original datagram is: { total_fragments }",
         f"The offset of the last fragment is: {last_frag_offset}",
         compute_traceroute_stats(src_node, icmp_mapping)
     ])) 
