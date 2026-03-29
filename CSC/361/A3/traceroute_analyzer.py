@@ -2,9 +2,11 @@ from os import wait
 import platform
 import struct
 import sys
+import statistics
 from ipaddress import ip_address 
-from typing import Dict, List, Literal, cast
+from typing import Dict, List, Literal, cast, dataclass_transform
 from collections import defaultdict
+from datetime import datetime
 '''
 Send kth datagram with TTL = k
 Each router decrements the TTL by at least 1
@@ -95,7 +97,6 @@ def tcp_parse(pkts: List[Dict[str, float | int | bytes]]):
         })
     return packets
 
-ICMP_PROTOCOL = [1, 17]
 def ipv4_parse(data: bytes):
     ''' sizes in bytes '''
     eth_header = 14
@@ -177,99 +178,126 @@ def read_cap_file():
                 raise Exception(f'Packet data bytes mismatch, expected {incl_len}, got: {len(pkt_data)}')
 
             if incl_len > 0:
+                timestamp = datetime.fromtimestamp(ts_sec + (ts_usec / 1000000.0))
                 ipv4_pkt = ipv4_parse(pkt_data)
+                ipv4_pkt["timestamp"] = timestamp
                 packets.append(ipv4_pkt)
     return packets
 
-ECHO_REQ = 8
-TIMEOUT = 11
 ECHO_REPLY = 0
 UNREACHABLE = 3
-def icmp_parse(pkts):
-    packets = []
+ECHO_REQ = 8
+TIMEOUT = 11
+
+def icmp_parse(pkts, endian='!'):
+    parsed_packets = []
+    ICMP_PROTOCOL = 1
+    UDP_PROTOCOL = 17
+
     for pkt in pkts:
-        data = cast(bytes, pkt["data"])
-        if len(data) < 8: continue
-        icmp_header = data[:8]
-        icmp_type, code, checksum, rest_of_header =  \
-            struct.unpack(f'{endian} 2B H I', icmp_header)
-        # probe
-        if icmp_type == ECHO_REQ:
-            seq_num = rest_of_header & 0xFFFF
-            packets.append({
-                "role": "PROBE", 
-                "seq_num": seq_num
-                })
-        # intermediate link
-        elif icmp_type == TIMEOUT:
-            seq_num = struct.unpack(f'{endian}H', data[34:36])[0]
-            packets.append({
-                "role": "HOP_REPLY", 
-                "type": "TIMEOUT", 
-                "seq_num": seq_num,
-                })
-        # final dest for windows
-        elif icmp_type == ECHO_REPLY:
-            seq_num = rest_of_header & 0xFFFF
-            packets.append({
-                "role": "FINAL_REACHED", 
-                "proto": "ICMP", 
-                "seq_num": seq_num,
-                })
-        # final dest for linux
-        elif icmp_type == UNREACHABLE:
-            src_port = struct.unpack(f'{endian}H', data[28:30])[0]
-            packets.append({
-                "role": "FINAL_REACHED", 
-                "proto": "UDP/PortUnreach", 
-                "src_port": src_port,
-                })
-    return packets
-
-'''
-windows:
-- map: source seq to the seq number in the payload reply, and 
-look at source's TTL for that request
-
-linux:
-- source port to the source port in the payload reply, and
-look at source's TTL for that request
-
-'''
-def icmp_map(parsed_packets):
-    """
-    Maps ICMP/UDP replies back to their original probes using 
-    sequence numbers or source ports.
-    """
-    # Key: identifier (seq_num or src_port), Value: list of responses
-    mapping = {}
-    probes = {}
-
-    # First pass: identify and store probes
-    for pkt in parsed_packets:
-        if pkt["role"] == "PROBE":
-            seq = pkt["seq_num"]
-            probes[seq] = pkt
-            mapping[seq] = []  # Initialize the response list for this probe
-
-    # Second pass: link replies to probes
-    for pkt in parsed_packets:
-        role = pkt["role"]
+        proto = pkt.get("protocol")
+        data = pkt.get("data", b"")
+        timestamp = pkt.get("timestamp")
+        src_ip = pkt.get("source")
         
-        if role in ["HOP_REPLY", "FINAL_REACHED"]:
-            # ICMP Traceroute uses seq_num
-            if "seq_num" in pkt:
-                key = pkt["seq_num"]
-            # Linux UDP Traceroute uses src_port to identify the probe
-            elif "src_port" in pkt:
-                key = pkt["src_port"]
-            else:
-                continue
+        if proto == ICMP_PROTOCOL:
+            if len(data) < 8: continue
+            icmp_type, code, checksum, rest = struct.unpack(f'{endian}2BHI', data[:8])
+            
+            if icmp_type in [ECHO_REQ, ECHO_REPLY]:
+                seq_num = rest >> 16 # Sequence is usually high 16 bits of the 'rest' field
+                parsed_packets.append({
+                    "role": "PROBE" if icmp_type == ECHO_REQ else "FINAL",
+                    "proto": "ICMP",
+                    "key": seq_num,
+                    "src_ip": src_ip,
+                    "timestamp": timestamp
+                })
 
-            if key in mapping:
-                mapping[key].append(pkt)
+            elif icmp_type in [TIMEOUT, UNREACHABLE]:
+                # The original packet header starts at data[8]
+                if len(data) < 8 + 20 + 8: continue 
+                inner_ip_header = data[8:28]
+                inner_proto = inner_ip_header[9]
                 
-    return mapping
+                # Original was ICMP (Windows)
+                if inner_proto == ICMP_PROTOCOL:
+                    # Inner ICMP header starts after Inner IP header (8 + 20)
+                    # Sequence number is at offset 6 of the inner ICMP header
+                    inner_seq = struct.unpack(f'{endian}H', data[34:36])[0]
+                    parsed_packets.append({
+                        "role": "HOP_REPLY" if icmp_type == TIMEOUT else "FINAL",
+                        "proto": "ICMP",
+                        "key": inner_seq,
+                        "src_ip": src_ip,
+                        "timestamp": timestamp
+                    })
+                
+                # Original was UDP (Linux)
+                elif inner_proto == UDP_PROTOCOL:
+                    # Inner UDP header starts at data[28]. Dest Port is at offset 2
+                    inner_dest_port = struct.unpack(f'{endian}H', data[30:32])[0]
+                    parsed_packets.append({
+                        "role": "HOP_REPLY" if icmp_type == TIMEOUT else "FINAL",
+                        "proto": "UDP",
+                        "key": inner_dest_port,
+                        "src_ip": src_ip,
+                        "timestamp": timestamp
+                    })
+
+        elif proto == UDP_PROTOCOL:
+            if len(data) < 8: continue
+            src_port, dest_port = struct.unpack('!HH', data[:4])
+            if 33434 <= dest_port <= 33534:
+                parsed_packets.append({
+                    "role": "PROBE",
+                    "proto": "UDP",
+                    "key": dest_port,
+                    "src_ip": src_ip,
+                    "dst_ip": pkt.get("destination"),
+                    "timestamp": timestamp
+                })
+
+    return parsed_packets
+
+def icmp_map(parsed_packets):
+    mapping = {}
+    for pkt in parsed_packets:
+        key = pkt["key"]
+        if pkt["role"] == "PROBE":
+            mapping[key] = {"probe": pkt, "replies": []}
+        elif pkt["role"] in ["HOP_REPLY", "FINAL"]:
+            if key in mapping:
+                mapping[key]["replies"].append(pkt)
+    return dict(sorted(mapping.items()))
+
+def compute_traceroute_stats(origin, sorted_mapping):
+    hop_stats = {} # { router_ip: [rtts] }
+
+    for key, data in sorted_mapping.items():
+        probe = data["probe"]
+        for reply in data["replies"]:
+            rtt = (reply["timestamp"] - probe["timestamp"]) * 1000
+            rtt = rtt.total_seconds()
+            ip = reply["src_ip"]
+            if ip not in hop_stats: hop_stats[ip] = []
+            hop_stats[ip].append(rtt)
+
+    output = ""
+    for ip, rtts in hop_stats.items():
+        avg_rtt = sum(rtts) / len(rtts)
+        std_dev = statistics.stdev(rtts) if len(rtts) > 1 else 0.0
+        output += f"\nThe avg RTT between {
+            ip_address(origin)
+        } and {
+            ip_address(ip)
+        } is {
+           avg_rtt 
+        } ms, the s.d is: {
+           std_dev 
+        } ms" 
+    
+    return output
 '''
 Analyze IP datagrams created by traceroute and
 determine:
@@ -293,7 +321,6 @@ def main():
     src_node  = str(ip_address(ipv4_pkts[0]["source"]))
     dest_node = str(ip_address(ipv4_pkts[0]["destination"]))
     intermediate_nodes = set()
-    key = lambda pkt: pkt["data"]
     for pkt in ipv4_pkts:
         data = cast(bytes, pkt["data"])
         if len(data) >= 8 and data[0] == 11: # 11 is the TIMEOUT type
@@ -311,14 +338,30 @@ def main():
         # Assuming pkt is a dictionary or object with these attributes
         # We include IP and Protocol to ensure the ID is unique to a specific flow
         src = pkt.get('src_ip')
-        dst = pkt.get('dst_ip')
+        dest = pkt.get('dest_ip')
         proto = pkt.get('proto')
         ip_id = pkt.get('id')
         
         # Identification '0' usually means fragmentation is not being used
         if ip_id is not None:
-            group_key = (src, dst, proto, ip_id)
+            group_key = (src, dest, proto, ip_id)
             datagram_fragments[group_key] += 1
+
+    last_frag_offset = 0
+    total_fragments = 0
+
+    for pkt in ipv4_pkts:
+        offset = pkt["offset"]  
+        mf_flag = pkt["flags"] & 0x1 
+        
+        if offset > 0 or mf_flag == 1:
+            total_fragments += 1
+            
+            if mf_flag == 0 and offset > 0:
+                last_frag_offset = offset
+
+    # Convert to actual bytes if needed
+    last_byte_start = last_frag_offset * 8
     print("\n".join([
         f"The IP address of the source node: {src_node}",
         f"The IP address of the destination node: {dest_node}",
@@ -330,11 +373,12 @@ def main():
             proto_str
         }",
         f"The number of fragments created from the original datagram is: {
-            0
-        }"
-        f"The offset of the last fragment is: {0}",
-        f"The avg RTT between {0} and {0} is {0} ms, the s.d is: {0} ms",
+           total_fragments 
+        }",
+        f"The offset of the last fragment is: {last_frag_offset}",
+        compute_traceroute_stats(src_node, icmp_mapping)
     ])) 
+
     
 
 if __name__ == "__main__":
