@@ -1,6 +1,7 @@
 #include "types.h"
 #include <stddef.h>
 
+// TODO: change to 4096
 #define BUF_LEN 2
 
 typedef struct WriteBuf WriteBuf;

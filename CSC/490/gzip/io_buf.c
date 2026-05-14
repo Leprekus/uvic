@@ -21,7 +21,6 @@ WriteBuf *writeBufInit() {
 	//WriteBuf outBuf = { .size = BUF_LEN, .count = 0, .data = {0} };
 }
 
-// returns the new size of the buffer 
 void bufferedWrite(WriteBuf *buf, const void *data, size_t size){
 	if(buf->size == buf->count) flush(buf);
 
@@ -49,3 +48,6 @@ void flush(WriteBuf *buf) {
 	write(1, buf->data, buf->count);
 	buf->count = 0;
 }
+
+
+
