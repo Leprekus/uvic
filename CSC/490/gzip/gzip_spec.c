@@ -1,6 +1,6 @@
 #include "gzip_spec.h"
 
-GzHeader gzHeaderInit() {
+GzHeader gz_header_init() {
 	return (GzHeader) {
 		.MAGIC1 = 0x1F,
                 .MAGIC2 = 0x8B,
@@ -12,7 +12,7 @@ GzHeader gzHeaderInit() {
 	};
 }
 
-GzFooter gzFooterInit() {
+GzFooter gz_footer_init() {
 	 return (GzFooter){
 		.CRC32 = 0x00000000,
 		.ISIZE = 0x00000000

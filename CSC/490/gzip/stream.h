@@ -3,8 +3,8 @@
 
 typedef struct Stream Stream;
 
-Stream *streamInit(size_t nbytes);
-void streamPush(Stream *s, const u8 data[], size_t len);
-int streamReadFrom(Stream *s, int FD);
-u8 *streamData(Stream *s);
-size_t streamLength(Stream *s);
+Stream *stream_init(size_t nbytes);
+void stream_push(Stream *s, const u8 data[], size_t len);
+int stream_read_from(Stream *s, int FD);
+u8 *stream_data(Stream *s);
+size_t stream_length(Stream *s);

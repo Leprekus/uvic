@@ -7,8 +7,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-
-
 struct bArray {
 	size_t size;  // capacity of bytes
 	size_t BCount; // current byte count
@@ -16,7 +14,7 @@ struct bArray {
 	u8  *data; // array of bytes
 };
 
-bArray *bArrayInit(size_t numBytes){
+bArray *b_array_init(size_t numBytes){
 	bArray *a = malloc(sizeof(bArray));
 	if(!a) return NULL;
 	u8 *data = malloc(sizeof(u8) * numBytes);
@@ -31,7 +29,7 @@ bArray *bArrayInit(size_t numBytes){
 	a->data = data;
 	return a;
 };
-bStatus bArrayPush(bArray *a, u8 bit){
+bStatus b_array_push(bArray *a, u8 bit){
 	bit = !!bit; // cast to 0 or 1
 	// buffer full
 	if(a->BCount == a->size) return OUT_OF_BOUNDS;	
@@ -45,7 +43,7 @@ bStatus bArrayPush(bArray *a, u8 bit){
 	return SUCCESS;
 }
 
-void bArrayPrint(bArray *a) {
+void b_array_print(bArray *a) {
 	for(size_t i = 0; i < a->size; i++) {
 		if(i % 8 == 0) {
 			putchar('\n');
@@ -58,28 +56,16 @@ void bArrayPrint(bArray *a) {
 // Source - https://stackoverflow.com/a/2602885
 // Posted by sth, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-05-09, License - CC BY-SA 4.0
-u8 reverse(u8 b) {
+u8 reverse_u8(u8 b) {
    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
    b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
    return b;
 }
 
-size_t theOneAndOnlyRuleYouShouldNeverForgetWhenPushingNumericalValuesIntoAGZIPContainer(size_t num) {
-	size_t n = sizeof(num);
-	if(n == 1) return reverse(num);	
-	u8 buf[n];
-	memcpy(buf, &num, n);
-	size_t i = 0;
-	size_t j = n - 1;
-	while(i < j){
-		buf[i] ^= buf[j];
-		buf[j] ^= buf[i];
-		buf[i] ^= buf[j];
-		i++; j--;
-	}
-
-	size_t rev = 0;
-	memcpy(&rev, buf, n);
-        return rev;	
+u16 reverse_u16(u16 n) {
+	return reverse_u8(n) | (reverse_u8(n >> 8));
+}
+u32 reverse_u32(u32 n) {
+	return (reverse_u8(n)) | (reverse_u8(n >> 8)) | (reverse_u8(n >> 16)) | (reverse_u8(n) >> 24);
 }

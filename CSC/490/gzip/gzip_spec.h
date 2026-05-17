@@ -14,5 +14,5 @@ typedef struct __attribute__((__packed__)){
 	u32 ISIZE;
 } GzFooter;
 
-GzHeader gzHeaderInit();
-GzFooter gzFooterInit();
+GzHeader gz_header_init();
+GzFooter gz_footer_init();

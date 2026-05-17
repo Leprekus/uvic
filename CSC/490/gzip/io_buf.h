@@ -6,7 +6,7 @@
 
 typedef struct WriteBuf WriteBuf;
 
-WriteBuf *writeBufInit();
-void flush(WriteBuf *buf);
+WriteBuf *io_buf_init();
+void io_flush(WriteBuf *buf);
 // returns the new size of the buffer 
-void bufferedWrite(WriteBuf *buf, const void *data, size_t size);
+void io_buffered_write(WriteBuf *buf, const void *data, size_t size);

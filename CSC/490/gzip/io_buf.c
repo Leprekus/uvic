@@ -10,7 +10,7 @@ struct WriteBuf {
 	u8 data[BUF_LEN];
 };
 
-WriteBuf *writeBufInit() {
+WriteBuf *io_buf_init() {
 	WriteBuf *w = malloc(sizeof(WriteBuf));
 	if(!w) return NULL;
 	w->size = BUF_LEN;
@@ -21,8 +21,8 @@ WriteBuf *writeBufInit() {
 	//WriteBuf outBuf = { .size = BUF_LEN, .count = 0, .data = {0} };
 }
 
-void bufferedWrite(WriteBuf *buf, const void *data, size_t size){
-	if(buf->size == buf->count) flush(buf);
+void io_buffered_write(WriteBuf *buf, const void *data, size_t size){
+	if(buf->size == buf->count) io_flush(buf);
 
 	u8 *temp = (u8 *)data;
 	size_t capacity = buf->size - buf->count;
@@ -31,19 +31,19 @@ void bufferedWrite(WriteBuf *buf, const void *data, size_t size){
 		buf->count += capacity;
 		temp += capacity;
 
-		flush(buf);
+		io_flush(buf);
 
 		size -= capacity; 
 		capacity = buf->size;
 		buf->count = 0;
 	}
 	if(size > 0) {
-		memcpy(buf->data, temp, size);
-		buf->count = size;
+		memcpy(buf->data + buf->count, temp, size);
+		buf->count += size;
 	}
 }
 
-void flush(WriteBuf *buf) {
+void io_flush(WriteBuf *buf) {
 	if(buf->count == 0) return;
 	write(1, buf->data, buf->count);
 	buf->count = 0;

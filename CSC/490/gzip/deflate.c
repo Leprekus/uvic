@@ -1,42 +1,51 @@
 #include "deflate.h"
+#include "bits.h"
+#include <stdio.h>
+#include <string.h>
 // huffman
 
 
 // lzss
 
 // deflate (orchestrator)
-Block blockInit() {
-	//TODO for empty gzip: 
-	// why is value 0011 (BTYPE=1 and LAST=1) and not 0001 (BTYPE=0 and LAST=1)? 
-	// why is BLOCK 2 Byte if options is just 1 byte?
-	
-}
-
-
-size_t block0(u8 *s, size_t start, size_t end);
+size_t block0(u8 s[], size_t start, size_t end, pHandler f, u8 is_last);
+size_t block1(u8 s[], size_t start, size_t end, pHandler);
 /*
+ * Entry point, so stream should always start at 0.
  * idea: calculate entropy as a heuristic to choose block type
  * https://en.wikipedia.org/wiki/Entropy_(information_theory)
  * H(X) := sum(p(x)) * ln(p(x))/ln(2)
  * */
 /* deflate(bitstream) -> decompressed | huffman | huffman + lzss */
-void deflate(u8 *stream, size_t *written, size_t len) {
-    /* case 1: we start a new stream */
-
-    /* case 2: we have an ongoing stream */
-    *written += block0(stream, 0, len);
+size_t deflate(u8 stream[], size_t len, pHandler f) {
+	if(stream == NULL || f == NULL || len == 0) {
+		perror("misuse: stream or handler is null or length is 0");
+		return 0;
+	}
+	size_t a =  block0(stream, 0, 1, f, 0);
+	size_t b =  block0(stream, 1, 2, f, 0);
+	size_t c =  block0(stream, 2, 3, f, 1);
+	return a + b + c;
 }
 
-void deflateClose(size_t written) {
+void deflate_close(size_t written, pHandler f) {
+	// occurs when we create an empty gzip
+	if(written == 0) {
+		block0(NULL, 0, 0, f, 0);
+		return;
+	}
 }
-size_t block0(u8 *s, size_t start, size_t end) {
-    Block0 b = {
- 		.OPTIONS = 0x03, // <- how to set opts correctly?
-        .LEN = 0x0000,
-        .NLEN = 0x0000,
-        .BITSTREAM = 0x00,
-        .COUNT = 0, 
+size_t block0(u8 s[], size_t start, size_t end, pHandler f, u8 is_last) {
+	size_t size = end - start;
+	Block0 b = {
+		.OPTIONS = is_last, 
+		.LEN = size,
+		.NLEN = ~size
 	};
+	u8 b_stream[sizeof(b)];
+	memcpy(b_stream, &b, sizeof(b));
 
-    return end - start;
+	f(b_stream, sizeof(Block0));
+	f(s + start, size);
+	return size;
 }

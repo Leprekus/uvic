@@ -124,7 +124,7 @@ class BitStream:
         self.working_bits_read += 1
         self.total_bits_read += 1
         return (self.working_bytes[byte_idx]>>bit_idx)&1
-    def flush_to_byte(self):
+    def io_flush_to_byte(self):
         while self.working_bits_read%8 != 0:
             self.read_bit()
 
@@ -338,7 +338,7 @@ def code_lengths_to_code_table(code_lengths):
 def decode_uncompressed(stream, output_buffer):
     # Type 00: Block is uncompressed data
     # Flush to a byte boundary (Type 00 only)
-    stream.flush_to_byte()
+    stream.io_flush_to_byte()
     # Blocks of this type start with two 16 bit little endian values s and ns
     # (where s == ~ns) containing the size of the block and its one's complement
     # representation (for consistency checking, I guess)
@@ -575,7 +575,7 @@ def read_member(stream, member_number):
     
     # Blocks can start and end at arbitrary bit locations, but the elements at the
     # end of the file (CRC and length) must be aligned on a byte boundary
-    stream.flush_to_byte()
+    stream.io_flush_to_byte()
     
     crc_code = stream.read_uint32_little_endian()
     header_print("Stored CRC32: 0x%08x"%crc_code)
