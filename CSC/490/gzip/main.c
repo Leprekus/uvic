@@ -7,52 +7,54 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 #include <string.h>
 #include <unistd.h>
 
 /*
  * stream(s) ->io_buffered_write(s)
  * */
-
-void io_out_cb(u8 s[], size_t len);
+void pre(void *s, size_t len);
+void emit(void *s, size_t len);
 WriteBuf *out_buf;
+u32 crc = UINT32_MAX;
+#define STREAM_LEN 32768
 int main() {
 	//INIT
+	static u8 test[3]; 
+
+	u8 *stream = stream_init(STREAM_LEN);
 	GzHeader gz_h = gz_header_init();
 	out_buf = io_buf_init();
-	if(!out_buf) exit(1);
+	DeflateCtx *ctx = deflate_ctx_init(
+			STDIN_FILENO, stream, STREAM_LEN, pre, emit);
+	if(!out_buf || !ctx) exit(1);
 	// WRITE HEADER
 	io_buffered_write(out_buf, &gz_h, sizeof(gz_h));
 	//MAIN LOOP TODO: change to 32768
-	Stream *pS = stream_init(32768);
-	size_t written = 0;
-	u32 crc = UINT32_MAX;
-	int bytes_read = 0;
-	static u8 test[] = { 0xaa, 0xbb, 0xcc }; 
-//	while((bytes_read = stream_read_from(pS, STDIN_FILENO)) > 0) {
-//		size_t nbytes = deflate(
-//			stream_data(pS), stream_length(pS), io_out_cb);
-//		crc = crc32_standard(crc, stream_data(pS), stream_length(pS));
-//		if(nbytes == 0 || bytes_read != nbytes) exit(1);
+	//crc = crc32_standard(crc, stream, bytes_read);
+	//ssize_t written = process(STDIN_FILENO, stream, STREAM_LEN, &crc, io_out_cb);
+	ssize_t written = deflate_read(ctx);
+	if(written < 0) exit(1);
+		//WRITE MEMBER
+//	do{
+//		size_t nbytes = deflate(current_stream, 3, io_out_cb, FINISH);
+//		crc = crc32_standard(crc, current_stream, 3);
+//		if(nbytes == 0) exit(1);
 //		written += nbytes;
-//		//WRITE MEMBER
-//		}
-	do{
-		size_t nbytes = deflate(test, sizeof(test), io_out_cb);
-		crc = crc32_standard(crc, test, sizeof(test));
-		if(nbytes == 0) exit(1);
-		written += nbytes;
-	} while(0);
-	if(bytes_read == -1) exit(1);
-	deflate_close(written, io_out_cb);
+//	} while(0);
 	//WRITE FOOTER: CRC & UNCOMPRESSED SIZE
+	//printf("written(%zd)", written);
 	GzFooter gz_f = { .ISIZE = written, .CRC32 = ~crc };
 	io_buffered_write(out_buf, &gz_f, sizeof(gz_f)); //gzF.CRC32 ^= 0xFFFFFFFF; // <- FINAL xor at the end
 
 	io_flush(out_buf);
 	//printf("num: %#04zX rev: %#0zX\n", x, theOneAndOnlyRuleYouShouldNeverForgetWhenPushingNumericalValuesIntoAGZIPContainer(x));
 }
+void pre(void *s, size_t len) {
+	crc = crc32_standard(crc, s, len);
+}
+void emit(void *s, size_t len){
 
-void io_out_cb(u8 s[], size_t len){
 	io_buffered_write(out_buf, s, len);
 }

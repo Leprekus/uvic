@@ -7,19 +7,12 @@ struct Stream {
     size_t size;
     size_t count;
     u8 *data;
+    u8 *peek;
 };
 
-Stream *stream_init(size_t nbytes) {
-    Stream *s = malloc(sizeof(Stream));
+u8 *stream_init(size_t nbytes) {
+    u8 *s = malloc(sizeof(u8) * nbytes);
     if(!s) return NULL;
-    u8 *d = malloc(sizeof(u8) * nbytes);
-    if(!d) {
-        free(s);
-        return NULL;
-    }
-    s->size = nbytes;
-    s->count = 0;
-    s->data = d;
     return s;
 }
 
