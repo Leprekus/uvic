@@ -1,15 +1,12 @@
 #include "deflate.h"
-#include "bits.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-// huffman
-
-
-// lzss
-
-// deflate (orchestrator)
+// type definitions and state
+#define false 0
+#define true 1
 typedef struct __attribute__((__packed__)) {
 	u8  OPTIONS; 
 	u16 LEN;
@@ -21,21 +18,68 @@ struct DeflateCtx {
 	size_t len;
 	pHandler pre;
 	pHandler emit;
+	BitVec *v;
 	
 	// STATE
 	size_t written;
 };
 typedef u8 bool;
-#define false 0
-#define true 1
+
+// parsing
+void push_literal(BitVec *v, u16 literal) {
+	//TODO: this memcpy looks ugly, can i do better?
+	u8 bytes[2];
+	if(0 <= literal && literal <= 143){ 
+		// 0b00110000 through 0b10111111
+		literal = 0x0030 + literal;
+		assert(0x30 <= literal && literal <= 0xBF);
+		memcpy(bytes, &literal, sizeof(literal));
+		bit_vec_push_nbits(v, bytes, 8);
+		return;
+	}
+
+	if(144 <= literal && literal <= 255) {
+		//0b110010000 through 0b111111111
+		literal = 0x0190 + (literal - 144);
+		assert(0x190 <= literal && literal <= 0x1FF);
+		memcpy(bytes, &literal, sizeof(literal));
+		bit_vec_push_nbits(v, bytes, 9);
+		return;
+	}
+
+	fprintf(stderr, "expected literal between [0, 143] or [144, 255] got literal(%hu)", literal);
+		
+};
+void push_eob(BitVec *v) {
+	u8 bytes[1] = {0};
+	bit_vec_push_nbits(v, bytes, 7);
+}
+void push_backref(BitVec *v, u16 len, u16 dist) {
+	u8 bytes[2];
+	if(257 <= len && len   <= 279 &&
+	   0   <= dist && dist <= 29
+	   ) { //0b0000001 through 0b0010111
+		len = 0x0001 + (len - 257);
+		memcpy(bytes, &len, sizeof(len));
+		bit_vec_push_nbits(v, bytes, 7);
+
+		//TODO: implement dist
+		return;
+	}
+	fprintf(stderr, "expected len between [257, 279] got len(%hu)", len);
+}
+
+// deflate (orchestrator)
+
 /* 
  * we process len bytes of the stream, 
  * lookahead - len get processed in deflate_close()
  * to emit a final header 
  * */
-
 size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status);
-size_t block1(u8 s[], size_t start, size_t end, pHandler);
+size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit);
+
+
 
 DeflateCtx *deflate_ctx_init(
 	int FD, u8 *stream, size_t len, pHandler pre, pHandler emit) {
@@ -46,6 +90,9 @@ DeflateCtx *deflate_ctx_init(
 
 	DeflateCtx *ctx = malloc(sizeof(DeflateCtx));
 	if(!ctx) return NULL;
+	BitVec *v = bit_vec_init(1024<<3);
+	if(!v) return NULL;
+	ctx->v = v;
 	ctx->FD = FD;
 	ctx->stream = stream;
 	ctx->len = len;
@@ -88,6 +135,7 @@ ssize_t deflate_read(DeflateCtx *ctx) {
 	 *
 	 * 	case 3: same as case 2.
 	 * 	*/
+	// TODO: refactor to avoid call repetition inside ifs
 	while( /*buffer_is_full(n1, s1, e1)*/ buffer_has_bytes(n1) ) {
 		//printf("state: s1(%zu), e1(%zu), s2(%zu), e2(%zu), n1(%zd), n2(%zu)", s1, e1, s2, e2, n1, n2);
 		if(
@@ -97,7 +145,7 @@ ssize_t deflate_read(DeflateCtx *ctx) {
 			//printf("buffer_full s1(%zu), e1(%zu), s2(%zu), e2(%zu), n1(%zd), n2(%zd)", s1, e1, s2, e2, n1, n2);
 			ctx->pre(ctx->stream + s1, n1);
 			ctx->written += 
-				deflate(ctx->stream + s1, n1, ctx->emit, RUN);	
+				deflate(ctx->stream + s1, n1, ctx->v, ctx->emit, RUN);	
 			
 			s1 ^= s2; e1 ^= e2; n1 = n2;
 			s2 ^= s1; e2 ^= e1; n2 = 0;
@@ -108,10 +156,10 @@ ssize_t deflate_read(DeflateCtx *ctx) {
 			//printf("buffer_has_bytes s1(%zu), e1(%zu), s2(%zu), e2(%zu), n1(%zd), n2(%zd)", s1, e1, s2, e2, n1, n2);
 			ctx->pre(ctx->stream + s1, n1);
 			ctx->written += 
-				deflate(ctx->stream  + s1, n1, ctx->emit, RUN);
+				deflate(ctx->stream  + s1, n1, ctx->v, ctx->emit, RUN);
 			ctx->pre(ctx->stream + s2, n2);
 			ctx->written += 
-				deflate(ctx->stream  + s2, n2, ctx->emit, FINISH);
+				deflate(ctx->stream  + s2, n2, ctx->v, ctx->emit, FINISH);
 			break;
 		}
 		/* if buffer 2 is empty only deflate buf 1 */
@@ -120,7 +168,7 @@ ssize_t deflate_read(DeflateCtx *ctx) {
 			//printf("buffer_is_empty s1(%zu), e1(%zu), s2(%zu), e2(%zu), n1(%zd), n2(%zd)", s1, e1, s2, e2, n1, n2);
 			ctx->pre(ctx->stream + s1, n1);
 			ctx->written +=
-				deflate(ctx->stream + s1, n1, ctx->emit, FINISH);
+				deflate(ctx->stream + s1, n1, ctx->v, ctx->emit, FINISH);
 			break;
 		} 
 		
@@ -135,7 +183,8 @@ ssize_t deflate_read(DeflateCtx *ctx) {
  * H(X) := sum(p(x)) * ln(p(x))/ln(2)
  * */
 /* deflate(bitstream) -> decompressed | huffman | huffman + lzss */
-size_t deflate(u8 *stream, size_t read, pHandler emit, DeflateStatus status) {
+size_t deflate(u8 *stream, size_t read, BitVec *v, pHandler emit, DeflateStatus status) {
+	return block1(stream, read, v, emit);
 	return block0(stream, read, emit, status);
 	
 }
@@ -176,5 +225,24 @@ size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status) {
 
 	emit(&b, sizeof(Block0));
 	emit(stream, len);
+	return len;
+}
+
+size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit) {
+	u8 header[1] = {0x03}; //0000 0011
+	bit_vec_push_nbits(v, header, 2);
+	push_literal(v,stream[0]);
+	push_literal(v, stream[1]);
+	// TODO: implement bit_vec_reset, bit_vec_pad_to_byte
+	////backreference: <257, 3> EOB
+	//stream[0] = 0x4b;
+	//stream[1] = 0x4c;
+	//// block: a a a b 257 3 256
+	//stream[4] = 0x30;
+	//stream[5] = 0x02;
+	//stream[6] = 0x00;
+	//emit(&header, sizeof(header));
+	//emit(stream, len);
+	bit_vec_print(v);
 	return len;
 }
