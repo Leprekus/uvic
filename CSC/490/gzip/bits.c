@@ -61,7 +61,7 @@ BITVEC_STATUS bit_vec_push_bit(BitVec *v, u8 bit){
 }
 
 /* private helper function, so space validation should be done by caller */
-size_t bit_write(BitVec *v, u8 *bits,  size_t n, size_t i) {
+static inline size_t bit_write(BitVec *v, u64 *bits,  size_t n, size_t i) {
 	u8 mask = (0xFF << bit_idx(v));  
 	// clear bits from the free slot up to the MSB in the byte (idx..7)
 	v->data[byte_idx(v)] &= ~mask; 
@@ -72,18 +72,18 @@ size_t bit_write(BitVec *v, u8 *bits,  size_t n, size_t i) {
 	size_t written = (n < byte_capacity) ? n : byte_capacity;
 	return written;
 }
-BITVEC_STATUS bit_vec_push_nbits(BitVec *v, u8 bits[], size_t n) {
+BITVEC_STATUS bit_vec_push_nbits(BitVec *v, u64 bits, size_t n) {
 	if(n == 0) return SUCCESS;
 	size_t capacity = v->capacity-v->written;
 	if(n > capacity) return OUT_OF_BOUNDS;
 	// tracks bits written, but it gets used as a byte_idx (i/8)
 	size_t i = 0;    
 	do {
-		size_t written = bit_write(v, bits, n, i>>3);	
+		size_t written = bit_write(v, &bits, n, i>>3);	
 		n -= written; i += written; v->written += written;
 		//if n is not empty, and we wrote < 7 bits we must flush
 		if(n && written < 7) {
-			written = bit_write(v, bits, n, i>>3);
+			written = bit_write(v, &bits, n, i>>3);
 			n -= written; i += written; v->written += written;
 		}
 	} while(n);

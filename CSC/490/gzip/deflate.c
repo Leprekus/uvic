@@ -28,13 +28,11 @@ typedef u8 bool;
 // parsing
 void push_literal(BitVec *v, u16 literal) {
 	//TODO: this memcpy looks ugly, can i do better?
-	u8 bytes[2];
 	if(0 <= literal && literal <= 143){ 
 		// 0b00110000 through 0b10111111
 		literal = 0x0030 + literal;
 		assert(0x30 <= literal && literal <= 0xBF);
-		memcpy(bytes, &literal, sizeof(literal));
-		bit_vec_push_nbits(v, bytes, 8);
+		bit_vec_push_nbits(v, literal, 8);
 		return;
 	}
 
@@ -42,8 +40,7 @@ void push_literal(BitVec *v, u16 literal) {
 		//0b110010000 through 0b111111111
 		literal = 0x0190 + (literal - 144);
 		assert(0x190 <= literal && literal <= 0x1FF);
-		memcpy(bytes, &literal, sizeof(literal));
-		bit_vec_push_nbits(v, bytes, 9);
+		bit_vec_push_nbits(v, literal, 9);
 		return;
 	}
 
@@ -51,17 +48,15 @@ void push_literal(BitVec *v, u16 literal) {
 		
 };
 void push_eob(BitVec *v) {
-	u8 bytes[1] = {0};
-	bit_vec_push_nbits(v, bytes, 7);
+	bit_vec_push_nbits(v, 0x00, 7);
 }
 void push_backref(BitVec *v, u16 len, u16 dist) {
-	u8 bytes[2];
 	if(257 <= len && len   <= 279 &&
 	   0   <= dist && dist <= 29
 	   ) { //0b0000001 through 0b0010111
 		len = 0x0001 + (len - 257);
-		memcpy(bytes, &len, sizeof(len));
-		bit_vec_push_nbits(v, bytes, 7);
+		assert(0x01 <= len && len <= 0x17);
+		bit_vec_push_nbits(v, len, 7);
 
 		//TODO: implement dist
 		return;
@@ -229,10 +224,15 @@ size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status) {
 }
 
 size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit) {
-	u8 header[1] = {0x03}; //0000 0011
-	bit_vec_push_nbits(v, header, 2);
-	push_literal(v,stream[0]);
-	push_literal(v, stream[1]);
+	//u8 header[1] = {0x03}; //0000 0011
+	//bit_vec_push_nbits(v, header, 2);
+	//push_literal(v,stream[0]);
+	u64 test0 = 0x003;
+	bit_vec_push_nbits(v, 0x003, 3);
+	bit_vec_push_nbits(v, 0x000, 1);
+	u8 test1[3] = {0x41, 0x40}; //kx03, 0x40 => 0x13, 0x04
+	bit_vec_push_nbits(v, 0x4041, 7);
+	//push_literal(v, stream[1]);
 	// TODO: implement bit_vec_reset, bit_vec_pad_to_byte
 	////backreference: <257, 3> EOB
 	//stream[0] = 0x4b;

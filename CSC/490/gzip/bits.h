@@ -26,7 +26,7 @@ u8 bit_push_n(u8 s, size_t i, size_t j);
  * - array of bits to be pushed
  * - number of BITS to be pushed 
  * */
-BITVEC_STATUS bit_vec_push_nbits(BitVec *v, u8 bits[], size_t n);
+BITVEC_STATUS bit_vec_push_nbits(BitVec *v, u64 bits, size_t n);
 void bit_vec_print(BitVec *v);
 u8 reverse_u8(u8 n);
 u16 reverse_u16(u16 n);
