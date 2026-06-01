@@ -1,4 +1,5 @@
 #include "types.h"
+#include "bits.h"
 #include <stddef.h>
 #include <stdio.h>
 
@@ -42,6 +43,6 @@ typedef void (*pHandler)(void *data, size_t len);
 DeflateCtx *deflate_ctx_init(
 	int FD, u8 *stream, size_t len, pHandler pre, pHandler emit);
 ssize_t deflate_read(DeflateCtx *ctx);
-size_t deflate(u8 *stream, size_t read, pHandler f, DeflateStatus status);
+size_t deflate(u8 *stream, size_t read, BitVec *v, pHandler emit, DeflateStatus status);
 void deflate_close(size_t written, pHandler f);
 
