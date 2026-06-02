@@ -19,7 +19,11 @@ u8 bit_clear(u8 n, u8 i);
  * i - the ith byte in the stream
  * j - the jth bit in the ith byte
  * */
-u8 bit_push_n(u8 s, size_t i, size_t j);
+u8 *bit_vec_data(BitVec *v);
+void bit_vec_clear(BitVec *v);
+void bit_vec_pad(BitVec *v);
+size_t bit_vec_bit_len(BitVec *v);
+size_t bit_vec_byte_len(BitVec *v);
 /*
  * parameters:
  * - BitVec *v

@@ -61,45 +61,70 @@ BITVEC_STATUS bit_vec_push_bit(BitVec *v, u8 bit){
 }
 
 /* private helper function, so space validation should be done by caller */
-static inline size_t bit_write(BitVec *v, u64 *bits,  size_t n, size_t i) {
+static inline size_t bit_write(BitVec *v, u64 *bits,  size_t n) {
 	u8 mask = (0xFF << bit_idx(v));  
 	// clear bits from the free slot up to the MSB in the byte (idx..7)
 	v->data[byte_idx(v)] &= ~mask; 
 	// push bits(idx..7) where LSB = idx and MSB = 7
-	v->data[byte_idx(v)] |= (bits[i] << bit_idx(v)); 
-	bits[i] = (bits[i] >> bit_idx(v)); // consume pushed bits
+	// b>>i*8 is equivalent to b[i]
+	u64 b = *bits; u64 tmp = *bits;
+	v->data[byte_idx(v)] |= (b << bit_idx(v)); 
 	size_t byte_capacity = 8 - bit_idx(v); 
 	size_t written = (n < byte_capacity) ? n : byte_capacity;
+	b = (b >> written); // consume pushed bits
+	//printf("bits(%#lx) value_written(%#lx) next(%#lx) bit_idx(%zu) n(%zu) byte_cap(%zu)", tmp, (tmp<<bit_idx(v))>>bit_idx(v), b, bit_idx(v), n, byte_capacity);
+	
+	*bits = b;
 	return written;
 }
 BITVEC_STATUS bit_vec_push_nbits(BitVec *v, u64 bits, size_t n) {
 	if(n == 0) return SUCCESS;
 	size_t capacity = v->capacity-v->written;
 	if(n > capacity) return OUT_OF_BOUNDS;
+
 	// tracks bits written, but it gets used as a byte_idx (i/8)
-	size_t i = 0;    
 	do {
-		size_t written = bit_write(v, &bits, n, i>>3);	
-		n -= written; i += written; v->written += written;
+		size_t written = bit_write(v, &bits, n);	
+		n -= written; v->written += written;
+		//printf("n(%zu) i(%zu) written(%zu)", n, i, written);
 		//if n is not empty, and we wrote < 7 bits we must flush
 		if(n && written < 7) {
-			written = bit_write(v, &bits, n, i>>3);
-			n -= written; i += written; v->written += written;
+			written = bit_write(v, &bits, n);
+			n -= written; v->written += written;
 		}
 	} while(n);
 	return SUCCESS;
 
 }
+void bit_vec_clear(BitVec *v) { v->written = 0; }
 
+void bit_vec_pad(BitVec *v) {
+	size_t padding = 8 - bit_idx(v);
+	/* only pad if there's a remainder (byte not full) */
+	if(v->written & 8) bit_vec_push_nbits(v, 0x00, padding-1);
+}
+
+size_t bit_vec_byte_len(BitVec *v) {
+	return byte_idx(v) + 1;
+}
+size_t bit_vec_bit_len(BitVec *v) {
+	return v->written;
+}
 void bit_vec_print(BitVec *v) {
 	if(v->written == 0) return;
 	size_t n = byte_idx(v), i = 0;
 	do { printf("[%#04X]\n", v->data[i]); i++; } while(n--);
 
 }
+u8 *bit_vec_data(BitVec *v) {
+	return v->data;
+}
 // Source - https://stackoverflow.com/a/2602885
 // Posted by sth, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-05-09, License - CC BY-SA 4.0
+// TODO: optimizations
+// - implement lookup table to make reversing constant
+// - make functions extern static inline to avoid function call overhead
 u8 reverse_u8(u8 b) {
    b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
    b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
@@ -108,8 +133,8 @@ u8 reverse_u8(u8 b) {
 }
 
 u16 reverse_u16(u16 n) {
-	return reverse_u8(n) | (reverse_u8(n >> 8));
+	return reverse_u8(n)<<8 | (reverse_u8(n >> 8));
 }
 u32 reverse_u32(u32 n) {
-	return (reverse_u8(n)) | (reverse_u8(n >> 8)) | (reverse_u8(n >> 16)) | (reverse_u8(n) >> 24);
+	return (reverse_u8(n))<<24 | (reverse_u8(n >> 8)<<16) | (reverse_u8(n >> 16)<<8) | (reverse_u8(n) >> 24);
 }

@@ -26,26 +26,27 @@ struct DeflateCtx {
 typedef u8 bool;
 
 // parsing
-void push_literal(BitVec *v, u16 literal) {
-	//TODO: this memcpy looks ugly, can i do better?
+BITVEC_STATUS push_literal(BitVec *v, u16 literal) {
 	if(0 <= literal && literal <= 143){ 
-		// 0b00110000 through 0b10111111
+		// Seems to work
+		// 0b0011_0000 through 0b1011_1111
 		literal = 0x0030 + literal;
 		assert(0x30 <= literal && literal <= 0xBF);
-		bit_vec_push_nbits(v, literal, 8);
-		return;
+		return bit_vec_push_nbits(v, reverse_u8(literal), 8);
+		
 	}
 
 	if(144 <= literal && literal <= 255) {
+		// seems to work
 		//0b110010000 through 0b111111111
 		literal = 0x0190 + (literal - 144);
-		assert(0x190 <= literal && literal <= 0x1FF);
-		bit_vec_push_nbits(v, literal, 9);
-		return;
+		//printf("literal(%#3hx) reversed(%#3hx)", literal, reverse_u16(literal));
+		assert(0x0190 <= literal && literal <= 0x01FF);
+		return bit_vec_push_nbits(v, reverse_u16(literal)>>7, 9);
 	}
 
 	fprintf(stderr, "expected literal between [0, 143] or [144, 255] got literal(%hu)", literal);
-		
+	return -1;
 };
 void push_eob(BitVec *v) {
 	bit_vec_push_nbits(v, 0x00, 7);
@@ -72,7 +73,7 @@ void push_backref(BitVec *v, u16 len, u16 dist) {
  * to emit a final header 
  * */
 size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status);
-size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit);
+size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus);
 
 
 
@@ -179,7 +180,8 @@ ssize_t deflate_read(DeflateCtx *ctx) {
  * */
 /* deflate(bitstream) -> decompressed | huffman | huffman + lzss */
 size_t deflate(u8 *stream, size_t read, BitVec *v, pHandler emit, DeflateStatus status) {
-	return block1(stream, read, v, emit);
+	
+	return block1(stream, read, v, emit, status);
 	return block0(stream, read, emit, status);
 	
 }
@@ -223,16 +225,28 @@ size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status) {
 	return len;
 }
 
-size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit) {
-	//u8 header[1] = {0x03}; //0000 0011
-	//bit_vec_push_nbits(v, header, 2);
-	//push_literal(v,stream[0]);
-	u64 test0 = 0x003;
-	bit_vec_push_nbits(v, 0x003, 3);
-	bit_vec_push_nbits(v, 0x000, 1);
-	u8 test1[3] = {0x41, 0x40}; //kx03, 0x40 => 0x13, 0x04
-	bit_vec_push_nbits(v, 0x4041, 7);
-	//push_literal(v, stream[1]);
+size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus status) {
+	u64 header = (0x01 << 1) | (status == FINISH); // BFINAL=1 BTYPE=01
+	bit_vec_push_nbits(v, header, 3);
+	for(size_t i = 0; i < len; i++) {
+		if(push_literal(v, stream[i]) == OUT_OF_BOUNDS) {
+			//emit(bit_vec_data(v), bit_vec_byte_len(v));
+			//bit_vec_clear(v);
+			//assert(push_literal(v, stream[i]) == SUCCESS);
+
+		}
+	}
+	
+	push_eob(v);
+	//This works
+	//bit_vec_push_nbits(v, 0x0, 1);
+	//bit_vec_push_nbits(v, 0x0, 1);
+	//bit_vec_push_nbits(v, 0x0, 1);
+	//bit_vec_push_nbits(v, 0x0, 1);
+	//But padding 4 bits in a single operation seems to fail
+	bit_vec_pad(v);
+	emit(bit_vec_data(v), bit_vec_byte_len(v));
+	//push_literal(v, stream[2]);
 	// TODO: implement bit_vec_reset, bit_vec_pad_to_byte
 	////backreference: <257, 3> EOB
 	//stream[0] = 0x4b;
@@ -243,6 +257,6 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit) {
 	//stream[6] = 0x00;
 	//emit(&header, sizeof(header));
 	//emit(stream, len);
-	bit_vec_print(v);
+	//bit_vec_print(v);
 	return len;
 }

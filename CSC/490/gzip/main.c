@@ -36,18 +36,8 @@ int main() {
 	//ssize_t written = process(STDIN_FILENO, stream, STREAM_LEN, &crc, io_out_cb);
 	ssize_t written = deflate_read(ctx);
 	if(written < 0) exit(1);
-		//WRITE MEMBER
-//	do{
-//		size_t nbytes = deflate(current_stream, 3, io_out_cb, FINISH);
-//		crc = crc32_standard(crc, current_stream, 3);
-//		if(nbytes == 0) exit(1);
-//		written += nbytes;
-//	} while(0);
-	//WRITE FOOTER: CRC & UNCOMPRESSED SIZE
-	//printf("written(%zd)", written);
-	GzFooter gz_f = { .ISIZE = written, .CRC32 = ~crc };
+	GzFooter gz_f = { .ISIZE = written, .CRC32 = /*0x22444246*/~crc };
 	io_buffered_write(out_buf, &gz_f, sizeof(gz_f)); //gzF.CRC32 ^= 0xFFFFFFFF; // <- FINAL xor at the end
-
 	io_flush(out_buf);
 	//printf("num: %#04zX rev: %#0zX\n", x, theOneAndOnlyRuleYouShouldNeverForgetWhenPushingNumericalValuesIntoAGZIPContainer(x));
 }

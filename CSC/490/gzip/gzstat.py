@@ -124,7 +124,7 @@ class BitStream:
         self.working_bits_read += 1
         self.total_bits_read += 1
         return (self.working_bytes[byte_idx]>>bit_idx)&1
-    def io_flush_to_byte(self):
+    def flush_to_byte(self):
         while self.working_bits_read%8 != 0:
             self.read_bit()
 
@@ -155,7 +155,7 @@ class OutputLZBuffer:
     def __init__(self,output_callback=lambda b: None):
         self.output_callback = output_callback
         self.bytes_written = 0
-        self.crc = 0x00
+        self.crc = 0x00 
         self.history = []
     def write_byte(self, b):
         b = b&0xff
@@ -338,7 +338,7 @@ def code_lengths_to_code_table(code_lengths):
 def decode_uncompressed(stream, output_buffer):
     # Type 00: Block is uncompressed data
     # Flush to a byte boundary (Type 00 only)
-    stream.io_flush_to_byte()
+    stream.flush_to_byte()
     # Blocks of this type start with two 16 bit little endian values s and ns
     # (where s == ~ns) containing the size of the block and its one's complement
     # representation (for consistency checking, I guess)
@@ -505,7 +505,7 @@ def decode_dynamic(stream,output_buffer):
     decode_huffman(stream, output_buffer, ll_tree, dist_tree)
 
 
-def read_block(stream, output_buffer, block_idx):
+def read_block(stream: BitStream, output_buffer, block_idx):
     #First bit: Last block flag (1 = last block)
     last_block = stream.read_bit()
     #Next two bits (as a 2-bit little endian integer) are the block type
@@ -575,7 +575,7 @@ def read_member(stream, member_number):
     
     # Blocks can start and end at arbitrary bit locations, but the elements at the
     # end of the file (CRC and length) must be aligned on a byte boundary
-    stream.io_flush_to_byte()
+    stream.flush_to_byte()
     
     crc_code = stream.read_uint32_little_endian()
     header_print("Stored CRC32: 0x%08x"%crc_code)
