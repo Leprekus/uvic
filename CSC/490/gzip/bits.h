@@ -22,8 +22,10 @@ u8 bit_clear(u8 n, u8 i);
 u8 *bit_vec_data(BitVec *v);
 void bit_vec_clear(BitVec *v);
 void bit_vec_pad(BitVec *v);
-size_t bit_vec_bit_len(BitVec *v);
-size_t bit_vec_byte_len(BitVec *v);
+size_t bit_vec_bit_capacity(BitVec *v);
+size_t bit_vec_bit_count(BitVec *v);
+size_t bit_vec_byte_capacity(BitVec *v);
+size_t bit_vec_byte_count(BitVec *v);
 /*
  * parameters:
  * - BitVec *v

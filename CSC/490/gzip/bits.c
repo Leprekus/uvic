@@ -66,13 +66,12 @@ static inline size_t bit_write(BitVec *v, u64 *bits,  size_t n) {
 	// clear bits from the free slot up to the MSB in the byte (idx..7)
 	v->data[byte_idx(v)] &= ~mask; 
 	// push bits(idx..7) where LSB = idx and MSB = 7
-	// b>>i*8 is equivalent to b[i]
 	u64 b = *bits; u64 tmp = *bits;
 	v->data[byte_idx(v)] |= (b << bit_idx(v)); 
-	size_t byte_capacity = 8 - bit_idx(v); 
-	size_t written = (n < byte_capacity) ? n : byte_capacity;
+	size_t bit_capacity = 8 - bit_idx(v); 
+	size_t written = (n < bit_capacity) ? n : bit_capacity;
 	b = (b >> written); // consume pushed bits
-	//printf("bits(%#lx) value_written(%#lx) next(%#lx) bit_idx(%zu) n(%zu) byte_cap(%zu)", tmp, (tmp<<bit_idx(v))>>bit_idx(v), b, bit_idx(v), n, byte_capacity);
+	//printf("bits(%#lx) value(%#lx) next(%#lx) bit_idx(%zu) n(%zu) bit_cap(%zu)", tmp, (tmp<<bit_idx(v))>>bit_idx(v), b, bit_idx(v), n, bit_capacity-written);
 	
 	*bits = b;
 	return written;
@@ -111,12 +110,18 @@ void bit_vec_pad(BitVec *v) {
  * case 2: byte isn't full
  * byte_idx points to current byte
  * because (8-l)*k/8 = length - 1*/
-size_t bit_vec_byte_len(BitVec *v) {
+size_t bit_vec_byte_count(BitVec *v) {
 	bool byte_is_full = (v->written%8)==0;
 	return byte_is_full ? byte_idx(v) : byte_idx(v) + 1;
 }
-size_t bit_vec_bit_len(BitVec *v) {
+size_t bit_vec_byte_capacity(BitVec *v) {
+	return (v->written+7)>>8;
+}
+size_t bit_vec_bit_count(BitVec *v) {
 	return v->written;
+}
+size_t bit_vec_bit_capacity(BitVec *v) {
+	return v->capacity;
 }
 void bit_vec_print(BitVec *v) {
 	if(v->written == 0) return;
