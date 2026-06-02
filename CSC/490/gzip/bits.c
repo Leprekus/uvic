@@ -101,11 +101,19 @@ void bit_vec_clear(BitVec *v) { v->written = 0; }
 void bit_vec_pad(BitVec *v) {
 	size_t padding = 8 - bit_idx(v);
 	/* only pad if there's a remainder (byte not full) */
-	if(v->written & 8) bit_vec_push_nbits(v, 0x00, padding-1);
+	if(v->written&8) bit_vec_push_nbits(v, 0x00, padding);
 }
 
+ /* we have to handle  cases:
+ * case 1: byte is full 
+ * byte_idx(v) already points to the next byte
+ * because 8*k/8 = length
+ * case 2: byte isn't full
+ * byte_idx points to current byte
+ * because (8-l)*k/8 = length - 1*/
 size_t bit_vec_byte_len(BitVec *v) {
-	return byte_idx(v) + 1;
+	bool byte_is_full = (v->written%8)==0;
+	return byte_is_full ? byte_idx(v) : byte_idx(v) + 1;
 }
 size_t bit_vec_bit_len(BitVec *v) {
 	return v->written;

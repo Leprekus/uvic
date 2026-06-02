@@ -5,8 +5,6 @@
 #include <string.h>
 #include <unistd.h>
 // type definitions and state
-#define false 0
-#define true 1
 typedef struct __attribute__((__packed__)) {
 	u8  OPTIONS; 
 	u16 LEN;
@@ -23,7 +21,6 @@ struct DeflateCtx {
 	// STATE
 	size_t written;
 };
-typedef u8 bool;
 
 // parsing
 BITVEC_STATUS push_literal(BitVec *v, u16 literal) {
@@ -230,9 +227,9 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus st
 	bit_vec_push_nbits(v, header, 3);
 	for(size_t i = 0; i < len; i++) {
 		if(push_literal(v, stream[i]) == OUT_OF_BOUNDS) {
-			//emit(bit_vec_data(v), bit_vec_byte_len(v));
-			//bit_vec_clear(v);
-			//assert(push_literal(v, stream[i]) == SUCCESS);
+			emit(bit_vec_data(v), bit_vec_byte_len(v));
+			bit_vec_clear(v);
+			assert(push_literal(v, stream[i]) == SUCCESS);
 
 		}
 	}
