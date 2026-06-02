@@ -123,6 +123,8 @@ size_t bit_vec_bit_count(BitVec *v) {
 size_t bit_vec_bit_capacity(BitVec *v) {
 	return v->capacity;
 }
+bool bit_vec_is_full(BitVec *v) { return v->capacity==v->written; }
+size_t bit_vec_remaining_bits(BitVec *v){ return v->capacity - v->written; }
 void bit_vec_print(BitVec *v) {
 	if(v->written == 0) return;
 	size_t n = byte_idx(v), i = 0;

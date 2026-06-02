@@ -17,6 +17,11 @@ to compress we flush without a header. Else if we meet some weird condition
 we flush with a header. Finally, the buffer contents are emitted.
 `trees.c flush_block()`
 
+# Tests
+
+Block 0 passes
+Block 1 fails a32768.txt
+
 # Naming Conventions
 - sqlite3_prefix_snake: public facing API
 - snake_case_no_prefix: internal API

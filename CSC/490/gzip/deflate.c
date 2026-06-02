@@ -38,16 +38,34 @@ BITVEC_STATUS push_eob(BitVec *v, pHandler emit);
  * forwards immediate status after a push retry*/
 BITVEC_STATUS push_bits(BitVec *v, u64 bits, size_t n, pHandler emit) {
 	BITVEC_STATUS s = bit_vec_push_nbits(v, bits, n);
+	// Seems to be working
 	//TODO: fix chopping before clearing
-	// case 1: byte is full we clear and retry
-	// case 2: byte has less capacity than what we want to push.
+	// case 1: vector is full we clear and retry
+	// case 2: vector's  capacity is less than size_t n.
 	// then we chop input and push, otherwise our bitpacking loses the
 	// current index and gets shifted causing incorrect output.  
 	if(s == OUT_OF_BOUNDS){
-		//bool has_space = bit_vec_bit_count(v);
-		emit(bit_vec_data(v), bit_vec_byte_count(v));
-		bit_vec_clear(v);
-		return bit_vec_push_nbits(v, bits, n);
+		size_t remaining = bit_vec_remaining_bits(v);
+		size_t min = (remaining < n) ? remaining : n;
+		while(n) {
+			if(!remaining) {
+				emit(bit_vec_data(v), bit_vec_byte_count(v));
+				bit_vec_clear(v);
+			} else {
+				s = bit_vec_push_nbits(v, bits, min);
+				if(s != SUCCESS) return s;
+				if(bit_vec_is_full(v)) {
+					emit(bit_vec_data(v), bit_vec_byte_count(v));
+					bit_vec_clear(v);
+				}
+			}
+			bits >>= min; 
+			n -= min;
+			remaining = bit_vec_remaining_bits(v);
+			min = (remaining < n) ? remaining : n;
+		}
+		return s;
+		
 	}
 	return s;
 }
@@ -233,6 +251,9 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus st
 		assert(push_literal(v, stream[i], emit)==SUCCESS);
 	}
 	
+	// TODO: fix dirty emit()
+	// if any of the push_bit functions emits and then
+	// we emit again at the end of this function we get duplicated data
 	assert(push_eob(v, emit) == SUCCESS);
 	if(status == FINISH) bit_vec_pad(v);
 	emit(bit_vec_data(v), bit_vec_byte_count(v));

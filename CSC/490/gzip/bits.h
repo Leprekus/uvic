@@ -26,6 +26,9 @@ size_t bit_vec_bit_capacity(BitVec *v);
 size_t bit_vec_bit_count(BitVec *v);
 size_t bit_vec_byte_capacity(BitVec *v);
 size_t bit_vec_byte_count(BitVec *v);
+bool bit_vec_is_full(BitVec *v);
+size_t bit_vec_remaining_bits(BitVec *v);
+
 /*
  * parameters:
  * - BitVec *v
