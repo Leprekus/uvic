@@ -101,7 +101,7 @@ void bit_vec_clear(BitVec *v) { v->written = 0; }
 void bit_vec_pad(BitVec *v) {
 	size_t padding = 8 - bit_idx(v);
 	/* only pad if there's a remainder (byte not full) */
-	if(v->written&8) bit_vec_push_nbits(v, 0x00, padding);
+	if(bit_idx(v)) bit_vec_push_nbits(v, 0x00, padding);
 }
 
  /* we have to handle  cases:

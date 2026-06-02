@@ -223,24 +223,34 @@ size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status) {
 }
 
 size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus status) {
-	u64 header = (0x01 << 1) | (status == FINISH); // BFINAL=1 BTYPE=01
-	bit_vec_push_nbits(v, header, 3);
-	for(size_t i = 0; i < len; i++) {
-		if(push_literal(v, stream[i]) == OUT_OF_BOUNDS) {
-			emit(bit_vec_data(v), bit_vec_byte_len(v));
-			bit_vec_clear(v);
-			assert(push_literal(v, stream[i]) == SUCCESS);
+	//u64 header = (0x01 << 1) | (status == FINISH); // BFINAL=1 BTYPE=01
+	//bit_vec_push_nbits(v, header, 3);
+	//for(size_t i = 0; i < len; i++) {
+	//	if(push_literal(v, stream[i]) == OUT_OF_BOUNDS) {
+	//		emit(bit_vec_data(v), bit_vec_byte_len(v));
+	//		bit_vec_clear(v);
+	//		assert(push_literal(v, stream[i]) == SUCCESS);
 
-		}
-	}
-	
-	push_eob(v);
+	//	}
+	//}
+	//
+	//push_eob(v);
 	//This works
 	//bit_vec_push_nbits(v, 0x0, 1);
 	//bit_vec_push_nbits(v, 0x0, 1);
 	//bit_vec_push_nbits(v, 0x0, 1);
 	//bit_vec_push_nbits(v, 0x0, 1);
 	//But padding 4 bits in a single operation seems to fail
+	
+	bit_vec_push_nbits(v, 0x02, 3);
+	push_literal(v, stream[0]);
+	push_literal(v, stream[1]);
+	push_eob(v);
+
+	bit_vec_push_nbits(v, 0x03, 3);
+	push_literal(v, stream[2]);
+	push_literal(v, stream[3]);
+	push_eob(v);
 	bit_vec_pad(v);
 	emit(bit_vec_data(v), bit_vec_byte_len(v));
 	//push_literal(v, stream[2]);
