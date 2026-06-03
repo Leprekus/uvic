@@ -1,0 +1,15 @@
+-- gzip member 0 --
+    Compression Method: 8 (deflate)
+    Flags: 0x00
+    Modification time: 0x00000000 (Wed Dec 31 16:00:00 1969)
+    Extra flags: 0x00
+    OS Type: 3
+    -- Block 0 (last = 1) --
+        Block type: 0 (uncompressed)
+    Decoding Block Type 00 (uncompressed):
+        LEN = 1 (0x0001), NLEN = 65534 (0xfffe)
+    Stored CRC32: 0x220d7cc9
+    Stored Decompressed size: 1
+    Actual CRC32: 0x220d7cc9
+    Actual Decompressed Size: 1
+Read 1 gzip members

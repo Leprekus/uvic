@@ -36,7 +36,7 @@ int main() {
 	//ssize_t written = process(STDIN_FILENO, stream, STREAM_LEN, &crc, io_out_cb);
 	ssize_t written = deflate_read(ctx);
 	if(written < 0) exit(1);
-	GzFooter gz_f = { .ISIZE = written, .CRC32 = /*0x22444246*/~crc };
+	GzFooter gz_f = { .ISIZE = written, .CRC32 = ~crc };
 	io_buffered_write(out_buf, &gz_f, sizeof(gz_f)); //gzF.CRC32 ^= 0xFFFFFFFF; // <- FINAL xor at the end
 	io_flush(out_buf);
 	//printf("num: %#04zX rev: %#0zX\n", x, theOneAndOnlyRuleYouShouldNeverForgetWhenPushingNumericalValuesIntoAGZIPContainer(x));

@@ -251,12 +251,12 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus st
 		assert(push_literal(v, stream[i], emit)==SUCCESS);
 	}
 	
-	// TODO: fix dirty emit()
-	// if any of the push_bit functions emits and then
-	// we emit again at the end of this function we get duplicated data
-	assert(push_eob(v, emit) == SUCCESS);
-	if(status == FINISH) bit_vec_pad(v);
-	emit(bit_vec_data(v), bit_vec_byte_count(v));
-	//bit_vec_print(v);
+	
+	assert(push_eob(v, emit) == SUCCESS); // push eob to BitVec
+	if(status == FINISH) {
+		bit_vec_pad(v); // pad BitVec if it's last block
+		if(bit_vec_bit_count(v)) 
+			emit(bit_vec_data(v), bit_vec_byte_count(v));
+	}
 	return len;
 }

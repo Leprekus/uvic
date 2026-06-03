@@ -228,13 +228,14 @@ def print_huffman_tree(root):
             print_node(prefix+'|   ', node.left)
             print_node(prefix+'|   ', node.right)
     print(root)
-
 def decode_huffman(stream, output_buffer, ll_tree, dist_tree):
+    global i
     ll_path = []
     node = ll_tree
     if decode_blocks:
         print('%12s-- Decoded data --'%'')
     while 1:
+        i += 1
         b = stream.read_bit()
         ll_path.append(b)
         if b == 0:

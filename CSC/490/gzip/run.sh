@@ -14,6 +14,8 @@ for entry in ./tests/*; do
 	echo "decompresing: $fname"
 	gzip -dc "./out/$fname.gz" > /dev/null 
 	echo "success: $fname"
+	echo "diff: "
+	diff "./tests/$fname" <(gzip -dc "./out/$fname.gz")
 done
 #./main < /dev/null > out/main.gz # create empty gzip using main
 #echo "=== gzstat.py ===" # validate with gzstat
