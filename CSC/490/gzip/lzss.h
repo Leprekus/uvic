@@ -1,4 +1,18 @@
 #include "types.h"
+#include <stddef.h>
+
+
+typedef struct { size_t i, length, distance; } BackRef;
+typedef struct {
+	enum { LITERAL, BACKREF } kind;
+	union {
+		u8 literal;
+		BackRef ref;
+	};
+} LzssData;
+
+typedef void (*pLzssStream)(LzssData d);
+void lzss_compress_stream(u8 *s,  size_t len, pLzssStream emit);
 /* Tables for deflate from PKZIP's appnote.txt. */
 static unsigned border[] = {    /* Order of the bit length code lengths */
         16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
@@ -31,3 +45,4 @@ distance_code_ranges = [
     ]
  *
  * */
+void lzss_find_pairs(const char *s,  size_t len);
