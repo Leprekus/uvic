@@ -1,40 +1,203 @@
 #include "types.h"
 #include "lzss.h"
+#include <assert.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
-size_t idx = 0;
-const size_t size = 32768;
-BackRef *hash = NULL;
+typedef struct {
+	struct Bucket {
+		size_t head; // index of the first entry in the original list
+		size_t count;
+	} bucket[256];
+	struct Prefix { 
+		// if true, prefix is backreferencing and cannot be referenced
+		bool is_referencing;
+		const u8 *head, *tail; // points to start and end of prefix
+		size_t idx; // ith item in the bucket
+	} *prefix; // contains prefixes of string[i..n]
+	size_t size; // total prefix capacity
+	size_t count; // current prefix items
+} Table;
+Table table;
+/* create a table the size of the string */
+struct Prefix *table_init(size_t size){
+	struct Prefix *prefixes = malloc(sizeof(struct Prefix) * size);
+	if(!prefixes) return NULL;
+	memset(table.bucket, -1, sizeof(table.bucket));
+	table.prefix = prefixes;
+	table.size = size;
+	table.count = 0;
+	return prefixes;
+}
+/* store the address to the ith prefix of a string.
+ * since this is a prefix table, it is assumed 
+ * that table.size = strlen */
+int table_set(const u8 *head, const u8 *tail){
+	assert(head <= tail);
+	if(table.count == table.size) return 0;
+	table.prefix[table.count++] = (struct Prefix){
+		.is_referencing = 0,
+		.head = head,
+		.tail = tail,
+		.idx = 0
+	};
+	return 1;
+}
+int _prefix_comp(const void * pPre1, const void * pPre2) {
+	// make shallow copies of the struct
+	// this prevents the pointers stored
+	// in table.prefix from being mutated
+	struct Prefix p1 = *((struct Prefix *)pPre1);
+	struct Prefix p2 = *((struct Prefix *)pPre2);
+	// because tail = string[len-1] we need a +1 offset
+	const u8 *p1_start = p1.head,
+	         *p2_start = p2.head;
+	// order entries by first character then index
+	// such i.e abcde with index 1 and abcdefgx with index 0 are sorted:
+	// 0 abcdefgx
+	// 1 abcde
+	if(*p1_start == *p2_start && p1_start < p2_start) return -1;
+	if(*p1_start == *p2_start && p1_start > p2_start) return 1;
+	if(*p1_start != *p2_start && *p1_start < *p2_start) return -1;
+	if(*p1_start != *p2_start && *p1_start > *p2_start) return 1;
+	return 0;
+	/*
+	size_t len1 = (p1.tail - p1.head) + 1;
+	size_t len2 = (p2.tail - p2.head) + 1;
+	size_t min_len = (len1 < len2) ? len1 : len2;
+	while(
+		min_len && 
+		p1.head < p1.tail &&
+		p2.head < p2.tail &&
+		*p1.head == *p2.head
+	){
+		min_len--;
+		p1.head++;
+		p2.head++;
+	};
+	// Note
+	// Note: -1 go first, 1 go next
+	// same prefix different lenghts i.e abc < abcdef
+	if(!min_len && p1_start < p2_start) return -1;
+	if(!min_len && p1_start > p2_start) return 1;
+	// if there's length remaining, biggest char first
+	if (min_len && *p1.head < *p2.head) return -1;
+	if (min_len && *p1.head > *p2.head) return  1;
+	
+	// prefixes are equal
+	return 0;
+	*/
+}
+/* 
+ * sorts prefixes in descending order
+ * maps bucket[i] to the first and longest prefix starting with i
+ * counts number of items in the ith bucket
+ * Bucket
+ *
+ * */
+void table_map_buckets(){
+	// sort
+	qsort(table.prefix, table.size, sizeof(struct Prefix), _prefix_comp);
+	// map the prefix to bucket entry and count frequency
+	for(int i = 0; i < table.size; i++) {
+		struct Prefix p = table.prefix[i];
+		u8 c = *p.head; // read first char of ith prefix
+		// if we haven't seen the prefix yet, store the location
+		// where it first appears in table.prefix
+		if(table.bucket[c].head == -1) {
+			table.bucket[c].head = i;
+			table.bucket[c].count = 1;
+		} else table.bucket[c].count++;
+		table.prefix[i].idx = table.bucket[c].count - 1;
+		assert(table.prefix[i].idx != - 1);
 
-BackRef *hash_init(){
-    BackRef *h = malloc(sizeof(BackRef) * size);
-    if(!h) return NULL;
-    hash = h;
-    return hash;
+		assert(table.bucket[c].head != - 1);
+		assert(table.bucket[c].count != - 1);
+
+	}
 }
-int hash_set(BackRef ref){
-    if(idx == size) return -1;
-    hash[idx++] = ref;
-    return 1;
+/* given a prefix i 
+ * return the bucket containing the index and item count
+ * for such prefix */
+struct Bucket table_get(u8 i){
+	return table.bucket[i];
 }
- static BackRef Nil = {.i=0,.length=0,.distance=0};
-BackRef hash_get(const u8 *s, BackRef want){
-    for(int i = 0; i < idx; i++) {
-        BackRef have = hash[i];
-        size_t n = have.length,
-        i1 = have.i, i2 = want.i;
-        // compare both strings
-        while(have.length == want.length && s[i1++] == s[i2++] && n--);
-        if(n == 0) {
-            return hash[i];
-        }
-    }
-    return Nil;
+void table_clear(){
+	table.count = 0;
+	memset(table.bucket, -1, sizeof(table.bucket));
 }
-void hash_clear(){
-    idx = 0;
+void table_destroy() {
+	if(table.prefix) free(table.prefix);
+}
+
+void table_print() {
+	for(int i = 0; i < 256; i++)
+		if(table.bucket[i].count != -1) printf("Bucket(%c) count %zu\n", i, table.bucket[i].count);
+	// i refers to the index in the original list
+	// b refers to the index within the bucket
+	for(size_t i = 0; i < table.size; i++) {
+		struct Prefix p = table.prefix[i];
+		int len = p.tail - p.head;
+		size_t idx = table.size - (p.tail - p.head);
+		struct Bucket b = table_get(*p.head);
+		
+		
+		printf("%zu) bidx(%zu) %.*s\n", idx, p.idx, len, p.head);
+		// check pointers correctly point to end of array
+		//assert(*table.prefix[i].tail == 'j');
+	}
+}
+
+// returns number of packaged bytes
+LzssData lzss_package(struct Prefix *e, u8 has_prev_entry){
+	LzssData d = {
+			.kind = LITERAL,
+			.ref = (BackRef) {
+				.distance = 0,
+				.length = 0,
+				.i = 0,
+			}
+		};
+	if(!has_prev_entry) {
+		d.kind = LITERAL;
+		d.literal = *e->head;
+		d.ref.length = 1;
+		return d;
+	};
+	struct Prefix match = *(e - 1);
+	struct Prefix entry = *e;
+
+	// since there is a previous entry we know the first character matches
+	// so we skip it
+	match.head++; size_t n = 1;
+	while(
+		!match.is_referencing && // TODO: check if it is necessary to keep this, tests pass without it
+		match.head < entry.head && 
+		*match.head == *entry.head
+		) {
+
+		match.head++;
+		entry.head++;
+		n++;
+	};
+	if(n >= 3) { // update memory address of entry
+		(e - 1)->is_referencing = 0xFF; 
+		d.kind = BACKREF;
+		d.ref.length = n;
+		d.ref.distance = entry.head - match.head;
+		d.ref.i = table.size - (entry.tail - entry.head);
+		return d;
+	}
+	d.kind = LITERAL;
+	d.literal = *e->head;
+	d.ref.length = 1;
+	return  d;
 }
 
 
@@ -47,80 +210,48 @@ void hash_clear(){
 // - resources: https://stackoverflow.com/questions/88615/what-algorithm-can-you-use-to-find-duplicate-phrases-in-a-string
 /* finds back references and pushes literals or a backrefernce to a string */
 void lzss_compress_stream(u8 *s,  size_t len, pLzssStream emit){
-    hash_init();
-    //const char *s = "matchamtchasdfasdvdsflongestmatchasdfasdfmatch_longestmatchavfdj";
-    size_t longest_match = 0;
-    
-    // a. find and store all literals we can backreference
-	for(size_t i = 0; i < len; i++){
-		BackRef ref = { .i = 0, .length = 0, .distance = 0 };
-		for(size_t j = i + 3; j <= len; j++) {
-			size_t n = j - i;
-		
-		    // 1. find longest match for string at index i
-			for(size_t k = j; k <= len - n; k++){
-			//printf("k(%zu) <= len-n(%zu), len(%zu), n(%zu) = j(%zu) - i(%zu)", k, len-n, len, n, j, i);
-			    // if there's a match and is longer for previous keep new max
-			 
-				if(memcmp(s + i, s + k, n) == 0 && n > ref.length){
-				    
-					ref.i = i; ref.length = n; ref.distance = k - j;
-					if(ref.length > longest_match) longest_match = ref.length;
-					//printf("i(%zu) len(%zu) dist(%zu)\n", i, n, ref.distance);
-				}
+	table_init(len);
+	// a. build prefix table
+	for(size_t i = 0; i < len; i++) {
+		int rc = table_set(s + i, s + len - 1); 
+		assert(rc > 0);	
+	}
+	assert(table.count == table.size);
+	// b. sort prefixes and initialize buckts
+	table_map_buckets();
+	//table_print();
 
+	// c. find matches using binary search and emit 
+	// literals or backreferences
+	size_t written = 0;
+	for(size_t i = 0; i < len; i++) {
+		u8 c = s[i];
+		struct Bucket b = table_get(c);
+		struct Prefix *pfx = table.prefix + b.head;
+		// binary search for the ith stream prefix in the bucket 
+		// backtrack to previous  matching entries in the bucket
+		// we can backreference 
+		size_t L = 0, R = b.count - 1;
+		while(L <= R) {
+			size_t M = (L + R) / 2;
+			u8 is_self = (s + i) == pfx[M].head;
+			u8 has_prev_entry = pfx[M].idx > 0;
+			// if there is a match 
+			if(is_self) {
+				LzssData d =
+					lzss_package(pfx + M, has_prev_entry);
+
+				emit(d);
+
+				i += (d.ref.length  - 1);
+				written += d.ref.length;
+				break;
 			}
-			
+			else if (pfx[M].head < s + i) L = M + 1;
+			else R = M - 1;
+
 		}
-		// 2. store longest match for the ith substring
-		// if we have seen the substr, skip it (move ptrs to end of substr)
-		// and continue
-		if(ref.length > 0){
-		    if(idx == size) printf("ERR-HASH-FULL");
-		    hash_set(ref);
-		    //printf("set i(%zu) len(%zu) \n", ref.i, ref.length);
-		    //i += ref.length;
-		}
-	}
-	
-	// b. second pass to emit backreferences
-	for(size_t i = 0; i < len; i++){
-		BackRef best_match = Nil;
-		for(size_t j = 3; j <= longest_match; j++) {
-			size_t n = (j < len - j) ? j : (len - j);
-			
-		    BackRef match = hash_get(s,
-		    (BackRef){.i=i,.length=n,.distance=0});
-		    // check if the match:
-		    // - is not Nil
-		    // - isn't referencing itself
-		    // - match must be before literal
-		    int is_not_nil = match.length>0,
-		        match_comes_before = match.i<i;
-		    
-		    if(
-		       is_not_nil &&
-		       match_comes_before &&
-		       match.length > best_match.length
-		        )
-		        best_match = match;
-		    
-		}
-		
-		
-		if(best_match.length > 0){
-		    //emit_backreference
-		    best_match.distance = i - best_match.i;
-		    emit((LzssData){.kind=BACKREF, .ref=best_match});
-		    // we want to point to the last character of the match
-		    // so the next loop iteration points us to the 1st
-		    // character AFTER the match
-		    i += best_match.length - 1;
-		    //printf(" new i(%zu)\n", i);
-		    //emit literals
-		} else emit((LzssData){.kind=LITERAL, .literal = s[i]});
 		
 	}
-	if(hash) free(hash);
-	hash_clear();
+	table_destroy();
 }
