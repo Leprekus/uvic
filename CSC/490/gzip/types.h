@@ -8,6 +8,8 @@ typedef uint64_t u64;
 
 typedef u8 bool;
 
+typedef struct { u16 code, size; } Code;
+
 #define false 0
 #define true 1
 

@@ -1,7 +1,7 @@
 #include "deflate.h"
+#include "huffman.h"
 #include "lzss.h"
 #include <assert.h>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +30,9 @@ typedef struct {
 	    range_start, range_end, value;
 	MatchTokenKind kind;
 } DeflateMatchToken;
+typedef struct {
+	struct { DeflateMatchToken len, dist; };
+} Pair;
 DeflateCtx * deflate_global_ctx= NULL;
 
 /* distance[i] = { code, num_offset_bits, range_start, range_end }*/
@@ -50,6 +53,7 @@ static u16 length_codes[29][4] =  {
             {282,5,163,194}, {283,5,195,226}, {284,5,227,257}, {285,0,258,258}
 };
 
+//FUNCTION PROTOTYPES
 /* 
  * we process len bytes of the stream, 
  * lookahead - len get processed in deflate_close()
@@ -57,10 +61,36 @@ static u16 length_codes[29][4] =  {
  * */
 size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status);
 size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus);
+size_t block2(u8 *stream, size_t len, DeflateStatus status);
 BITVEC_STATUS push_bits(BitVec *v, u64, size_t n, pHandler emit);
-BITVEC_STATUS push_literal(BitVec *v, u16 literal, pHandler emit);
+BITVEC_STATUS push_literal(BitVec *v, Code c, pHandler emit);
 BITVEC_STATUS push_eob(BitVec *v, pHandler emit);
+DeflateMatchToken get_token(u16 v, MatchTokenKind m);
+Pair create_backref(u16 len, u16 dist);
+Code create_literal(u16 literal);
 
+Code create_literal(u16 literal) {
+	if(0 <= literal && literal <= 143){ 
+		// Seems to work
+		// 0b0011_0000 through 0b1011_1111
+		literal = 0x0030 + literal;
+		assert(0x30 <= literal && literal <= 0xBF);
+		return (Code){ .code = reverse_u8(literal), .size = 8 };
+		//return push_bits(v, reverse_u8(literal), 8, emit);
+		
+	}
+
+	if(144 <= literal && literal <= 255) {
+		// seems to work
+		//0b110010000 through 0b111111111
+		literal = 0x0190 + (literal - 144);
+		//printf("literal(%#3hx) reversed(%#3hx)", literal, reverse_u16(literal));
+		assert(0x0190 <= literal && literal <= 0x01FF);
+		return (Code){ .code = reverse_u16(literal)>>7, .size = 9 };
+	}
+	fprintf(stderr, "create_literal failed");
+	return (Code){};
+}
 /* wrapper for bit pushing to handle retries if buffer is full,
 * - State is NOT OUT_OF_BOUNDS: Returns the vector status as-is immediately.
 * - State IS OUT_OF_BOUNDS: Flushes data via 'emit', clears the vector, and
@@ -97,30 +127,10 @@ BITVEC_STATUS push_bits(BitVec *v, u64 bits, size_t n, pHandler emit) {
 		
 	}
 	return s;
-}
-// parsing
-// TODO: figure if i should unify push operations
-BITVEC_STATUS push_literal(BitVec *v, u16 literal, pHandler emit) {
-	if(0 <= literal && literal <= 143){ 
-		// Seems to work
-		// 0b0011_0000 through 0b1011_1111
-		literal = 0x0030 + literal;
-		assert(0x30 <= literal && literal <= 0xBF);
-		return push_bits(v, reverse_u8(literal), 8, emit);
-		
-	}
-
-	if(144 <= literal && literal <= 255) {
-		// seems to work
-		//0b110010000 through 0b111111111
-		literal = 0x0190 + (literal - 144);
-		//printf("literal(%#3hx) reversed(%#3hx)", literal, reverse_u16(literal));
-		assert(0x0190 <= literal && literal <= 0x01FF);
-		return push_bits(v, reverse_u16(literal)>>7, 9, emit);
-	}
-
-	fprintf(stderr, "expected literal between [0, 143] or [144, 255] got literal(%hu)", literal);
-	return !SUCCESS;
+} 
+BITVEC_STATUS push_literal(BitVec *v, Code c, pHandler emit) {
+	
+	return push_bits(v, c.code, c.size, emit);
 };
 BITVEC_STATUS push_eob(BitVec *v, pHandler emit) {
 	return push_bits(v, 0x00, 7, emit);
@@ -152,28 +162,7 @@ u16 hlength(u16 l) {
 	return i;
 }
 
-DeflateMatchToken get_distance(u16 d){
-	u16 c = hdist(d);
-	u16 *code = distance_codes[c]; 
-	u16 offset_size = code[1],
-	rs = code[2],
-	re = code[3],
-	offset = d - rs;
 
-	return (DeflateMatchToken){
-	.code = c, 
-	.offset = offset,
-	.offset_size = offset_size, 
-	.range_start = rs, 
-	.range_end = re, 
-	.value = d,
-	.kind = DISTANCE
-	};
-
-}
-
-
-//TODO if something fails check this first
 DeflateMatchToken get_token(u16 v, MatchTokenKind m) {
 	u16 i;
 	u16 *code; 
@@ -209,13 +198,14 @@ DeflateMatchToken get_token(u16 v, MatchTokenKind m) {
 	};
 }
 
-void push_backref(BitVec *v, u16 len, u16 dist) {
+Pair create_backref(u16 len, u16 dist) {
 	DeflateMatchToken tok_len = get_token(len, LENGTH);	
 	DeflateMatchToken tok_dist = get_token(dist, DISTANCE);	
 	pHandler emit = deflate_global_ctx->emit;
 	
 
 	u16 len_size = 0;
+	// PROCESS LENGTH
 	if(256 <= tok_len.code && tok_len.code <= 279) {
 		//0b0000000 through 0b0010111
 		tok_len.code = 
@@ -230,12 +220,21 @@ void push_backref(BitVec *v, u16 len, u16 dist) {
 
 	} else 
 	fprintf(stderr, "expected len between [257, 279] got len(%hu)", len);
+	// PROCESS DISTANCE
+	tok_dist.code = reverse_u16(tok_dist.code) >> (16-5);
+	return (Pair){
+		.len = tok_len,
+		.dist = tok_dist
+	};
 
-	
+}
+
+void push_backref(BitVec *v, Pair p, pHandler emit) {
+	DeflateMatchToken tok_len = p.len;
+	DeflateMatchToken tok_dist = p.dist;
 	push_bits(v, tok_len.code, tok_len.code_size, emit);
 	push_bits(v, tok_len.offset, tok_len.offset_size, emit);
 
-	tok_dist.code = reverse_u16(tok_dist.code) >> (16-5);
 	push_bits(v, tok_dist.code, 5, emit);
 	push_bits(v, tok_dist.offset, tok_dist.offset_size, emit);
 	//printf("<(%#hx, %#hx, %#hx, %#hx), (%#hx, %#hx, %#hx, %#hx)>", tok_len.code, tok_len.code_size, tok_len.offset, tok_len.offset_size, 
@@ -349,6 +348,7 @@ ssize_t deflate_read(DeflateCtx *ctx) {
 /* deflate(bitstream) -> decompressed | huffman | huffman + lzss */
 size_t deflate(u8 *stream, size_t read, BitVec *v, pHandler emit, DeflateStatus status) {
 	
+	return block2(stream, read, status);
 	return block1(stream, read, v, emit, status);
 	return block0(stream, read, emit, status);
 	
@@ -385,13 +385,16 @@ void bit_stream_handler(LzssData d) {
 	switch(d.kind) {
 		case LITERAL:
 			//deflate_global_ctx->emit(&d.literal, 1);
-			push_literal(ctx->v, d.literal, ctx->emit);
+			push_literal(
+				ctx->v, 
+				create_literal(d.literal), 
+				ctx->emit);
 			break;
 		case BACKREF:
 			push_backref(
 				deflate_global_ctx->v,
-				d.ref.length,
-				d.ref.distance
+				create_backref(d.ref.length, d.ref.distance),
+				ctx->emit
 			);
 			break;
 		default:
@@ -416,5 +419,110 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus st
 		if(bit_vec_bit_count(v)) 
 			emit(bit_vec_data(v), bit_vec_byte_count(v));
 	}
+	return len;
+}
+//u16 distance_map[30] = {0};
+//u16 ll_map[285] = {0};
+u16 ll_dist_map[512] = {0};
+typedef struct {
+	u8 count;
+	u8 symbols;
+} CLSymbols;
+/* count LL and Distance frequencies */
+void block2_stream_handler(LzssData d){
+	DeflateCtx *ctx = deflate_global_ctx;
+	if(d.kind == LITERAL) {
+		Code c = create_literal(d.literal);
+		assert(0 <= c.code && c.code < 512);
+		ll_dist_map[c.code]++;
+	} else if(d.kind == LENGTH) {
+		Pair p = create_backref(d.ref.length, d.ref.distance);
+		assert(0 <= p.len.code && p.len.code < 512);
+		assert(0 <= p.dist.code && p.dist.code < 512);
+		ll_dist_map[p.len.code]++;
+		ll_dist_map[p.dist.code]++;
+		//ll_map[d.ref.length]++;
+		//distance_map[d.ref.distance]++;
+	} else fprintf(stderr, "Error: LzssData.kind is neither LITERAL or BACKREF");
+}
+size_t block2(u8 *stream, size_t len, DeflateStatus status) {
+	DeflateCtx *ctx = deflate_global_ctx;
+	// HEADER
+	//push_bits(ctx->v, status == FINISH, 1, ctx->emit); // is_last
+	//push_bits(ctx->v, 0x2, 2, ctx->emit); // btype 
+	//push_bits(ctx->v, reverse_u8(285 - 257), 5, ctx->emit); // hlit - number of LL entries
+	//push_bits(ctx->v, reverse_u8(30 - 1), 5, ctx->emit); // hdist - number of Dist entries
+	//push_bits(ctx->v, 18 - 4, 5, ctx->emit); // hclen - number of CL entries
+	//push_bits(ctx->v, reverse_u8(15 - 4), 5, ctx->emit); // cllen - lengths of CL entries
+	//push_bits(ctx->v, reverse_u8(15 - 4), 5, ctx->emit); // LL_Dist_lens - encoded tables
+	
+							     //
+	//push_bits(ctx->v, 0x00, 1024, ctx->emit);
+	// emit literals and backreferences
+	lzss_compress_stream(stream, len, block2_stream_handler); 
+	// at this point all the literals and backreferences have been emitted,
+	// frequencies have been counted, and they are stored in stream
+	HTree *t = HTree_new(ll_dist_map, sizeof(ll_dist_map));
+	// at this point the compressed bitstream is ready to be emitted
+	HTree_build(t); assert(t != NULL); 
+	HTree_sort_codes(t);
+	Node *prev =  HTree_pop_min(t);
+	Node *curr = NULL;
+	size_t contiguous = 0;
+	/* stored in ascending: a > b, so popping gives: b < a */
+	struct {
+		Node *buf[6];
+		u8   count;
+	} NodeBuf;
+	while( (curr = HTree_pop_min(t))!= NULL ){
+		assert(prev->val <= prev->val);
+		bool was_contigouous = 
+			prev->huffman.size != curr->huffman.size &&
+			contiguous >= 3,
+		      is_max_contiguous = contiguous == 6; 
+		if(curr->huffman.size == 0) printf("hf size(%hu) code(%hu)\n", curr->huffman.size, curr->huffman.code);
+		else printf("hf size(%hu) code(%hu)\n", curr->huffman.size, curr->huffman.code);
+
+		if(was_contigouous) {
+		// emit a clone run 3 <= code < 6 repetitions and reset
+			contiguous = 0;
+		} else if(is_max_contiguous) {
+		// emit a clone run of 6 repetitions and reset
+			contiguous = 0;
+
+		} else if(prev->huffman.size == curr->huffman.size) {
+		// increase count and store in buff
+			contiguous++;
+		} else {
+		// flush buff and reset count
+			contiguous = 0;
+		}
+		prev = curr;
+	}
+	// after building the tree, we retrieve the huffman codes
+	// to compute the CL symbols
+	// TODO:
+	// 1. add test cases for HLIT & HDIST when there are few symbols, 
+	// such as in aaabaaa.txt
+	/*
+	if(status == FINISH) {
+		bit_vec_pad(ctx->v); // pad BitVec if it's last block
+		if(bit_vec_bit_count(ctx->v)) 
+			ctx->emit(bit_vec_data(ctx->v), bit_vec_byte_count(ctx->v));
+	}*/
+	/*
+	 * STEPS:
+	 * 1. count LL & distance frequencies
+	 * 2. generate huffman code from the alphabet union(LL, distance)
+	 * 3. construct the bitstream using huffman codes
+	 * 4. encode CL, LL, and Dist tables
+	 *
+	 * ENCODING BLOCK HEADER
+	 * - tell HLIT how many symbols are encoded, 
+	 *   n = 0 up to max symbol used from LL codes so HLIT = n - 257
+	 *  - Repeat for HDIST
+	 *  - 
+	 * */
+	HTree_destroy(t);
 	return len;
 }

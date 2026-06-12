@@ -1,0 +1,25 @@
+#ifndef HUFFMAN_H
+#define HUFFMAN_H
+#include "types.h"
+#include <stddef.h>
+
+typedef struct HTree HTree;
+typedef struct Node {
+	u16 val;
+	size_t freq;
+	Code huffman;
+	struct Node *L, *R;
+} Node;
+//Node *HNode_new(HTree *T);
+//struct Pool *HPool(HTree *T);
+//void HPool_clear(HTree *T);
+//int HQueue_add(HTree *T, Node *n);
+//Node *HQueue_pop_min(HTree *T);
+HTree *HTree_new(u16 *data, size_t size);
+//struct Queue *HQueue(HTree *T);
+void HTree_build(HTree *T);
+void HTree_sort_codes(HTree *T);
+Node *HTree_pop_min(HTree *T);
+void HTree_print(HTree *T);
+void HTree_destroy(HTree *T);
+#endif
