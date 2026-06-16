@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+const size_t CODE_SIZE = 16;
 struct HTree{
 	Node *root;
 	struct Pool {
@@ -74,7 +75,7 @@ void HQueue_new(HTree *T, size_t count) {
 /* appends without preserving sort */
 int HQueue_push(HTree *T, Node *n) {
 	if(T->queue.count == T->queue.size) {
-		fprintf(stderr, "HQi havueue_add fail queue is full");
+		//fprintf(stderr, "HQi havueue_add fail queue is full");
 		return 0;
 	}
 	assert(T->queue.count < T->queue.size);
@@ -136,18 +137,19 @@ void _HTree_populate_codes(Node *n, u16 code, u16 size) {
     if (!n) return;
 
     if (!n->L && !n->R) {
+    	assert(size < CODE_SIZE);
 	n->huffman.code = code;
 	n->huffman.size = size;
 
         return;
     }
-    assert(size < 32);
+
     assert(size < size + 1);
     _HTree_populate_codes(n->L, code << 1, size + 1);
     _HTree_populate_codes(n->R, (code << 1) | 1, size + 1);
 }
-void HTree_build(HTree *T) {
-	
+
+void _huffman_method(HTree *T){
 	while(HQueue(T)->count > 1) {
 		assert(HQueue(T)->count <= HQueue(T)->size);
 		assert(HPool(T).count <= HPool(T).size);
@@ -162,20 +164,39 @@ void HTree_build(HTree *T) {
 		int rc = HQueue_insert(T, n);
 		assert(rc > 0);	
 	}
+}
+//TODO: implement package merge
+void _package_merge(HTree *T) {
+	// 1. get diadic expansion
+	while(HQueue(T) ->count > 0) {
+		
+	}
+}
+void HTree_build(HTree *T) {
+	
+	_huffman_method(T);		
 	T->root = HQueue(T)->head[0];
+	assert(HQueue(T)->count == 1);
 	_HTree_populate_codes(T->root, 0, 0);
 }
-void HTree_sort_codes(HTree *T) {
-	size_t node_count = HPool(T).count;
-	HQueue_destroy(T);
-	HQueue_new(T, node_count);
-	// push n - 1 elements
-	for(size_t i = 0; i < node_count - 1; i++) {
-		Node *n = &HPool(T).head[i];
+
+void HTree_queue_leafs(HTree *T, Node *n) {
+	if(!n->L && !n->R){
 		HQueue_push(T, n);
+		return;
 	}
-	// push nth element and sort the list once
-	HQueue_insert(T, &HPool(T).head[node_count - 1]);
+	HTree_queue_leafs(T, n->L);
+	HTree_queue_leafs(T, n->R);
+}
+void HTree_sort_codes(HTree *T) {
+	// Reset the queue count and push leafs into queue
+	T->queue.count = 0;
+	HTree_queue_leafs(T, T->root);
+	assert(T->queue.count == T->queue.size);
+	size_t leaf_count = T->queue.count;
+	//for(size_t i = 0; i < leaf_count; i++) assert(T->queue.head[i]->huffman.size < CODE_SIZE);
+	
+	sort(T->queue.head, T->queue.count);
 }
 
 Node *HTree_pop_min(HTree *T) {

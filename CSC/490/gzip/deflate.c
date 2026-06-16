@@ -1,6 +1,7 @@
 #include "deflate.h"
 #include "huffman.h"
 #include "lzss.h"
+#include "utils.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +25,7 @@ struct DeflateCtx {
 	size_t written;
 };
 typedef enum { DISTANCE, LENGTH } MatchTokenKind;
+typedef enum  { REV, NOREV } Packing;
 typedef struct {
 	u16 code, code_size, 
 	    offset, offset_size, 
@@ -66,16 +68,17 @@ BITVEC_STATUS push_bits(BitVec *v, u64, size_t n, pHandler emit);
 BITVEC_STATUS push_literal(BitVec *v, Code c, pHandler emit);
 BITVEC_STATUS push_eob(BitVec *v, pHandler emit);
 DeflateMatchToken get_token(u16 v, MatchTokenKind m);
-Pair create_backref(u16 len, u16 dist);
-Code create_literal(u16 literal);
+Pair create_backref(u16 len, u16 dist, Packing p);
+Code create_literal(u16 literal, Packing p);
 
-Code create_literal(u16 literal) {
+Code create_literal(u16 literal, Packing p) {
 	if(0 <= literal && literal <= 143){ 
 		// Seems to work
 		// 0b0011_0000 through 0b1011_1111
 		literal = 0x0030 + literal;
 		assert(0x30 <= literal && literal <= 0xBF);
-		return (Code){ .code = reverse_u8(literal), .size = 8 };
+		literal = (p == REV) ? reverse_u8(literal) : literal;
+		return (Code){ .code = literal, .size = 8 };
 		//return push_bits(v, reverse_u8(literal), 8, emit);
 		
 	}
@@ -86,7 +89,8 @@ Code create_literal(u16 literal) {
 		literal = 0x0190 + (literal - 144);
 		//printf("literal(%#3hx) reversed(%#3hx)", literal, reverse_u16(literal));
 		assert(0x0190 <= literal && literal <= 0x01FF);
-		return (Code){ .code = reverse_u16(literal)>>7, .size = 9 };
+		literal = (p==REV) ? reverse_u16(literal)>>7 : literal;
+		return (Code){ .code = literal, .size = 9 };
 	}
 	fprintf(stderr, "create_literal failed");
 	return (Code){};
@@ -198,7 +202,7 @@ DeflateMatchToken get_token(u16 v, MatchTokenKind m) {
 	};
 }
 
-Pair create_backref(u16 len, u16 dist) {
+Pair create_backref(u16 len, u16 dist, Packing p) {
 	DeflateMatchToken tok_len = get_token(len, LENGTH);	
 	DeflateMatchToken tok_dist = get_token(dist, DISTANCE);	
 	pHandler emit = deflate_global_ctx->emit;
@@ -209,19 +213,24 @@ Pair create_backref(u16 len, u16 dist) {
 	if(256 <= tok_len.code && tok_len.code <= 279) {
 		//0b0000000 through 0b0010111
 		tok_len.code = 
-			reverse_u16(0x00 + (tok_len.code - 256)) >> (16-7);
+			(p==REV)?
+			reverse_u16(0x00 + (tok_len.code - 256)) >> (16-7) :
+			0x00 + (tok_len.code - 256);
 		tok_len.code_size = 7;
 
 	} else if(280 <= tok_len.code && tok_len.code <= 287) {
 		// 0b11000000 through 0b11000111
 		tok_len.code = 
-			reverse_u16(0xC0 + (tok_len.code - 280)) >> (16-8);
+			(p==REV) ?
+			reverse_u16(0xC0 + (tok_len.code - 280)) >> (16-8):
+			0xC0 + (tok_len.code - 280);
 		tok_len.code_size = 8;
 
 	} else 
 	fprintf(stderr, "expected len between [257, 279] got len(%hu)", len);
 	// PROCESS DISTANCE
-	tok_dist.code = reverse_u16(tok_dist.code) >> (16-5);
+	tok_dist.code = (p==REV) ? reverse_u16(tok_dist.code) >> (16-5):
+		tok_dist.code;
 	return (Pair){
 		.len = tok_len,
 		.dist = tok_dist
@@ -377,6 +386,7 @@ size_t block0(u8 *stream, size_t len, pHandler emit, DeflateStatus status) {
 	emit(stream, len);
 	return len;
 }
+// defines whether bitstring should be reversed
 // TODO: refactor so functions use deflate_global ctx
 // NOTE IF CALLER DOES NOT IMMEDIATELY COPY THIS VALUE
 // IT MAY LEAD TO UNDEFINED BEHAVIOR
@@ -387,13 +397,14 @@ void bit_stream_handler(LzssData d) {
 			//deflate_global_ctx->emit(&d.literal, 1);
 			push_literal(
 				ctx->v, 
-				create_literal(d.literal), 
+				create_literal(d.literal, REV), 
 				ctx->emit);
 			break;
 		case BACKREF:
 			push_backref(
 				deflate_global_ctx->v,
-				create_backref(d.ref.length, d.ref.distance),
+				create_backref(
+					d.ref.length, d.ref.distance, REV),
 				ctx->emit
 			);
 			break;
@@ -432,11 +443,11 @@ typedef struct {
 void block2_stream_handler(LzssData d){
 	DeflateCtx *ctx = deflate_global_ctx;
 	if(d.kind == LITERAL) {
-		Code c = create_literal(d.literal);
+		Code c = create_literal(d.literal, NOREV);
 		assert(0 <= c.code && c.code < 512);
 		ll_dist_map[c.code]++;
 	} else if(d.kind == LENGTH) {
-		Pair p = create_backref(d.ref.length, d.ref.distance);
+		Pair p = create_backref(d.ref.length, d.ref.distance, NOREV);
 		assert(0 <= p.len.code && p.len.code < 512);
 		assert(0 <= p.dist.code && p.dist.code < 512);
 		ll_dist_map[p.len.code]++;
@@ -444,6 +455,12 @@ void block2_stream_handler(LzssData d){
 		//ll_map[d.ref.length]++;
 		//distance_map[d.ref.distance]++;
 	} else fprintf(stderr, "Error: LzssData.kind is neither LITERAL or BACKREF");
+}
+void cl_emit(Code c, u8 repeat){
+	assert(0 <= c.size && c.size <= 15);
+	cl_symbol[c.size]; 
+	cl_repeat[repeat];
+
 }
 size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	DeflateCtx *ctx = deflate_global_ctx;
@@ -462,43 +479,111 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	lzss_compress_stream(stream, len, block2_stream_handler); 
 	// at this point all the literals and backreferences have been emitted,
 	// frequencies have been counted, and they are stored in stream
-	HTree *t = HTree_new(ll_dist_map, sizeof(ll_dist_map));
+	HTree *t = HTree_new(ll_dist_map, sizeof(ll_dist_map)/sizeof(u16));
 	// at this point the compressed bitstream is ready to be emitted
 	HTree_build(t); assert(t != NULL); 
 	HTree_sort_codes(t);
+
 	Node *prev =  HTree_pop_min(t);
 	Node *curr = NULL;
-	size_t contiguous = 0;
-	/* stored in ascending: a > b, so popping gives: b < a */
-	struct {
-		Node *buf[6];
-		u8   count;
-	} NodeBuf;
-	while( (curr = HTree_pop_min(t))!= NULL ){
-		assert(prev->val <= prev->val);
-		bool was_contigouous = 
-			prev->huffman.size != curr->huffman.size &&
-			contiguous >= 3,
-		      is_max_contiguous = contiguous == 6; 
-		if(curr->huffman.size == 0) printf("hf size(%hu) code(%hu)\n", curr->huffman.size, curr->huffman.code);
-		else printf("hf size(%hu) code(%hu)\n", curr->huffman.size, curr->huffman.code);
+	size_t i = 0;
+	u8 run = 1;
+	size_t written = 0;
+	// used to determine which symbol to emit
+	bool is_zero_run = false;
+	bool is_length_run = false;
+	//
+	typedef struct {
+		u16 length;
+		u8 repeat;
+		u8 code;
+	} CLSymbol;
+	CLSymbol buf[512];
+	u16 buf_idx = 0;
+	//
+	while((curr = HTree_pop_min(t))){
+		assert(prev->huffman.size <= 15);	
+		bool changed_val = prev->huffman.size!= curr->huffman.size;
+		bool match = prev->huffman.size == curr->huffman.size;
+		bool is_zero = prev->huffman.size == 0;
+		bool is_length = prev->huffman.size > 0;
 
-		if(was_contigouous) {
-		// emit a clone run 3 <= code < 6 repetitions and reset
-			contiguous = 0;
-		} else if(is_max_contiguous) {
-		// emit a clone run of 6 repetitions and reset
-			contiguous = 0;
-
-		} else if(prev->huffman.size == curr->huffman.size) {
-		// increase count and store in buff
-			contiguous++;
+		if(match) {
+		    if(is_length && run == 6) {
+			buf[buf_idx++] = (CLSymbol) {
+				.length = curr->huffman.size,
+				.repeat = run - 3,
+				.code = 16,
+			};
+		        written += run;
+		        run = 0;
+		    }
+		    if(is_zero && run == 138) {
+			buf[buf_idx++] = (CLSymbol) {
+				.length = curr->huffman.size,
+				.repeat = run - 11,
+				.code = 18,
+			};
+		        written += run;
+		        run = 0;
+		    }
+		    // in a match [a, a, a] we flush the first three
+		    // and set run = 1 overcounting the last element
+		    // so we must offset the count by 1
+		    run ++;
 		} else {
-		// flush buff and reset count
-			contiguous = 0;
+			if(is_length) {
+				u16 repeat, code;
+				if(run > 2) {
+					repeat = run - 3;
+					code = 16;
+				} else {
+					repeat = 0;
+					code = prev->huffman.size;
+				}
+				buf[buf_idx++] = (CLSymbol) {
+				.length = curr->huffman.size,
+				.repeat = repeat,
+				.code = code,
+				};
+			}
+			if(is_zero) {
+				u16 repeat, code;
+				if(run >= 11) {
+					repeat = run - 11;
+					code = 18;
+				} else if(run >= 3) {
+					repeat = run - 3;
+					code = 17;
+				} else {
+					repeat = 0;
+					code = prev->huffman.size;
+				}
+				buf[buf_idx++] = (CLSymbol) {
+				.length = curr->huffman.size,
+				.repeat = repeat,
+				.code = code,
+				};
+			}
+			
+			written += run;
+			run = 1;
 		}
 		prev = curr;
+		assert(buf_idx <= 285);
+		assert((changed_val && !match) ||
+				(!changed_val && match));
+		assert((is_zero && !is_length) || 
+				(!is_zero && is_length));
+		
+		
 	}
+	if(run){
+		assert(run > 2);
+	    	written += run - 1;
+	}
+	printf("written(%zu)\n", written);
+	//assert(written == 285);
 	// after building the tree, we retrieve the huffman codes
 	// to compute the CL symbols
 	// TODO:
@@ -516,6 +601,10 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	 * 2. generate huffman code from the alphabet union(LL, distance)
 	 * 3. construct the bitstream using huffman codes
 	 * 4. encode CL, LL, and Dist tables
+	 *
+	 * Notes:
+	 * - CL code lengths have a special order
+	 * - CL encodings must be at most 7 bits (so the length is encoded in 3 bits) 
 	 *
 	 * ENCODING BLOCK HEADER
 	 * - tell HLIT how many symbols are encoded, 

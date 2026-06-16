@@ -46,3 +46,12 @@ ssize_t deflate_read(DeflateCtx *ctx);
 size_t deflate(u8 *stream, size_t read, BitVec *v, pHandler emit, DeflateStatus status);
 void deflate_close(size_t written, pHandler f);
 
+u16 static cl_symbol[] = {
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, // literal 0..15
+};
+u16 static cl_repeat[] = {
+0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // repeat 0 for symbols 0..15
+16, 16, 16, 16, 16, 16, // repeat
+
+};
+

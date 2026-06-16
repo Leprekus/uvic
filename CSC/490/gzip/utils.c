@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -93,6 +94,27 @@ u32 crc32_standard(u32 crc, const u8 data[], size_t len) {
 	}
 
 	return crc; // Final XOR (same as ~crc)
+}
+
+/* 
+ * return 1 to keep buffering 
+ * return > 1 to flush an n run
+ * return 0 to emit between 1 to 2 buffered symbols
+ * */
+size_t check_rle_run(size_t prev, size_t curr, size_t cap,  size_t *contiguous) {
+	
+	bool value_changed = prev != curr;
+	if(value_changed || *contiguous == cap) {
+		// emit a clone run of contiguous repetitions and reset
+		size_t tmp = *contiguous;
+		*contiguous = 0;
+		return tmp;
+	// return 0 to indicate flush
+	} 
+	assert(prev == curr);
+	// return positive int to indicate to keep buffering
+	(*contiguous)++; 
+	return 1;
 }
 
 
