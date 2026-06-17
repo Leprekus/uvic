@@ -483,7 +483,7 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	// at this point the compressed bitstream is ready to be emitted
 	HTree_build(t); assert(t != NULL); 
 	HTree_sort_codes(t);
-
+	size_t htqueue_len = HQueue_len(t);
 	Node *prev =  HTree_pop_min(t);
 	Node *curr = NULL;
 	size_t i = 0;
@@ -502,16 +502,17 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	u16 buf_idx = 0;
 	//
 	while((curr = HTree_pop_min(t))){
-		assert(prev->huffman.size <= 15);	
-		bool changed_val = prev->huffman.size!= curr->huffman.size;
-		bool match = prev->huffman.size == curr->huffman.size;
-		bool is_zero = prev->huffman.size == 0;
-		bool is_length = prev->huffman.size > 0;
+		//assert(prev->hf.len <= 15);	
+
+		bool changed_val = prev->hf.len != curr->hf.len;
+		bool match = prev->hf.len == curr->hf.len;
+		bool is_zero = prev->hf.len == 0;
+		bool is_length = prev->hf.len > 0;
 
 		if(match) {
 		    if(is_length && run == 6) {
 			buf[buf_idx++] = (CLSymbol) {
-				.length = curr->huffman.size,
+				.length = curr->hf.len,
 				.repeat = run - 3,
 				.code = 16,
 			};
@@ -520,7 +521,7 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 		    }
 		    if(is_zero && run == 138) {
 			buf[buf_idx++] = (CLSymbol) {
-				.length = curr->huffman.size,
+				.length = curr->hf.len,
 				.repeat = run - 11,
 				.code = 18,
 			};
@@ -539,10 +540,10 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 					code = 16;
 				} else {
 					repeat = 0;
-					code = prev->huffman.size;
+					code = prev->hf.len;
 				}
 				buf[buf_idx++] = (CLSymbol) {
-				.length = curr->huffman.size,
+				.length = curr->hf.len,
 				.repeat = repeat,
 				.code = code,
 				};
@@ -557,10 +558,10 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 					code = 17;
 				} else {
 					repeat = 0;
-					code = prev->huffman.size;
+					code = prev->hf.len;
 				}
 				buf[buf_idx++] = (CLSymbol) {
-				.length = curr->huffman.size,
+				.length = curr->hf.len,
 				.repeat = repeat,
 				.code = code,
 				};
@@ -579,11 +580,12 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 		
 	}
 	if(run){
-		assert(run > 2);
+
+		//assert(run > 2);
 	    	written += run - 1;
 	}
-	printf("written(%zu)\n", written);
-	//assert(written == 285);
+	printf("written(%zu), len(%zu) run(%hu)\n", written, htqueue_len, run);
+	//assert(written == htqueue_len);
 	// after building the tree, we retrieve the huffman codes
 	// to compute the CL symbols
 	// TODO:

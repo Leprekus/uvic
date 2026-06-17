@@ -7,7 +7,7 @@ typedef struct HTree HTree;
 typedef struct Node {
 	u16 val;
 	size_t freq;
-	Code huffman;
+	struct _HF { size_t code, len; } hf;
 	struct Node *L, *R;
 } Node;
 //Node *HNode_new(HTree *T);
@@ -15,6 +15,7 @@ typedef struct Node {
 //void HPool_clear(HTree *T);
 //int HQueue_add(HTree *T, Node *n);
 //Node *HQueue_pop_min(HTree *T);
+int HQueue_len(HTree *T);
 HTree *HTree_new(u16 *data, size_t size);
 //struct Queue *HQueue(HTree *T);
 void HTree_build(HTree *T);
