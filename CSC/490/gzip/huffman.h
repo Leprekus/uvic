@@ -23,4 +23,7 @@ void HTree_sort_codes(HTree *T);
 Node *HTree_pop_min(HTree *T);
 void HTree_print(HTree *T);
 void HTree_destroy(HTree *T);
+void compute_canon_hf_codes(
+    u32 i_MAX_BITS, size_t i_size, u32 i_histogram[], u8 i_code_lengths[], u16 o_codes[]
+);
 #endif

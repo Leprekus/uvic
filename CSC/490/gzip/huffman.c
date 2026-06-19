@@ -1,4 +1,5 @@
 #include "huffman.h"
+#include "package_merge.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -168,42 +169,31 @@ void _huffman_method(HTree *T){
 		assert(rc > 0);	
 	}
 }
-//TODO: implement package merge
-void _package_merge(HTree *T) {
-	// 1. get diadic expansion
-	while(HQueue(T) ->count > 0) {
-		
-	}
-}
-void _HTree_get_nodes(Node *n, size_t *size, Node **nodes) {
+
+
+
+void _HTree_get_nodes(Node *n, Node *nodes[], size_t *idx, size_t cap) {
+    assert(n != NULL);
     if (!n) return;
 
     if (!n->L && !n->R) {
-	assert(*size < 512);
-	nodes[(*size)++] = n;
+        assert(idx != NULL);
+	    assert((*idx) < cap);
+	    nodes[(*idx)++] = n;
         return;
     }
 
-    assert(size < size + 1);
-    _HTree_get_nodes(n->L, size, nodes);
-    _HTree_get_nodes(n->R, size, nodes);
+    _HTree_get_nodes(n->L, nodes, idx, cap);
+    _HTree_get_nodes(n->R, nodes, idx, cap);
 }
-void _HTree_length_limit_codes(Node *p, Node *n, size_t depth) {
-	if(!n) return;
-	if(!n->L && !n->R) {
-		if(depth > 15) {
 
-		}
-	}
-	_HTree_length_limit_codes(p, n->L, depth + 1);
-	_HTree_length_limit_codes(p, n->R, depth + 1);
-}
 void _HTree_canonicalize_codes(HTree *T) {
 	assert(T->root != NULL);
-	size_t node_count = 0;
+	size_t node_count = T->queue.size;
 	Node *nodes[512];
- 	_HTree_get_nodes(T->root, &node_count, nodes);
-	assert(node_count < 512 && node_count == T->queue.size);
+    size_t idx = 0;
+ 	_HTree_get_nodes(T->root, nodes, &idx, T->queue.size);
+	assert(node_count < 512);
 	size_t max_len = 0; 
 	for(size_t i = 0; i < node_count; i++){
 		size_t len = nodes[i]->hf.len;
@@ -243,12 +233,33 @@ void _HTree_canonicalize_codes(HTree *T) {
 
 }
 void HTree_build(HTree *T) {
-	
-	_huffman_method(T);		
+    
+	_huffman_method(T); assert(HQueue(T)->count == 1);
 	T->root = HQueue(T)->head[0];
-	assert(HQueue(T)->count == 1);
 	_HTree_populate_codes(T->root, 0, 0);
-	_HTree_length_limit_codes(T->root, 0);
+
+    
+    // populate histogram
+    assert(T->queue.size < 512 && T->root != NULL);
+    size_t size = T->queue.size;
+    size_t idx = 0;
+    Node *nodes[size]; _HTree_get_nodes(T->root, nodes, &idx, size); 
+    u32 max_len = 0;
+    for(size_t i = 0; i < size; i++) 
+        max_len = (nodes[i]->hf.len>max_len) ? nodes[i]->hf.len : max_len;
+    assert(max_len < 512);
+    u32 histogram[max_len + 1]; memset(histogram, 0, sizeof(histogram));
+    u8 code_lengths[size];
+    for(size_t i = 0; i < size; i++)
+        histogram[nodes[i]->hf.len]++;
+    
+    for(size_t i = 0; i < max_len + 1; i++) 
+        printf("code_len_pre(%hu)\n", code_lengths[i]);
+    packageMerge(CODE_SIZE, size, histogram, code_lengths);
+    for(size_t i = 0; i < max_len + 1; i++) 
+        printf("code_len_post(%hu)\n", code_lengths[i]);
+
+
 	_HTree_canonicalize_codes(T);
 }
 
@@ -265,8 +276,6 @@ void HTree_sort_codes(HTree *T) {
 	T->queue.count = 0;
 	HTree_queue_leafs(T, T->root);
 	assert(T->queue.count == T->queue.size);
-	size_t leaf_count = T->queue.count;
-	//for(size_t i = 0; i < leaf_count; i++) assert(T->queue.head[i]->huffman.size < CODE_SIZE);
 	
 	sort(T->queue.head, T->queue.count);
 }
@@ -301,4 +310,48 @@ void HTree_destroy(HTree *T){
 	if(T->pool.head) free(T->pool.head);
 	HQueue_destroy(T);
 	free(T);
+}
+
+void _cannonicalize_codes(size_t i_max_len, size_t i_max_code, u32 i_histogram[], u8 i_code_lengths[], u16 o_codes[]) {
+
+    assert(i_max_len < 16);
+    // precompute the first code of each code length
+    u32 i;
+    u32 code = 0;
+    u32 next[i_max_len + 1];
+    u32 tmp = i_histogram[0];
+    i_histogram[0] = 0;
+    // 2. find smallest code for each length  
+    next[1] = 0;
+    for (i = 1; i <= i_max_len; i++) {
+        code = (code + i_histogram[i - 1]) << 1;
+        next[i] = code;
+    }
+    // 3. now assign all codes
+    for (i = 0; i <= i_max_code; i++) {
+        u32 len = i_code_lengths[i];
+        assert(len <= i_max_len);
+        if(len != 0) {
+            o_codes[i] = next[len];
+            next[len]++;
+        }
+    }
+
+    i_histogram[0] = tmp;
+}
+/*
+ * i_max_len - maximum length i.e 15 bits for deflate
+ * i_max_len - size of i_histogram, o_code_lengths, o_codes
+ * i_histogram - frequency count of symbols
+ * o_code_lengths - empty array to store the computed lengths
+ * o_codes - empty array containing the computed codes
+ *
+ * */
+void compute_canon_hf_codes(
+    u32 i_max_len, size_t i_max_code, u32 i_histogram[], u8 o_code_lengths[], u16 o_codes[]
+) {
+    
+    int rc = packageMerge(i_max_len, i_max_code, i_histogram, o_code_lengths);
+    assert(rc > 0);
+    _cannonicalize_codes(i_max_len, i_max_code, i_histogram, o_code_lengths, o_codes);
 }

@@ -434,44 +434,190 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus st
 }
 //u16 distance_map[30] = {0};
 //u16 ll_map[285] = {0};
-u16 ll_dist_map[512] = {0};
+#define CL_HIST_SIZE 19
 typedef struct {
-	u8 count;
-	u8 symbols;
-} CLSymbols;
-/* count LL and Distance frequencies */
+		u16 length;
+		u8 repeat;
+        u8 repeat_len;
+		u8 c_op; // code operation
+} CLSymbol;/* count LL and Distance frequencies */
+
+typedef struct {
+    u32 ll_hist[512];
+    u16 ll_max;
+    u32 dist_hist[512];
+    u16 dist_max;
+    // histogram for cl codes
+    u32 cl_hist[CL_HIST_SIZE];
+    u8 cl_max;
+    u8 cl_code_lengths[CL_HIST_SIZE];
+    u16 cl_codes[CL_HIST_SIZE];
+} Block2Ctx;
+/* initialized in each call to block2 so context is always fresh */
+Block2Ctx b2ctx;
+// The RFC 1951 permutation order for code length codes
+static const uint8_t CL_ORDER[19] = {
+    16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15
+};
+
+CLSymbol cls_create(u16 l, u8 r, u8 c) {
+    assert(0 <= l && l <= 15);
+    b2ctx.cl_hist[l]++;
+    size_t rl;
+    switch(c) {
+        case 16: rl = 2; break;
+        case 17: rl = 3; break;
+        case 18: rl = 7; break;
+        default: rl = 0; break;
+    }
+    u8 max = (rl > c) ? rl : c; 
+    b2ctx.cl_max = (b2ctx.cl_max > max) ? b2ctx.cl_max : max;
+    assert(b2ctx.cl_max < 19);
+    return (CLSymbol) {
+        .length = l,
+        .repeat = r,
+        .repeat_len = rl,
+        .c_op   = c
+    };
+}
 void block2_stream_handler(LzssData d){
 	DeflateCtx *ctx = deflate_global_ctx;
 	if(d.kind == LITERAL) {
 		Code c = create_literal(d.literal, NOREV);
 		assert(0 <= c.code && c.code < 512);
-		ll_dist_map[c.code]++;
-	} else if(d.kind == LENGTH) {
+		b2ctx.ll_hist[c.code]++;
+        b2ctx.ll_max = (c.code > b2ctx.ll_max) ? c.code : b2ctx.ll_max;
+	} else if(d.kind == BACKREF) {
 		Pair p = create_backref(d.ref.length, d.ref.distance, NOREV);
 		assert(0 <= p.len.code && p.len.code < 512);
 		assert(0 <= p.dist.code && p.dist.code < 512);
-		ll_dist_map[p.len.code]++;
-		ll_dist_map[p.dist.code]++;
-		//ll_map[d.ref.length]++;
-		//distance_map[d.ref.distance]++;
+		b2ctx.ll_hist[p.len.code]++;
+        b2ctx.ll_max = (p.len.code > b2ctx.ll_max) ? p.len.code : b2ctx.ll_max;
+
+		b2ctx.dist_hist[p.dist.code]++;
+        b2ctx.dist_max = (p.dist.code > b2ctx.dist_max) ? p.dist.code : b2ctx.dist_max;
+
 	} else fprintf(stderr, "Error: LzssData.kind is neither LITERAL or BACKREF");
 }
-void cl_emit(Code c, u8 repeat){
-	assert(0 <= c.size && c.size <= 15);
-	cl_symbol[c.size]; 
-	cl_repeat[repeat];
+// IR of LL & DIST encoded table 
+CLSymbol cl_buf[512]; 
+u16 cl_buf_idx = 0;
+void rle_run(u8 code_lengths[], u16 max_code) {
+    u32 prev =  code_lengths[0];
+    u32 curr = -1;
+    size_t i = 0;
+    u8 run = 1;
+    size_t written = 0;
 
+    // used to determine which symbol to emit
+    bool is_zero   = prev == 0;	
+    bool is_length = prev > 0;
+    for(i = 1; i < max_code + 1 ; i++){
+        curr = code_lengths[i];
+
+        bool changed_val = prev != curr;
+        bool match = prev == curr;
+        is_zero   = prev == 0;
+        is_length = prev > 0;
+
+        // curr = i - 1, prev = i - 2
+        if(match) {
+            assert(i > 0); // ensure we can index curr and prev
+            if(is_length && run == 6) {
+                cl_buf[cl_buf_idx++] = cls_create(code_lengths[i], run - 3, 16);
+                written += run;
+                run = 0;
+                //printf("len-match run(%hu) at (%zu)\n", run, i);
+            }
+            if(is_zero && run == 138) {
+                cl_buf[cl_buf_idx++] = cls_create(code_lengths[i], run - 11, 18);
+                written += run;
+                //printf("zero-match run(%hu) at (%zu)\n", run, i);
+                run = 0;
+            }
+            // in a match [a, a, a] we flush the first three
+            // and set run = 1 overcounting the last element
+            // so we must offset the count by 1
+            run ++;
+        } else {
+            if(is_length) {
+                if(run > 2) {
+                    cl_buf[cl_buf_idx++] = cls_create(code_lengths[i], run - 3, 16);
+                } else {
+                    cl_buf[cl_buf_idx++] = cls_create(code_lengths[i - 1], 0, 0);
+                    cl_buf[cl_buf_idx++] = cls_create(code_lengths[i], 0, 0);
+                }
+                //printf("len-match-break run(%hu) at (%zu)\n", run, i);
+
+            }
+            if(is_zero) {
+                if(run >= 11) {
+                    cls_create(code_lengths[i], run - 11, 18);
+                } else if(run >= 3) {
+                    cls_create(code_lengths[i], run - 3, 17);
+                } else {
+                    cls_create(code_lengths[i - 1], 0, 0);
+                    cls_create(code_lengths[i], 0, 0);
+                }
+                //printf("zero-match-break run(%hu) at (%zu)\n", run, i);
+
+            }
+
+            written += run;
+            run = 1;
+        }
+        prev = curr;
+        assert(cl_buf_idx <= 316);
+        assert((changed_val && !match) ||
+               (!changed_val && match));
+        assert((is_zero && !is_length) || 
+               (!is_zero && is_length));
+
+
+    }
+    assert(i == max_code + 1);
+    if(run){
+        if(is_length) {
+            if(run > 2) {
+                cl_buf[cl_buf_idx++] = cls_create(code_lengths[i], run - 3, 16);
+            } else {
+                cl_buf[cl_buf_idx++] = cls_create(code_lengths[i - 1], 0, 0);
+                cl_buf[cl_buf_idx++] = cls_create(code_lengths[i], 0, 0);
+            }
+            //printf("len-remainder run(%hu) at (%zu)\n", run, i);
+
+        }
+        if(is_zero) {
+            if(run >= 11) {
+                cls_create(code_lengths[i], run - 11, 18);
+            } else if(run >= 3) {
+                cls_create(code_lengths[i], run - 3, 17);
+            } else {
+                cls_create(code_lengths[i - 1], 0, 0);
+                cls_create(code_lengths[i], 0, 0);
+            }
+
+            //printf("zero-remainder run(%hu) at (%zu\n", run, i);
+        }
+        written += run - 1;
+    }
+
+	assert(written == max_code);
+    assert(cl_buf_idx < 512);
 }
+
 size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	DeflateCtx *ctx = deflate_global_ctx;
-	// HEADER
-	//push_bits(ctx->v, status == FINISH, 1, ctx->emit); // is_last
-	//push_bits(ctx->v, 0x2, 2, ctx->emit); // btype 
-	//push_bits(ctx->v, reverse_u8(285 - 257), 5, ctx->emit); // hlit - number of LL entries
-	//push_bits(ctx->v, reverse_u8(30 - 1), 5, ctx->emit); // hdist - number of Dist entries
-	//push_bits(ctx->v, 18 - 4, 5, ctx->emit); // hclen - number of CL entries
-	//push_bits(ctx->v, reverse_u8(15 - 4), 5, ctx->emit); // cllen - lengths of CL entries
-	//push_bits(ctx->v, reverse_u8(15 - 4), 5, ctx->emit); // LL_Dist_lens - encoded tables
+    b2ctx = (Block2Ctx) {
+        .ll_hist = {0},
+        .ll_max = 0,
+        .dist_hist = {0},
+        .dist_max = 0,
+        .cl_hist = {0},
+        .cl_max = 0,
+        .cl_code_lengths = {0},
+        .cl_codes = {0}
+    };
 	
 							     //
 	//push_bits(ctx->v, 0x00, 1024, ctx->emit);
@@ -479,124 +625,87 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	lzss_compress_stream(stream, len, block2_stream_handler); 
 	// at this point all the literals and backreferences have been emitted,
 	// frequencies have been counted, and they are stored in stream
-	HTree *t = HTree_new(ll_dist_map, sizeof(ll_dist_map)/sizeof(u16));
-	// at this point the compressed bitstream is ready to be emitted
-	HTree_build(t); assert(t != NULL); 
-	HTree_sort_codes(t);
-	size_t htqueue_len = HQueue_len(t);
-	Node *prev =  HTree_pop_min(t);
-	Node *curr = NULL;
-	size_t i = 0;
-	u8 run = 1;
-	size_t written = 0;
-	// used to determine which symbol to emit
-	bool is_zero_run = false;
-	bool is_length_run = false;
-	//
-	typedef struct {
-		u16 length;
-		u8 repeat;
-		u8 code;
-	} CLSymbol;
-	CLSymbol buf[512];
-	u16 buf_idx = 0;
-	//
-	while((curr = HTree_pop_min(t))){
-		//assert(prev->hf.len <= 15);	
+    u8 ll_code_lengths[b2ctx.ll_max + 1]; 
+    u16 ll_codes[b2ctx.ll_max + 1]; 
+    compute_canon_hf_codes(15, b2ctx.ll_max, b2ctx.ll_hist, ll_code_lengths, ll_codes);
+    rle_run(ll_code_lengths, b2ctx.ll_max);
 
-		bool changed_val = prev->hf.len != curr->hf.len;
-		bool match = prev->hf.len == curr->hf.len;
-		bool is_zero = prev->hf.len == 0;
-		bool is_length = prev->hf.len > 0;
+    u8 dist_code_lengths[b2ctx.ll_max + 1]; 
+    u16 dist_codes[b2ctx.ll_max + 1]; 
+    if(!b2ctx.dist_max) {
+        b2ctx.dist_max = 1;
+        dist_code_lengths[0] = 1;
+        dist_code_lengths[1] = 1;
+        b2ctx.dist_hist[0] = 1;
+        b2ctx.dist_hist[1] = 1;
+    } else 
+        compute_canon_hf_codes(5, b2ctx.dist_max, b2ctx.dist_hist, dist_code_lengths, dist_codes);
+    rle_run(dist_code_lengths, b2ctx.dist_max);
+	
+    compute_canon_hf_codes(5, b2ctx.cl_max, b2ctx.cl_hist, b2ctx.cl_code_lengths, b2ctx.cl_codes);
+	//printf("written(%zu), len(%d) run(%hu)\n", written, ll_dist_max, run);
+    printf("LL CODES\n");
+    print_table(b2ctx.ll_hist, ll_codes, ll_code_lengths, b2ctx.ll_max); 
+    printf("\n");
 
-		if(match) {
-		    if(is_length && run == 6) {
-			buf[buf_idx++] = (CLSymbol) {
-				.length = curr->hf.len,
-				.repeat = run - 3,
-				.code = 16,
-			};
-		        written += run;
-		        run = 0;
-		    }
-		    if(is_zero && run == 138) {
-			buf[buf_idx++] = (CLSymbol) {
-				.length = curr->hf.len,
-				.repeat = run - 11,
-				.code = 18,
-			};
-		        written += run;
-		        run = 0;
-		    }
-		    // in a match [a, a, a] we flush the first three
-		    // and set run = 1 overcounting the last element
-		    // so we must offset the count by 1
-		    run ++;
-		} else {
-			if(is_length) {
-				u16 repeat, code;
-				if(run > 2) {
-					repeat = run - 3;
-					code = 16;
-				} else {
-					repeat = 0;
-					code = prev->hf.len;
-				}
-				buf[buf_idx++] = (CLSymbol) {
-				.length = curr->hf.len,
-				.repeat = repeat,
-				.code = code,
-				};
-			}
-			if(is_zero) {
-				u16 repeat, code;
-				if(run >= 11) {
-					repeat = run - 11;
-					code = 18;
-				} else if(run >= 3) {
-					repeat = run - 3;
-					code = 17;
-				} else {
-					repeat = 0;
-					code = prev->hf.len;
-				}
-				buf[buf_idx++] = (CLSymbol) {
-				.length = curr->hf.len,
-				.repeat = repeat,
-				.code = code,
-				};
-			}
-			
-			written += run;
-			run = 1;
-		}
-		prev = curr;
-		assert(buf_idx <= 285);
-		assert((changed_val && !match) ||
-				(!changed_val && match));
-		assert((is_zero && !is_length) || 
-				(!is_zero && is_length));
-		
-		
-	}
-	if(run){
+    printf("DIST CODES\n");
+    print_table(b2ctx.dist_hist, dist_codes, dist_code_lengths, b2ctx.dist_max); 
+    printf("\n");
 
-		//assert(run > 2);
-	    	written += run - 1;
-	}
-	printf("written(%zu), len(%zu) run(%hu)\n", written, htqueue_len, run);
-	//assert(written == htqueue_len);
+    printf("CL CODES\n");
+    print_table(b2ctx.cl_hist, b2ctx.cl_codes, b2ctx.cl_code_lengths, b2ctx.cl_max); 
+    printf("\n");
+    //encode cl_buf using the cl prefix codes
+
+
+    // HEADER
+    assert(28 <= b2ctx.ll_max && b2ctx.ll_max <= 285);
+    assert(1 <= b2ctx.dist_max && b2ctx.dist_max <= 29);
+	push_bits(ctx->v, status == FINISH, 1, ctx->emit); // is_last
+	push_bits(ctx->v, 0x2, 2, ctx->emit); // btype 
+    // Rule # 1 applies to hlit, hdist, hclen, & CL len table
+    // hlit - number of LL entries
+	push_bits(ctx->v, b2ctx.ll_max - 257, 5, ctx->emit);  assert(b2ctx.ll_max - 257 <= 31);
+    // hdist - number of Dist entries
+	push_bits(ctx->v, b2ctx.dist_max - 1, 5, ctx->emit); 
+    // hclen - number of CL entries
+    size_t cl_table_len = 19;
+    while(cl_table_len > 4 && b2ctx.cl_code_lengths[CL_ORDER[cl_table_len - 1]] == 0) {
+        cl_table_len--;
+    }
+	push_bits(ctx->v, cl_table_len - 4, 5, ctx->emit); 
+    // CL len table 
+    for(size_t i = 0; i < cl_table_len; i++) {
+        size_t idx = CL_ORDER[i];
+        u8 len = b2ctx.cl_code_lengths[idx];
+        assert(len <= 7);                   
+        push_bits(ctx->v, len, 3, ctx->emit);
+    }
+        
+    // LL & Dist len table
+    for(size_t i = 0; i < cl_buf_idx; i++) {
+        CLSymbol sym = cl_buf[i];
+        u16 len = sym.length;
+        size_t size = 0;
+        while(len > 0) { len >>= 1; size++; }
+	    push_bits(ctx->v, sym.length, size, ctx->emit);
+        if(sym.c_op) {
+	        push_bits(ctx->v, b2ctx.cl_codes[sym.c_op], size, ctx->emit);
+	        push_bits(ctx->v, sym.repeat, sym.repeat_len, ctx->emit);
+        }
+    }
+	//push_bits(ctx->v, reverse_u8(15 - 4), 5, ctx->emit); // LL_Dist_lens - encoded tables
 	// after building the tree, we retrieve the huffman codes
 	// to compute the CL symbols
 	// TODO:
 	// 1. add test cases for HLIT & HDIST when there are few symbols, 
 	// such as in aaabaaa.txt
-	/*
+	
 	if(status == FINISH) {
 		bit_vec_pad(ctx->v); // pad BitVec if it's last block
 		if(bit_vec_bit_count(ctx->v)) 
 			ctx->emit(bit_vec_data(ctx->v), bit_vec_byte_count(ctx->v));
-	}*/
+	}
 	/*
 	 * STEPS:
 	 * 1. count LL & distance frequencies
@@ -614,6 +723,5 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	 *  - Repeat for HDIST
 	 *  - 
 	 * */
-	HTree_destroy(t);
 	return len;
 }

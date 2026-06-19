@@ -27,3 +27,9 @@ Block 1 fails a32768.txt
 - snake_case_no_prefix: internal API
 - CamelCase: Data types & struct names
 - sqlite3Camel: ???
+
+# References
+
+https://create.stephan-brumme.com/length-limited-prefix-codes/
+
+https://github.com/richgel999/sserangecoding/blob/main/packagemerge.h

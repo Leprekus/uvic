@@ -1,15 +1,24 @@
-files=$(wildcard *.c)
-# replace .c extension with .0
-objects=$(files:.c=.o)
+# Get all .c files in the current directory
+SRCS = $(wildcard *.c)
+
+# Replace the .c extension with .o
+OBJS = $(SRCS:.c=.o)
+
+# Compiler and flags definitions (Best Practice)
+CC = gcc
+CFLAGS = -Wall -Wextra -g
 
 all: main
 
-main: $(objects)
-	gcc -o main $(objects)
+# Link object files into the final executable (Includes -g via CFLAGS)
+main: $(OBJS)
+	$(CC) $(CFLAGS) -o main $(OBJS)
 	
-# turn *.c into *.o
+# Compile source files into object files (Includes -g via CFLAGS)
 %.o: %.c
-	gcc -c -g $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f main $(objects)
+	rm -f main $(OBJS)
+
+.PHONY: all clean
