@@ -315,18 +315,16 @@ void HTree_destroy(HTree *T){
 void _cannonicalize_codes(size_t i_max_len, size_t i_max_code, u32 i_histogram[], u8 i_code_lengths[], u16 o_codes[]) {
 
     assert(i_max_len < 16);
-    // precompute the first code of each code length
+    // 2. find smallest code for each length  
     u32 i;
     u32 code = 0;
     u32 next[i_max_len + 1];
-    u32 tmp = i_histogram[0];
     i_histogram[0] = 0;
-    // 2. find smallest code for each length  
-    next[1] = 0;
     for (i = 1; i <= i_max_len; i++) {
         code = (code + i_histogram[i - 1]) << 1;
         next[i] = code;
     }
+
     // 3. now assign all codes
     for (i = 0; i <= i_max_code; i++) {
         u32 len = i_code_lengths[i];
@@ -337,7 +335,6 @@ void _cannonicalize_codes(size_t i_max_len, size_t i_max_code, u32 i_histogram[]
         }
     }
 
-    i_histogram[0] = tmp;
 }
 /*
  * i_max_len - maximum length i.e 15 bits for deflate
@@ -351,7 +348,8 @@ void compute_canon_hf_codes(
     u32 i_max_len, size_t i_max_code, u32 i_histogram[], u8 o_code_lengths[], u16 o_codes[]
 ) {
     
-    int rc = packageMerge(i_max_len, i_max_code, i_histogram, o_code_lengths);
+    int rc = packageMerge(i_max_len, i_max_code + 1, i_histogram, o_code_lengths);
+    assert(o_code_lengths[i_max_code] > 0);
     assert(rc > 0);
     _cannonicalize_codes(i_max_len, i_max_code, i_histogram, o_code_lengths, o_codes);
 }
