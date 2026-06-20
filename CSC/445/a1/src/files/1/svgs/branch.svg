@@ -1,0 +1,2146 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="582" onload="init(evt)" viewBox="0 0 1200 582" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+		if (currentSearchTerm === null) return;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="582.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="24" >Flame Graph</text>
+<text id="details" x="10.00" y="565" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="24" >Search</text>
+<text id="ignorecase" x="1174.00" y="24" >ic</text>
+<text id="matched" x="1090.00" y="565" > </text>
+<g id="frames">
+<g >
+<title>sched_tick (2,210,246 samples, 0.01%)</title><rect x="694.2" y="165" width="0.1" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="697.18" y="175.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::getRowSpaceIterate (6,345,936 samples, 0.03%)</title><rect x="750.0" y="309" width="0.3" height="15.0" fill="rgb(206,8,2)" rx="2" ry="2" />
+<text  x="752.97" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::getColumnSpaceIterateR (2,618,786 samples, 0.01%)</title><rect x="749.8" y="309" width="0.2" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="752.83" y="319.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="101" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.57" y="111.5" ></text>
+</g>
+<g >
+<title>dlaswp_ (2,196,858 samples, 0.01%)</title><rect x="1057.7" y="245" width="0.1" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="1060.66" y="255.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::justSteepest (42,139,762 samples, 0.19%)</title><rect x="1186.0" y="309" width="2.2" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="1188.96" y="319.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="277" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.57" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnR (35,312,384 samples, 0.16%)</title><rect x="32.6" y="293" width="1.8" height="15.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="35.57" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::factor (5,050,025 samples, 0.02%)</title><rect x="119.1" y="293" width="0.2" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="122.06" y="303.5" ></text>
+</g>
+<g >
+<title>dgetrf2_ (2,345,154 samples, 0.01%)</title><rect x="428.2" y="165" width="0.1" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="431.23" y="175.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (2,741,169 samples, 0.01%)</title><rect x="10.7" y="293" width="0.2" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="13.72" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::factorSparseSmall (4,344,620 samples, 0.02%)</title><rect x="119.1" y="277" width="0.2" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="122.10" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparse (5,567,180 samples, 0.02%)</title><rect x="347.2" y="277" width="0.3" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="350.20" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (654,746,694 samples, 2.92%)</title><rect x="1149.5" y="277" width="34.5" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="1152.49" y="287.5" >Co..</text>
+</g>
+<g >
+<title>ClpPackedMatrix::subsetTransposeTimes (2,741,391 samples, 0.01%)</title><rect x="914.8" y="277" width="0.2" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="917.84" y="287.5" ></text>
+</g>
+<g >
+<title>ClpDualRowSteepest::pivotRow (41,915,380 samples, 0.19%)</title><rect x="105.8" y="309" width="2.2" height="15.0" fill="rgb(220,72,17)" rx="2" ry="2" />
+<text  x="108.76" y="319.5" ></text>
+</g>
+<g >
+<title>PyObject_Vectorcall (2,182,491 samples, 0.01%)</title><rect x="1189.3" y="165" width="0.1" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1192.32" y="175.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeR (115,398,943 samples, 0.51%)</title><rect x="1143.4" y="277" width="6.1" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="1146.42" y="287.5" ></text>
+</g>
+<g >
+<title>asm_exc_page_fault (3,367,832 samples, 0.02%)</title><rect x="382.3" y="277" width="0.1" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="385.27" y="287.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (12,476,413 samples, 0.06%)</title><rect x="363.4" y="261" width="0.7" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="366.42" y="271.5" ></text>
+</g>
+<g >
+<title>ClpNonLinearCost::setOne (24,368,493 samples, 0.11%)</title><rect x="747.9" y="309" width="1.3" height="15.0" fill="rgb(223,83,20)" rx="2" ry="2" />
+<text  x="750.89" y="319.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::statusOfProblemInPrimal (6,701,482,563 samples, 29.89%)</title><rect x="347.7" y="357" width="352.7" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="350.65" y="367.5" >ClpSimplexPrimal::statusOfProblemInPrimal</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (11,037,682 samples, 0.05%)</title><rect x="118.3" y="309" width="0.6" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="121.31" y="319.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::checkBothSolutions (78,753,629 samples, 0.35%)</title><rect x="353.7" y="325" width="4.1" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="356.68" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUSparsish (137,346,917 samples, 0.61%)</title><rect x="823.9" y="293" width="7.3" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="826.94" y="303.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::djsAndSteepest2 (2,277,004,827 samples, 10.16%)</title><rect x="190.7" y="309" width="119.9" height="15.0" fill="rgb(241,170,40)" rx="2" ry="2" />
+<text  x="193.71" y="319.5" >ClpPrimalColum..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUDensish (30,356,375 samples, 0.14%)</title><rect x="372.5" y="277" width="1.6" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="375.52" y="287.5" ></text>
+</g>
+<g >
+<title>ClpFactorization::factorize (6,096,398,182 samples, 27.20%)</title><rect x="374.1" y="325" width="320.9" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="377.13" y="335.5" >ClpFactorization::factorize</text>
+</g>
+<g >
+<title>ClpNonLinearCost::checkInfeasibilities (43,770,870 samples, 0.20%)</title><rect x="351.4" y="325" width="2.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="354.38" y="335.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::justSteepest (13,834,611 samples, 0.06%)</title><rect x="346.9" y="309" width="0.7" height="15.0" fill="rgb(232,125,29)" rx="2" ry="2" />
+<text  x="349.89" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::factorSparseSmall (91,380,802 samples, 0.41%)</title><rect x="123.2" y="293" width="4.9" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="126.24" y="303.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (266,618,213 samples, 1.19%)</title><rect x="761.5" y="293" width="14.1" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="764.54" y="303.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::statusOfProblemInPrimal (180,115,090 samples, 0.80%)</title><rect x="119.4" y="357" width="9.5" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="122.37" y="367.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (39,816,802 samples, 0.18%)</title><rect x="300.2" y="277" width="2.1" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="303.22" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByRow (12,065,628 samples, 0.05%)</title><rect x="1055.8" y="261" width="0.7" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="1058.84" y="271.5" ></text>
+</g>
+<g >
+<title>ClpFactorization::factorize (64,780,000 samples, 0.29%)</title><rect x="11.1" y="309" width="3.4" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="14.06" y="319.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="149" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.57" y="159.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRSparse (34,035,147 samples, 0.15%)</title><rect x="948.0" y="261" width="1.8" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="951.04" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (22,190,707 samples, 0.10%)</title><rect x="155.6" y="309" width="1.2" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="158.59" y="319.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (5,040,993 samples, 0.02%)</title><rect x="1188.9" y="181" width="0.3" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.92" y="191.5" ></text>
+</g>
+<g >
+<title>__libc_start_call_main (30,199,820 samples, 0.13%)</title><rect x="1188.4" y="453" width="1.6" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="1191.41" y="463.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (381,559,012 samples, 1.70%)</title><rect x="1057.7" y="261" width="20.0" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="1060.65" y="271.5" ></text>
+</g>
+<g >
+<title>[libCoinUtils.so.3.11.4] (3,385,218 samples, 0.02%)</title><rect x="10.0" y="325" width="0.2" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="13.03" y="335.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,154,018 samples, 0.01%)</title><rect x="1189.7" y="293" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1192.68" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::replaceColumn (28,256,076 samples, 0.13%)</title><rect x="155.3" y="325" width="1.5" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="158.27" y="335.5" ></text>
+</g>
+<g >
+<title>__libc_free (4,357,771 samples, 0.02%)</title><rect x="694.8" y="277" width="0.2" height="15.0" fill="rgb(223,85,20)" rx="2" ry="2" />
+<text  x="697.75" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::internalFactorize (125,232,694 samples, 0.56%)</title><rect x="122.0" y="341" width="6.6" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="125.00" y="351.5" ></text>
+</g>
+<g >
+<title>__do_sys_brk (3,964,619 samples, 0.02%)</title><rect x="694.8" y="149" width="0.2" height="15.0" fill="rgb(217,58,13)" rx="2" ry="2" />
+<text  x="697.77" y="159.5" ></text>
+</g>
+<g >
+<title>ClpFactorization::factorize (5,113,980 samples, 0.02%)</title><rect x="119.1" y="309" width="0.2" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="122.06" y="319.5" ></text>
+</g>
+<g >
+<title>PyEval_EvalCode (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="213" width="0.1" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1191.57" y="223.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::goSparse (1,963,443 samples, 0.01%)</title><rect x="14.5" y="309" width="0.1" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="17.52" y="319.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::whileIterating (1,980,338,201 samples, 8.83%)</title><rect x="14.6" y="341" width="104.3" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="17.65" y="351.5" >ClpSimplexDu..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (12,830,142 samples, 0.06%)</title><rect x="110.0" y="309" width="0.7" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="112.98" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (5,985,703 samples, 0.03%)</title><rect x="121.1" y="309" width="0.3" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="124.09" y="319.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (15,157,292 samples, 0.07%)</title><rect x="158.5" y="277" width="0.8" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="161.50" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::computePrimals (11,264,516 samples, 0.05%)</title><rect x="121.4" y="325" width="0.6" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="124.41" y="335.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="213" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1192.32" y="223.5" ></text>
+</g>
+<g >
+<title>ClpPresolve::gutsOfPresolvedModel (6,403,606 samples, 0.03%)</title><rect x="10.0" y="389" width="0.3" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="13.00" y="399.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::dualRow (41,915,380 samples, 0.19%)</title><rect x="105.8" y="325" width="2.2" height="15.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="108.76" y="335.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::subsetTransposeTimes (3,524,776 samples, 0.02%)</title><rect x="120.8" y="293" width="0.2" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="123.83" y="303.5" ></text>
+</g>
+<g >
+<title>dgemm_ (43,161,971 samples, 0.19%)</title><rect x="423.4" y="245" width="2.3" height="15.0" fill="rgb(227,104,25)" rx="2" ry="2" />
+<text  x="426.39" y="255.5" ></text>
+</g>
+<g >
+<title>_int_free_create_chunk (2,114,773 samples, 0.01%)</title><rect x="1189.6" y="229" width="0.1" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1192.55" y="239.5" ></text>
+</g>
+<g >
+<title>PyImport_ImportModuleLevelObject (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="181" width="0.1" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="1191.57" y="191.5" ></text>
+</g>
+<g >
+<title>PyObject_CallMethodObjArgs (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="165" width="0.1" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="1191.57" y="175.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (2,033,847 samples, 0.01%)</title><rect x="343.1" y="277" width="0.1" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="346.12" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::cleanup (20,859,461 samples, 0.09%)</title><rect x="122.1" y="293" width="1.1" height="15.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="125.07" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::goSparse (6,869,788 samples, 0.03%)</title><rect x="128.2" y="325" width="0.4" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="131.23" y="335.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesUnscaled (97,752,521 samples, 0.44%)</title><rect x="909.7" y="277" width="5.1" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="912.68" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesByRowGE3 (2,894,558 samples, 0.01%)</title><rect x="323.5" y="245" width="0.1" height="15.0" fill="rgb(218,64,15)" rx="2" ry="2" />
+<text  x="326.49" y="255.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes (12,065,628 samples, 0.05%)</title><rect x="1055.8" y="277" width="0.7" height="15.0" fill="rgb(252,217,51)" rx="2" ry="2" />
+<text  x="1058.84" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::saveWeights (8,331,607 samples, 0.04%)</title><rect x="119.4" y="341" width="0.4" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="122.38" y="351.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="181" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1192.32" y="191.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::whileIterating (4,156,076,866 samples, 18.54%)</title><rect x="128.9" y="357" width="218.7" height="15.0" fill="rgb(223,87,20)" rx="2" ry="2" />
+<text  x="131.85" y="367.5" >ClpSimplexPrimal::whileItera..</text>
+</g>
+<g >
+<title>dgetrs_ (90,667,853 samples, 0.40%)</title><rect x="929.4" y="261" width="4.8" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="932.38" y="271.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::computeDuals (6,944,425 samples, 0.03%)</title><rect x="10.5" y="309" width="0.4" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="13.50" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::pivotOneOtherRow (53,745,602 samples, 0.24%)</title><rect x="682.7" y="277" width="2.8" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="685.68" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::startupSolve (6,672,570 samples, 0.03%)</title><rect x="119.0" y="357" width="0.4" height="15.0" fill="rgb(223,87,20)" rx="2" ry="2" />
+<text  x="122.00" y="367.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes (15,120,997 samples, 0.07%)</title><rect x="928.1" y="277" width="0.8" height="15.0" fill="rgb(252,217,51)" rx="2" ry="2" />
+<text  x="931.15" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes2 (1,861,777,526 samples, 8.31%)</title><rect x="957.8" y="277" width="98.0" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="960.84" y="287.5" >ClpPackedMa..</text>
+</g>
+<g >
+<title>__libc_start_main_impl (22,384,250,243 samples, 99.85%)</title><rect x="10.0" y="485" width="1178.3" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="13.00" y="495.5" >__libc_start_main_impl</text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes2 (250,033,099 samples, 1.12%)</title><rect x="915.0" y="277" width="13.1" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="917.98" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::goSparse (30,680,956 samples, 0.14%)</title><rect x="698.8" y="341" width="1.6" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="701.75" y="351.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnL (417,242,270 samples, 1.86%)</title><rect x="753.6" y="309" width="22.0" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="756.62" y="319.5" >C..</text>
+</g>
+<g >
+<title>py::COIN_CMD.solve_CBC:/home/leprekus/projects/uvic/CSC/445/a1/src/venv/lib/python3.12/site-packages/pulp/apis/coin_api.py (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="197" width="0.1" height="15.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="1192.32" y="207.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUSparse (63,458,474 samples, 0.28%)</title><rect x="820.6" y="293" width="3.3" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="823.60" y="303.5" ></text>
+</g>
+<g >
+<title>_int_free_create_chunk (2,364,952 samples, 0.01%)</title><rect x="1189.0" y="85" width="0.1" height="15.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="1191.99" y="95.5" ></text>
+</g>
+<g >
+<title>_int_free (2,452,310 samples, 0.01%)</title><rect x="1189.5" y="261" width="0.2" height="15.0" fill="rgb(247,196,46)" rx="2" ry="2" />
+<text  x="1192.53" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumn (53,714,328 samples, 0.24%)</title><rect x="371.3" y="309" width="2.8" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="374.29" y="319.5" ></text>
+</g>
+<g >
+<title>PyMem_Free (2,606,268 samples, 0.01%)</title><rect x="1189.5" y="293" width="0.2" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="1192.53" y="303.5" ></text>
+</g>
+<g >
+<title>update_process_times (2,556,717 samples, 0.01%)</title><rect x="694.2" y="181" width="0.1" height="15.0" fill="rgb(250,209,50)" rx="2" ry="2" />
+<text  x="697.16" y="191.5" ></text>
+</g>
+<g >
+<title>Py_RunMain (30,122,751 samples, 0.13%)</title><rect x="1188.4" y="421" width="1.6" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="1191.41" y="431.5" ></text>
+</g>
+<g >
+<title>[libCoinUtils.so.3.11.4] (3,839,634 samples, 0.02%)</title><rect x="10.0" y="341" width="0.2" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="13.00" y="351.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::updateDualsInDual (35,104,738 samples, 0.16%)</title><rect x="108.0" y="325" width="1.8" height="15.0" fill="rgb(205,4,1)" rx="2" ry="2" />
+<text  x="110.97" y="335.5" ></text>
+</g>
+<g >
+<title>__sysvec_apic_timer_interrupt (3,206,224 samples, 0.01%)</title><rect x="694.1" y="245" width="0.2" height="15.0" fill="rgb(242,173,41)" rx="2" ry="2" />
+<text  x="697.14" y="255.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (35,994,145 samples, 0.16%)</title><rect x="955.1" y="277" width="1.9" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="958.06" y="287.5" ></text>
+</g>
+<g >
+<title>[libCoinUtils.so.3.11.4] (2,988,156 samples, 0.01%)</title><rect x="10.0" y="293" width="0.2" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="13.05" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (23,462,798 samples, 0.10%)</title><rect x="368.1" y="293" width="1.2" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="371.10" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (156,349,169 samples, 0.70%)</title><rect x="110.7" y="325" width="8.2" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="113.66" y="335.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::subsetTransposeTimes (23,034,442 samples, 0.10%)</title><rect x="361.7" y="293" width="1.2" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="364.70" y="303.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::computeDuals (17,128,819 samples, 0.08%)</title><rect x="120.5" y="325" width="0.9" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="123.50" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::pivotRowSingleton (12,296,451 samples, 0.05%)</title><rect x="126.9" y="277" width="0.6" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="129.88" y="287.5" ></text>
+</g>
+<g >
+<title>do_syscall_64 (3,964,619 samples, 0.02%)</title><rect x="694.8" y="197" width="0.2" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="697.77" y="207.5" ></text>
+</g>
+<g >
+<title>[python3.12] (4,992,125 samples, 0.02%)</title><rect x="1188.9" y="165" width="0.3" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.92" y="175.5" ></text>
+</g>
+<g >
+<title>_int_free_merge_chunk (2,217,286 samples, 0.01%)</title><rect x="1189.5" y="245" width="0.2" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1192.55" y="255.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByColumn (299,331,311 samples, 1.34%)</title><rect x="75.0" y="325" width="15.8" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="78.04" y="335.5" ></text>
+</g>
+<g >
+<title>handle_mm_fault (2,667,088 samples, 0.01%)</title><rect x="693.8" y="229" width="0.2" height="15.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="696.82" y="239.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::djsAndSteepest (4,335,976,200 samples, 19.34%)</title><rect x="957.7" y="309" width="228.3" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="960.72" y="319.5" >ClpPrimalColumnSteepest::djsAn..</text>
+</g>
+<g >
+<title>dgetrf_ (1,017,184,813 samples, 4.54%)</title><rect x="384.2" y="277" width="53.5" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="387.16" y="287.5" >dgetrf_</text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="197" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.57" y="207.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (29,754,022 samples, 0.13%)</title><rect x="1188.4" y="325" width="1.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.43" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::factor (113,942,133 samples, 0.51%)</title><rect x="122.1" y="309" width="6.0" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="125.06" y="319.5" ></text>
+</g>
+<g >
+<title>dgemm_ (4,124,968 samples, 0.02%)</title><rect x="427.9" y="181" width="0.2" height="15.0" fill="rgb(227,104,25)" rx="2" ry="2" />
+<text  x="430.86" y="191.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::gutsOfDestructor (4,441,611 samples, 0.02%)</title><rect x="694.7" y="309" width="0.3" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="697.75" y="319.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::computeDuals (219,334,040 samples, 0.98%)</title><rect x="357.8" y="325" width="11.6" height="15.0" fill="rgb(238,155,37)" rx="2" ry="2" />
+<text  x="360.83" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnLSparse (30,504,669 samples, 0.14%)</title><rect x="156.9" y="293" width="1.6" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="159.87" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparsish (452,651,700 samples, 2.02%)</title><rect x="1119.6" y="277" width="23.8" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="1122.59" y="287.5" >C..</text>
+</g>
+<g >
+<title>CoinFactorization::cleanup (7,814,073 samples, 0.03%)</title><rect x="11.1" y="277" width="0.4" height="15.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="14.07" y="287.5" ></text>
+</g>
+<g >
+<title>ClpNonLinearCost::checkInfeasibilities (5,527,993 samples, 0.02%)</title><rect x="119.8" y="325" width="0.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="122.82" y="335.5" ></text>
+</g>
+<g >
+<title>__libc_start_call_main (22,384,250,243 samples, 99.85%)</title><rect x="10.0" y="453" width="1178.3" height="15.0" fill="rgb(210,26,6)" rx="2" ry="2" />
+<text  x="13.00" y="463.5" >__libc_start_call_main</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnFT (466,484,363 samples, 2.08%)</title><rect x="156.8" y="325" width="24.5" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="159.75" y="335.5" >C..</text>
+</g>
+<g >
+<title>dtrsm_ (24,998,560 samples, 0.11%)</title><rect x="258.0" y="245" width="1.3" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="260.97" y="255.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (5,328,937 samples, 0.02%)</title><rect x="1187.9" y="277" width="0.3" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="1190.88" y="287.5" ></text>
+</g>
+<g >
+<title>[python3.12] (29,860,248 samples, 0.13%)</title><rect x="1188.4" y="373" width="1.6" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.42" y="383.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::saveWeights (13,638,695 samples, 0.06%)</title><rect x="702.0" y="325" width="0.7" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="704.97" y="335.5" ></text>
+</g>
+<g >
+<title>PyEval_EvalCode (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="85" width="0.1" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1191.57" y="95.5" ></text>
+</g>
+<g >
+<title>python3 (30,847,146 samples, 0.14%)</title><rect x="1188.4" y="517" width="1.6" height="15.0" fill="rgb(230,115,27)" rx="2" ry="2" />
+<text  x="1191.38" y="527.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparsish (7,475,941 samples, 0.03%)</title><rect x="957.0" y="277" width="0.3" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="959.95" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparse (16,409,132 samples, 0.07%)</title><rect x="1187.0" y="277" width="0.9" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="1189.99" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (97,227,400 samples, 0.43%)</title><rect x="111.5" y="309" width="5.1" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="114.52" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPresolve::presolve (6,366,730 samples, 0.03%)</title><rect x="10.0" y="373" width="0.3" height="15.0" fill="rgb(247,195,46)" rx="2" ry="2" />
+<text  x="13.00" y="383.5" ></text>
+</g>
+<g >
+<title>dgetrf2_ (119,254,197 samples, 0.53%)</title><rect x="423.4" y="261" width="6.3" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="426.39" y="271.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="229" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.57" y="239.5" ></text>
+</g>
+<g >
+<title>unmap_region (3,343,068 samples, 0.01%)</title><rect x="694.8" y="101" width="0.2" height="15.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="697.78" y="111.5" ></text>
+</g>
+<g >
+<title>[libCoinUtils.so.3.11.4] (65,991,628 samples, 0.29%)</title><rect x="678.1" y="261" width="3.5" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="681.12" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeR (38,160,620 samples, 0.17%)</title><rect x="947.8" y="277" width="2.0" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="950.83" y="287.5" ></text>
+</g>
+<g >
+<title>all (22,417,106,536 samples, 100%)</title><rect x="10.0" y="533" width="1180.0" height="15.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="543.5" ></text>
+</g>
+<g >
+<title>[python3.12] (9,660,916 samples, 0.04%)</title><rect x="1189.4" y="309" width="0.5" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1192.44" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByColumn (9,490,237 samples, 0.04%)</title><rect x="1186.1" y="293" width="0.5" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="1189.06" y="303.5" ></text>
+</g>
+<g >
+<title>cbc (22,386,259,374 samples, 99.86%)</title><rect x="10.0" y="517" width="1178.4" height="15.0" fill="rgb(251,213,51)" rx="2" ry="2" />
+<text  x="13.00" y="527.5" >cbc</text>
+</g>
+<g >
+<title>CoinFactorization::factor (64,477,059 samples, 0.29%)</title><rect x="11.1" y="293" width="3.4" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="14.07" y="303.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesScaled (299,107,648 samples, 1.33%)</title><rect x="75.1" y="309" width="15.7" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="78.05" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (1,006,788,115 samples, 4.49%)</title><rect x="257.6" y="293" width="53.0" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="260.56" y="303.5" >CoinF..</text>
+</g>
+<g >
+<title>CoinFactorization::factorDense (1,049,883,281 samples, 4.68%)</title><rect x="382.5" y="293" width="55.2" height="15.0" fill="rgb(230,117,28)" rx="2" ry="2" />
+<text  x="385.47" y="303.5" >CoinF..</text>
+</g>
+<g >
+<title>dgemm_ (11,920,599 samples, 0.05%)</title><rect x="426.9" y="213" width="0.6" height="15.0" fill="rgb(227,104,25)" rx="2" ry="2" />
+<text  x="429.87" y="223.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::transposeTimes2 (248,506,026 samples, 1.11%)</title><rect x="310.6" y="293" width="13.1" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="313.57" y="303.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::djsAndSteepest2 (1,364,541,734 samples, 6.09%)</title><rect x="885.9" y="309" width="71.8" height="15.0" fill="rgb(241,170,40)" rx="2" ry="2" />
+<text  x="888.90" y="319.5" >ClpPrima..</text>
+</g>
+<g >
+<title>CoinIndexedVector::scan (28,915,111 samples, 0.13%)</title><rect x="1184.4" y="277" width="1.5" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="1187.39" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::getColumnSpace (5,348,924 samples, 0.02%)</title><rect x="685.1" y="261" width="0.3" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="688.15" y="271.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::times (30,049,156 samples, 0.13%)</title><rect x="369.7" y="309" width="1.6" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="372.71" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeR (44,995,969 samples, 0.20%)</title><rect x="283.8" y="277" width="2.4" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="286.81" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesUnscaled (8,160,903 samples, 0.04%)</title><rect x="1186.1" y="277" width="0.5" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="1189.13" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::preProcess (4,064,621 samples, 0.02%)</title><rect x="14.2" y="261" width="0.3" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="17.24" y="271.5" ></text>
+</g>
+<g >
+<title>x64_sys_call (3,964,619 samples, 0.02%)</title><rect x="694.8" y="181" width="0.2" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="697.77" y="191.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (440,968,453 samples, 1.97%)</title><rect x="323.7" y="293" width="23.2" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="326.65" y="303.5" >C..</text>
+</g>
+<g >
+<title>[python3.12] (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="245" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.57" y="255.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (15,825,376 samples, 0.07%)</title><rect x="158.5" y="293" width="0.8" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="161.48" y="303.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByColumn (3,169,754 samples, 0.01%)</title><rect x="346.9" y="293" width="0.2" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="349.91" y="303.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::initialSolve (22,383,096,622 samples, 99.85%)</title><rect x="10.0" y="405" width="1178.2" height="15.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="13.00" y="415.5" >ClpSimplex::initialSolve</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (266,753,837 samples, 1.19%)</title><rect x="286.2" y="277" width="14.0" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="289.18" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::internalFactorize (5,695,623 samples, 0.03%)</title><rect x="119.0" y="325" width="0.3" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="122.05" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (2,973,825 samples, 0.01%)</title><rect x="121.1" y="293" width="0.2" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="124.10" y="303.5" ></text>
+</g>
+<g >
+<title>__handle_mm_fault (2,624,809 samples, 0.01%)</title><rect x="693.8" y="213" width="0.2" height="15.0" fill="rgb(207,9,2)" rx="2" ry="2" />
+<text  x="696.82" y="223.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (12,781,103 samples, 0.06%)</title><rect x="363.4" y="277" width="0.7" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="366.40" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::factorSparseSmall (4,876,021,123 samples, 21.75%)</title><rect x="437.7" y="293" width="256.7" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="440.73" y="303.5" >CoinFactorization::factorSparseSmall</text>
+</g>
+<g >
+<title>ClpSimplexPrimal::primalRow (251,137,409 samples, 1.12%)</title><rect x="134.9" y="325" width="13.2" height="15.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="137.89" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::replaceColumn (16,040,995 samples, 0.07%)</title><rect x="109.8" y="325" width="0.9" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="112.81" y="335.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::transposeTimes2 (268,181,334 samples, 1.20%)</title><rect x="914.8" y="293" width="14.1" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="917.82" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRDensish (4,154,488 samples, 0.02%)</title><rect x="335.2" y="261" width="0.2" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="338.22" y="271.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="261" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.57" y="271.5" ></text>
+</g>
+<g >
+<title>py::LpProblem.solve:/home/leprekus/projects/uvic/CSC/445/a1/src/venv/lib/python3.12/site-packages/pulp/pulp.py (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="293" width="0.1" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="1192.32" y="303.5" ></text>
+</g>
+<g >
+<title>do_user_addr_fault (6,035,069 samples, 0.03%)</title><rect x="693.8" y="245" width="0.3" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="696.77" y="255.5" ></text>
+</g>
+<g >
+<title>_int_free (2,555,938 samples, 0.01%)</title><rect x="1189.0" y="117" width="0.1" height="15.0" fill="rgb(247,196,46)" rx="2" ry="2" />
+<text  x="1191.98" y="127.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUDensish (357,601,995 samples, 1.60%)</title><rect x="160.5" y="293" width="18.8" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="163.45" y="303.5" ></text>
+</g>
+<g >
+<title>sysvec_apic_timer_interrupt (4,130,106 samples, 0.02%)</title><rect x="694.1" y="261" width="0.3" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="697.14" y="271.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (104,585,121 samples, 0.47%)</title><rect x="432.2" y="261" width="5.5" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="435.19" y="271.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,057,109 samples, 0.01%)</title><rect x="1189.8" y="261" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1192.80" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnFT (1,474,801,669 samples, 6.58%)</title><rect x="753.6" y="325" width="77.6" height="15.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="756.56" y="335.5" >CoinFact..</text>
+</g>
+<g >
+<title>[cbc] (22,384,250,243 samples, 99.85%)</title><rect x="10.0" y="437" width="1178.3" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="13.00" y="447.5" >[cbc]</text>
+</g>
+<g >
+<title>[cbc] (22,384,250,243 samples, 99.85%)</title><rect x="10.0" y="501" width="1178.3" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="13.00" y="511.5" >[cbc]</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (546,561,247 samples, 2.44%)</title><rect x="928.9" y="293" width="28.8" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="931.94" y="303.5" >Co..</text>
+</g>
+<g >
+<title>CoinFactorization::replaceColumn (83,088,109 samples, 0.37%)</title><rect x="749.2" y="325" width="4.4" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="752.19" y="335.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::primalColumn (3,159,110,930 samples, 14.09%)</title><rect x="181.3" y="341" width="166.3" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="184.33" y="351.5" >ClpSimplexPrimal::pri..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnLSparse (15,362,684 samples, 0.07%)</title><rect x="30.8" y="277" width="0.9" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="33.85" y="287.5" ></text>
+</g>
+<g >
+<title>asm_exc_page_fault (10,247,355 samples, 0.05%)</title><rect x="693.6" y="277" width="0.5" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="696.56" y="287.5" ></text>
+</g>
+<g >
+<title>ClpDualRowSteepest::updateWeights (1,047,526,266 samples, 4.67%)</title><rect x="19.8" y="325" width="55.1" height="15.0" fill="rgb(240,165,39)" rx="2" ry="2" />
+<text  x="22.81" y="335.5" >ClpDu..</text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesByRowGE3 (2,060,805 samples, 0.01%)</title><rect x="928.1" y="245" width="0.2" height="15.0" fill="rgb(218,64,15)" rx="2" ry="2" />
+<text  x="931.15" y="255.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByRow (42,060,877 samples, 0.19%)</title><rect x="900.7" y="277" width="2.3" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="903.74" y="287.5" ></text>
+</g>
+<g >
+<title>unlink_chunk (2,350,235 samples, 0.01%)</title><rect x="1189.0" y="69" width="0.1" height="15.0" fill="rgb(236,146,34)" rx="2" ry="2" />
+<text  x="1192.00" y="79.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::updateWeights (112,428,469 samples, 0.50%)</title><rect x="128.9" y="325" width="6.0" height="15.0" fill="rgb(247,196,47)" rx="2" ry="2" />
+<text  x="131.94" y="335.5" ></text>
+</g>
+<g >
+<title>dscal_ (5,101,402 samples, 0.02%)</title><rect x="428.4" y="165" width="0.2" height="15.0" fill="rgb(247,193,46)" rx="2" ry="2" />
+<text  x="431.37" y="175.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparsish (53,198,533 samples, 0.24%)</title><rect x="945.0" y="277" width="2.8" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="948.03" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUSparse (443,574,241 samples, 1.98%)</title><rect x="49.1" y="277" width="23.3" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="52.08" y="287.5" >C..</text>
+</g>
+<g >
+<title>ClpSimplex::checkBothSolutions (7,505,538 samples, 0.03%)</title><rect x="120.1" y="325" width="0.4" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="123.11" y="335.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (10,173,210 samples, 0.05%)</title><rect x="1188.8" y="229" width="0.5" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.78" y="239.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="261" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1192.32" y="271.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (17,177,941 samples, 0.08%)</title><rect x="31.7" y="277" width="0.9" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="34.67" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnU (2,873,421 samples, 0.01%)</title><rect x="121.8" y="293" width="0.2" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="124.85" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparse (145,298,037 samples, 0.65%)</title><rect x="1111.9" y="277" width="7.7" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="1114.94" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (4,405,353 samples, 0.02%)</title><rect x="1186.8" y="277" width="0.2" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="1189.76" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::primal (15,969,074,809 samples, 71.24%)</title><rect x="347.6" y="373" width="840.6" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="350.63" y="383.5" >ClpSimplexPrimal::primal</text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesScaled (127,599,784 samples, 0.57%)</title><rect x="903.0" y="277" width="6.7" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="905.96" y="287.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (6,794,032 samples, 0.03%)</title><rect x="372.2" y="261" width="0.3" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="375.16" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnU (30,356,375 samples, 0.14%)</title><rect x="372.5" y="293" width="1.6" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="375.52" y="303.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByRow (15,120,997 samples, 0.07%)</title><rect x="928.1" y="261" width="0.8" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="931.15" y="271.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes (3,126,341 samples, 0.01%)</title><rect x="323.5" y="277" width="0.2" height="15.0" fill="rgb(252,217,51)" rx="2" ry="2" />
+<text  x="326.49" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::gutsOfDual (2,063,912,612 samples, 9.21%)</title><rect x="10.4" y="357" width="108.6" height="15.0" fill="rgb(221,75,18)" rx="2" ry="2" />
+<text  x="13.36" y="367.5" >ClpSimplexDua..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeL (402,941,748 samples, 1.80%)</title><rect x="1056.6" y="277" width="21.2" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="1059.56" y="287.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="133" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.57" y="143.5" ></text>
+</g>
+<g >
+<title>dgetrf2_ (71,734,943 samples, 0.32%)</title><rect x="425.7" y="245" width="3.7" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="428.66" y="255.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (379,055,464 samples, 1.69%)</title><rect x="1057.8" y="245" width="19.9" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="1060.77" y="255.5" ></text>
+</g>
+<g >
+<title>exc_page_fault (4,761,688 samples, 0.02%)</title><rect x="383.9" y="245" width="0.2" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="386.88" y="255.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="229" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1192.32" y="239.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnL (2,214,091 samples, 0.01%)</title><rect x="121.7" y="293" width="0.1" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="124.73" y="303.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::primalRow (739,029,043 samples, 3.30%)</title><rect x="702.8" y="325" width="38.9" height="15.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="705.82" y="335.5" >Clp..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (229,975,516 samples, 1.03%)</title><rect x="259.3" y="277" width="12.1" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="262.31" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesSubset (8,868,223 samples, 0.04%)</title><rect x="362.9" y="309" width="0.5" height="15.0" fill="rgb(232,126,30)" rx="2" ry="2" />
+<text  x="365.92" y="319.5" ></text>
+</g>
+<g >
+<title>hrtimer_interrupt (3,128,903 samples, 0.01%)</title><rect x="694.1" y="229" width="0.2" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="697.14" y="239.5" ></text>
+</g>
+<g >
+<title>__tlb_batch_free_encoded_pages (2,812,959 samples, 0.01%)</title><rect x="694.8" y="69" width="0.1" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="697.78" y="79.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (8,705,675 samples, 0.04%)</title><rect x="323.8" y="261" width="0.4" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="326.79" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUSparsish (8,203,058 samples, 0.04%)</title><rect x="180.9" y="293" width="0.4" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="183.87" y="303.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesByRowGE3 (7,321,412 samples, 0.03%)</title><rect x="1055.8" y="245" width="0.4" height="15.0" fill="rgb(218,64,15)" rx="2" ry="2" />
+<text  x="1058.84" y="255.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::pivotColumn (6,780,826,114 samples, 30.25%)</title><rect x="831.3" y="325" width="356.9" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="834.27" y="335.5" >ClpPrimalColumnSteepest::pivotColumn</text>
+</g>
+<g >
+<title>call_init (22,384,250,243 samples, 99.85%)</title><rect x="10.0" y="469" width="1178.3" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="13.00" y="479.5" >call_init</text>
+</g>
+<g >
+<title>dtrsm_ (16,855,660 samples, 0.08%)</title><rect x="31.7" y="261" width="0.9" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="34.68" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRSparse (37,621,854 samples, 0.17%)</title><rect x="284.2" y="261" width="2.0" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="287.20" y="271.5" ></text>
+</g>
+<g >
+<title>__libc_start_main_impl (30,199,820 samples, 0.13%)</title><rect x="1188.4" y="485" width="1.6" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="1191.41" y="495.5" ></text>
+</g>
+<g >
+<title>ClpMatrixBase::listTransposeTimes (23,052,785 samples, 0.10%)</title><rect x="361.7" y="309" width="1.2" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="364.70" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::fillBasis (3,155,578 samples, 0.01%)</title><rect x="374.4" y="309" width="0.2" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="377.43" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByColumn (410,870,489 samples, 1.83%)</title><rect x="214.5" y="293" width="21.6" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="217.52" y="303.5" >C..</text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::transposeTimes2 (1,875,898,355 samples, 8.37%)</title><rect x="957.7" y="293" width="98.8" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="960.73" y="303.5" >ClpPrimalCo..</text>
+</g>
+<g >
+<title>CoinFactorization::goSparse (4,941,145 samples, 0.02%)</title><rect x="128.6" y="341" width="0.3" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="131.59" y="351.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::dualColumn (283,979,609 samples, 1.27%)</title><rect x="90.8" y="325" width="15.0" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="93.81" y="335.5" ></text>
+</g>
+<g >
+<title>call_init (30,199,820 samples, 0.13%)</title><rect x="1188.4" y="469" width="1.6" height="15.0" fill="rgb(221,77,18)" rx="2" ry="2" />
+<text  x="1191.41" y="479.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUDensish (267,551,966 samples, 1.19%)</title><rect x="35.0" y="277" width="14.1" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="38.00" y="287.5" ></text>
+</g>
+<g >
+<title>do_vmi_align_munmap (3,964,619 samples, 0.02%)</title><rect x="694.8" y="133" width="0.2" height="15.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="697.77" y="143.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::getRowSpace (15,035,400 samples, 0.07%)</title><rect x="681.7" y="277" width="0.8" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="684.69" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::saveWeights (69,923,226 samples, 0.31%)</title><rect x="347.7" y="341" width="3.7" height="15.0" fill="rgb(217,56,13)" rx="2" ry="2" />
+<text  x="350.69" y="351.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRSparse (11,496,583 samples, 0.05%)</title><rect x="335.4" y="261" width="0.6" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="338.44" y="271.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="69" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.57" y="79.5" ></text>
+</g>
+<g >
+<title>_start (30,199,820 samples, 0.13%)</title><rect x="1188.4" y="501" width="1.6" height="15.0" fill="rgb(245,185,44)" rx="2" ry="2" />
+<text  x="1191.41" y="511.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (2,076,602 samples, 0.01%)</title><rect x="347.1" y="277" width="0.1" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="350.09" y="287.5" ></text>
+</g>
+<g >
+<title>__libc_free (2,509,181 samples, 0.01%)</title><rect x="1189.5" y="277" width="0.2" height="15.0" fill="rgb(223,85,20)" rx="2" ry="2" />
+<text  x="1192.53" y="287.5" ></text>
+</g>
+<g >
+<title>entry_SYSCALL_64_after_hwframe (3,964,619 samples, 0.02%)</title><rect x="694.8" y="213" width="0.2" height="15.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="697.77" y="223.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::primalColumn (6,781,335,975 samples, 30.25%)</title><rect x="831.2" y="341" width="357.0" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="834.24" y="351.5" >ClpSimplexPrimal::primalColumn</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRDensish (7,290,166 samples, 0.03%)</title><rect x="283.8" y="261" width="0.4" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="286.81" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparsish (10,066,143 samples, 0.04%)</title><rect x="116.9" y="309" width="0.5" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="119.85" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRSparse (98,642,704 samples, 0.44%)</title><rect x="1144.3" y="261" width="5.2" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="1147.30" y="271.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::whileIterating (9,266,959,128 samples, 41.34%)</title><rect x="700.4" y="357" width="487.8" height="15.0" fill="rgb(223,87,20)" rx="2" ry="2" />
+<text  x="703.41" y="367.5" >ClpSimplexPrimal::whileIterating</text>
+</g>
+<g >
+<title>CoinFactorization::pivotColumnSingleton (3,810,103 samples, 0.02%)</title><rect x="682.5" y="277" width="0.2" height="15.0" fill="rgb(240,161,38)" rx="2" ry="2" />
+<text  x="685.48" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::preProcess (9,904,019 samples, 0.04%)</title><rect x="127.5" y="277" width="0.5" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="130.53" y="287.5" ></text>
+</g>
+<g >
+<title>ClpMatrixBase::generalExpanded (2,985,189 samples, 0.01%)</title><rect x="128.1" y="325" width="0.1" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="131.07" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (10,219,562 samples, 0.05%)</title><rect x="347.1" y="293" width="0.5" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="350.08" y="303.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="277" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1192.32" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUSparsish (47,557,946 samples, 0.21%)</title><rect x="72.4" y="277" width="2.5" height="15.0" fill="rgb(226,99,23)" rx="2" ry="2" />
+<text  x="75.43" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::djsAndSteepest (690,006,587 samples, 3.08%)</title><rect x="310.6" y="309" width="36.3" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="313.57" y="319.5" >Clp..</text>
+</g>
+<g >
+<title>[python3.12] (2,435,509 samples, 0.01%)</title><rect x="1189.2" y="213" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1192.18" y="223.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::computePrimals (90,300,393 samples, 0.40%)</title><rect x="369.4" y="325" width="4.7" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="372.37" y="335.5" ></text>
+</g>
+<g >
+<title>asm_sysvec_apic_timer_interrupt (4,777,820 samples, 0.02%)</title><rect x="694.1" y="277" width="0.3" height="15.0" fill="rgb(232,127,30)" rx="2" ry="2" />
+<text  x="697.10" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumn (5,087,512 samples, 0.02%)</title><rect x="121.7" y="309" width="0.3" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="124.73" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (30,835,133 samples, 0.14%)</title><rect x="1186.6" y="293" width="1.6" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="1189.55" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnLDensish (208,266,873 samples, 0.93%)</title><rect x="19.9" y="277" width="10.9" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="22.88" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::updatePrimalsInPrimal (136,043,889 samples, 0.61%)</title><rect x="148.1" y="325" width="7.2" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="151.11" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnLDensish (1,999,620 samples, 0.01%)</title><rect x="121.7" y="277" width="0.1" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="124.73" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (134,478,637 samples, 0.60%)</title><rect x="336.0" y="277" width="7.1" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="339.04" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparse (27,903,034 samples, 0.12%)</title><rect x="943.6" y="277" width="1.4" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="946.56" y="287.5" ></text>
+</g>
+<g >
+<title>PyObject_Vectorcall (5,105,979 samples, 0.02%)</title><rect x="1188.9" y="213" width="0.3" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1191.91" y="223.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::dualColumn0 (269,636,132 samples, 1.20%)</title><rect x="91.6" y="309" width="14.2" height="15.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="94.57" y="319.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::internalFactorize (6,166,881,616 samples, 27.51%)</title><rect x="374.1" y="341" width="324.6" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="377.13" y="351.5" >ClpSimplex::internalFactorize</text>
+</g>
+<g >
+<title>do_user_addr_fault (4,266,153 samples, 0.02%)</title><rect x="383.9" y="229" width="0.2" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="386.90" y="239.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::updatePrimalsInPrimal (141,593,323 samples, 0.63%)</title><rect x="741.7" y="325" width="7.5" height="15.0" fill="rgb(234,134,32)" rx="2" ry="2" />
+<text  x="744.72" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (649,256,184 samples, 2.90%)</title><rect x="1077.8" y="277" width="34.1" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="1080.77" y="287.5" >Co..</text>
+</g>
+<g >
+<title>CoinFactorization::getColumnSpace (28,617,642 samples, 0.13%)</title><rect x="380.7" y="277" width="1.5" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="383.74" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::djsAndSteepest (33,332,657 samples, 0.15%)</title><rect x="189.0" y="309" width="1.7" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="191.95" y="319.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::gutsOfSolution (41,426,866 samples, 0.18%)</title><rect x="119.8" y="341" width="2.2" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="122.82" y="351.5" ></text>
+</g>
+<g >
+<title>ClpDualRowSteepest::updatePrimalSolution (97,602,381 samples, 0.44%)</title><rect x="14.7" y="325" width="5.1" height="15.0" fill="rgb(241,166,39)" rx="2" ry="2" />
+<text  x="17.67" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (113,702,435 samples, 0.51%)</title><rect x="363.4" y="309" width="6.0" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="366.38" y="319.5" ></text>
+</g>
+<g >
+<title>PyImport_ImportModuleLevelObject (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="309" width="0.1" height="15.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="1191.57" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes2 (244,233,688 samples, 1.09%)</title><rect x="310.6" y="277" width="12.9" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="313.63" y="287.5" ></text>
+</g>
+<g >
+<title>dgemm_ (5,889,757 samples, 0.03%)</title><rect x="427.5" y="197" width="0.3" height="15.0" fill="rgb(227,104,25)" rx="2" ry="2" />
+<text  x="430.52" y="207.5" ></text>
+</g>
+<g >
+<title>dgetrf2_ (47,522,986 samples, 0.21%)</title><rect x="426.9" y="229" width="2.5" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="429.86" y="239.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (1,974,734 samples, 0.01%)</title><rect x="121.3" y="293" width="0.1" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="124.26" y="303.5" ></text>
+</g>
+<g >
+<title>CbcMain1 (22,384,160,859 samples, 99.85%)</title><rect x="10.0" y="421" width="1178.3" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="13.00" y="431.5" >CbcMain1</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnRFT (21,562,716 samples, 0.10%)</title><rect x="159.3" y="309" width="1.1" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="162.31" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeL (98,458,691 samples, 0.44%)</title><rect x="929.0" y="277" width="5.2" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="931.98" y="287.5" ></text>
+</g>
+<g >
+<title>Py_BytesMain (30,199,820 samples, 0.13%)</title><rect x="1188.4" y="437" width="1.6" height="15.0" fill="rgb(235,141,33)" rx="2" ry="2" />
+<text  x="1191.41" y="447.5" ></text>
+</g>
+<g >
+<title>__hrtimer_run_queues (2,948,486 samples, 0.01%)</title><rect x="694.1" y="213" width="0.2" height="15.0" fill="rgb(237,150,35)" rx="2" ry="2" />
+<text  x="697.14" y="223.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeR (15,651,071 samples, 0.07%)</title><rect x="335.2" y="277" width="0.8" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="338.22" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesByRowGEK (4,666,696 samples, 0.02%)</title><rect x="1056.2" y="245" width="0.3" height="15.0" fill="rgb(213,41,9)" rx="2" ry="2" />
+<text  x="1059.23" y="255.5" ></text>
+</g>
+<g >
+<title>PyEval_EvalCode (29,860,248 samples, 0.13%)</title><rect x="1188.4" y="341" width="1.6" height="15.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1191.42" y="351.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByRow (3,126,341 samples, 0.01%)</title><rect x="323.5" y="261" width="0.2" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="326.49" y="271.5" ></text>
+</g>
+<g >
+<title>systrim (4,041,996 samples, 0.02%)</title><rect x="694.8" y="261" width="0.2" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="697.77" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUSparse (30,223,735 samples, 0.13%)</title><rect x="179.3" y="293" width="1.6" height="15.0" fill="rgb(217,55,13)" rx="2" ry="2" />
+<text  x="182.28" y="303.5" ></text>
+</g>
+<g >
+<title>__brk (3,964,619 samples, 0.02%)</title><rect x="694.8" y="229" width="0.2" height="15.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="697.77" y="239.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnU (758,838,294 samples, 3.39%)</title><rect x="35.0" y="293" width="39.9" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="37.99" y="303.5" >Coi..</text>
+</g>
+<g >
+<title>asm_exc_page_fault (5,377,448 samples, 0.02%)</title><rect x="383.9" y="261" width="0.2" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="386.85" y="271.5" ></text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (11,734,274 samples, 0.05%)</title><rect x="1188.7" y="277" width="0.6" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1191.70" y="287.5" ></text>
+</g>
+<g >
+<title>py::split:/usr/lib/python3.12/re/__init__.py (5,048,817 samples, 0.02%)</title><rect x="1188.9" y="197" width="0.3" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="1191.92" y="207.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnRFT (10,681,567 samples, 0.05%)</title><rect x="34.4" y="293" width="0.6" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="37.43" y="303.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByColumn (225,569,805 samples, 1.01%)</title><rect x="903.0" y="293" width="11.8" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="905.95" y="303.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (14,251,171 samples, 0.06%)</title><rect x="110.8" y="293" width="0.7" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="113.77" y="303.5" ></text>
+</g>
+<g >
+<title>_int_free_merge_chunk (2,394,193 samples, 0.01%)</title><rect x="1189.0" y="101" width="0.1" height="15.0" fill="rgb(240,163,39)" rx="2" ry="2" />
+<text  x="1191.99" y="111.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (263,938,635 samples, 1.18%)</title><rect x="761.7" y="277" width="13.9" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="764.66" y="287.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (8,327,504 samples, 0.04%)</title><rect x="323.8" y="245" width="0.4" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="326.81" y="255.5" ></text>
+</g>
+<g >
+<title>[libCoinUtils.so.3.11.4] (2,393,070 samples, 0.01%)</title><rect x="10.1" y="277" width="0.1" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="13.08" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRDensish (16,709,388 samples, 0.07%)</title><rect x="1143.4" y="261" width="0.9" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1146.42" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparsish (2,881,295 samples, 0.01%)</title><rect x="1184.2" y="277" width="0.2" height="15.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="1187.23" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (61,261,401 samples, 0.27%)</title><rect x="750.3" y="309" width="3.2" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="753.30" y="319.5" ></text>
+</g>
+<g >
+<title>__libc_free (2,621,371 samples, 0.01%)</title><rect x="1189.0" y="133" width="0.1" height="15.0" fill="rgb(223,85,20)" rx="2" ry="2" />
+<text  x="1191.98" y="143.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::primal (15,969,142,657 samples, 71.24%)</title><rect x="347.6" y="389" width="840.6" height="15.0" fill="rgb(226,97,23)" rx="2" ry="2" />
+<text  x="350.62" y="399.5" >ClpSimplex::primal</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (35,056,116 samples, 0.16%)</title><rect x="366.3" y="293" width="1.8" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="369.25" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::getColumnSpace (168,201,280 samples, 0.75%)</title><rect x="672.8" y="277" width="8.9" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="675.83" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (100,163,151 samples, 0.45%)</title><rect x="324.2" y="277" width="5.3" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="327.25" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesByRowGEK (40,573,787 samples, 0.18%)</title><rect x="900.8" y="261" width="2.2" height="15.0" fill="rgb(213,41,9)" rx="2" ry="2" />
+<text  x="903.82" y="271.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesByRowGEK (2,296,477 samples, 0.01%)</title><rect x="214.4" y="261" width="0.1" height="15.0" fill="rgb(213,41,9)" rx="2" ry="2" />
+<text  x="217.40" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeL (11,241,442 samples, 0.05%)</title><rect x="323.7" y="277" width="0.5" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="326.66" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparse (4,030,930 samples, 0.02%)</title><rect x="116.6" y="309" width="0.3" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="119.64" y="319.5" ></text>
+</g>
+<g >
+<title>[libCoinUtils.so.3.11.4] (9,263,149 samples, 0.04%)</title><rect x="383.7" y="277" width="0.5" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="386.67" y="287.5" ></text>
+</g>
+<g >
+<title>ClpNonLinearCost::setOne (11,428,249 samples, 0.05%)</title><rect x="154.7" y="309" width="0.6" height="15.0" fill="rgb(223,83,20)" rx="2" ry="2" />
+<text  x="157.66" y="319.5" ></text>
+</g>
+<g >
+<title>py::COIN_CMD.actualSolve:/home/leprekus/projects/uvic/CSC/445/a1/src/venv/lib/python3.12/site-packages/pulp/apis/coin_api.py (2,194,112 samples, 0.01%)</title><rect x="1189.3" y="245" width="0.1" height="15.0" fill="rgb(252,217,51)" rx="2" ry="2" />
+<text  x="1192.32" y="255.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRDensish (3,975,002 samples, 0.02%)</title><rect x="947.8" y="261" width="0.2" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="950.83" y="271.5" ></text>
+</g>
+<g >
+<title>lock_vma_under_rcu (2,233,314 samples, 0.01%)</title><rect x="694.0" y="229" width="0.1" height="15.0" fill="rgb(251,211,50)" rx="2" ry="2" />
+<text  x="696.96" y="239.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimesByRow (2,372,479 samples, 0.01%)</title><rect x="214.4" y="277" width="0.1" height="15.0" fill="rgb(228,109,26)" rx="2" ry="2" />
+<text  x="217.39" y="287.5" ></text>
+</g>
+<g >
+<title>dgetrf2_ (26,304,018 samples, 0.12%)</title><rect x="427.8" y="197" width="1.4" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="430.83" y="207.5" ></text>
+</g>
+<g >
+<title>asm_exc_page_fault (2,305,708 samples, 0.01%)</title><rect x="698.6" y="309" width="0.1" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="701.62" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::goSparse (2,217,454 samples, 0.01%)</title><rect x="118.9" y="341" width="0.1" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="121.89" y="351.5" ></text>
+</g>
+<g >
+<title>__x64_sys_brk (3,964,619 samples, 0.02%)</title><rect x="694.8" y="165" width="0.2" height="15.0" fill="rgb(220,72,17)" rx="2" ry="2" />
+<text  x="697.77" y="175.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::primal (4,336,534,666 samples, 19.34%)</title><rect x="119.4" y="373" width="228.2" height="15.0" fill="rgb(216,51,12)" rx="2" ry="2" />
+<text  x="122.36" y="383.5" >ClpSimplexPrimal::primal</text>
+</g>
+<g >
+<title>CoinIndexedVector::scan (68,634,025 samples, 0.31%)</title><rect x="343.2" y="277" width="3.7" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="346.25" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnL (241,752,691 samples, 1.08%)</title><rect x="19.8" y="293" width="12.8" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="22.85" y="303.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::dual (2,070,658,582 samples, 9.24%)</title><rect x="10.4" y="373" width="109.0" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="13.36" y="383.5" >ClpSimplexDua..</text>
+</g>
+<g >
+<title>py::LpProblem.fromMPS:/home/leprekus/projects/uvic/CSC/445/a1/src/venv/lib/python3.12/site-packages/pulp/pulp.py (11,734,274 samples, 0.05%)</title><rect x="1188.7" y="293" width="0.6" height="15.0" fill="rgb(238,152,36)" rx="2" ry="2" />
+<text  x="1191.70" y="303.5" ></text>
+</g>
+<g >
+<title>dlaswp_ (48,042,175 samples, 0.21%)</title><rect x="429.7" y="261" width="2.5" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="432.66" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnL (23,194,115 samples, 0.10%)</title><rect x="371.3" y="293" width="1.2" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="374.30" y="303.5" ></text>
+</g>
+<g >
+<title>__glibc_morecore (4,041,996 samples, 0.02%)</title><rect x="694.8" y="245" width="0.2" height="15.0" fill="rgb(253,221,52)" rx="2" ry="2" />
+<text  x="697.77" y="255.5" ></text>
+</g>
+<g >
+<title>exc_page_fault (6,649,564 samples, 0.03%)</title><rect x="693.7" y="261" width="0.4" height="15.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="696.75" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeL (16,306,373 samples, 0.07%)</title><rect x="110.7" y="309" width="0.8" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="113.66" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnU (396,172,504 samples, 1.77%)</title><rect x="160.4" y="309" width="20.9" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="163.44" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesByRowGEK (13,060,192 samples, 0.06%)</title><rect x="928.3" y="245" width="0.6" height="15.0" fill="rgb(213,41,9)" rx="2" ry="2" />
+<text  x="931.25" y="255.5" ></text>
+</g>
+<g >
+<title>ClpSimplexDual::statusOfProblemInDual (81,277,782 samples, 0.36%)</title><rect x="10.4" y="341" width="4.2" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="13.37" y="351.5" ></text>
+</g>
+<g >
+<title>free_pages_and_swap_cache (2,779,129 samples, 0.01%)</title><rect x="694.8" y="53" width="0.1" height="15.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="697.78" y="63.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::startup (6,243,004 samples, 0.03%)</title><rect x="119.0" y="341" width="0.3" height="15.0" fill="rgb(208,17,4)" rx="2" ry="2" />
+<text  x="122.02" y="351.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes2 (406,118,802 samples, 1.81%)</title><rect x="236.2" y="277" width="21.3" height="15.0" fill="rgb(229,111,26)" rx="2" ry="2" />
+<text  x="239.15" y="287.5" >C..</text>
+</g>
+<g >
+<title>PyObject_Vectorcall (13,939,909 samples, 0.06%)</title><rect x="1188.7" y="309" width="0.7" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1191.70" y="319.5" ></text>
+</g>
+<g >
+<title>CoinArrayWithLength::conditionalDelete (4,441,611 samples, 0.02%)</title><rect x="694.7" y="293" width="0.3" height="15.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="697.75" y="303.5" ></text>
+</g>
+<g >
+<title>idamax_ (8,157,594 samples, 0.04%)</title><rect x="428.7" y="165" width="0.4" height="15.0" fill="rgb(243,175,41)" rx="2" ry="2" />
+<text  x="431.66" y="175.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparse (86,653,517 samples, 0.39%)</title><rect x="271.4" y="277" width="4.6" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="274.41" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes (2,372,479 samples, 0.01%)</title><rect x="214.4" y="293" width="0.1" height="15.0" fill="rgb(252,217,51)" rx="2" ry="2" />
+<text  x="217.39" y="303.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (3,804,564 samples, 0.02%)</title><rect x="1186.6" y="261" width="0.2" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="1189.55" y="271.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::computePrimals (3,616,845 samples, 0.02%)</title><rect x="10.9" y="309" width="0.2" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="13.87" y="319.5" ></text>
+</g>
+<g >
+<title>dgemm_ (744,912,293 samples, 3.32%)</title><rect x="384.2" y="261" width="39.2" height="15.0" fill="rgb(227,104,25)" rx="2" ry="2" />
+<text  x="387.18" y="271.5" >dge..</text>
+</g>
+<g >
+<title>_PyEval_EvalFrameDefault (2,078,635 samples, 0.01%)</title><rect x="1189.8" y="293" width="0.1" height="15.0" fill="rgb(221,75,17)" rx="2" ry="2" />
+<text  x="1192.80" y="303.5" ></text>
+</g>
+<g >
+<title>ClpNonLinearCost::checkInfeasibilities (25,708,897 samples, 0.11%)</title><rect x="700.5" y="325" width="1.3" height="15.0" fill="rgb(245,184,44)" rx="2" ry="2" />
+<text  x="703.48" y="335.5" ></text>
+</g>
+<g >
+<title>CoinIndexedVector::scan (154,497,343 samples, 0.69%)</title><rect x="302.4" y="277" width="8.1" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="305.41" y="287.5" ></text>
+</g>
+<g >
+<title>[libCoinUtils.so.3.11.4] (3,293,924 samples, 0.01%)</title><rect x="10.0" y="309" width="0.2" height="15.0" fill="rgb(212,36,8)" rx="2" ry="2" />
+<text  x="13.03" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::pivotColumn (3,158,739,105 samples, 14.09%)</title><rect x="181.3" y="325" width="166.3" height="15.0" fill="rgb(225,92,22)" rx="2" ry="2" />
+<text  x="184.35" y="335.5" >ClpPrimalColumnSteepe..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeL (13,038,894 samples, 0.06%)</title><rect x="363.4" y="293" width="0.7" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="366.39" y="303.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::internalFactorize (67,868,061 samples, 0.30%)</title><rect x="11.1" y="325" width="3.5" height="15.0" fill="rgb(240,164,39)" rx="2" ry="2" />
+<text  x="14.06" y="335.5" ></text>
+</g>
+<g >
+<title>ClpFactorization::factorize (115,377,717 samples, 0.51%)</title><rect x="122.0" y="325" width="6.1" height="15.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="125.00" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnL (47,711,630 samples, 0.21%)</title><rect x="156.8" y="309" width="2.5" height="15.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="159.80" y="319.5" ></text>
+</g>
+<g >
+<title>dgetrf2_ (34,088,230 samples, 0.15%)</title><rect x="427.5" y="213" width="1.8" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="430.50" y="223.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::pivotRowSingleton (4,469,801 samples, 0.02%)</title><rect x="14.0" y="261" width="0.2" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="17.01" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTranspose (2,459,130,570 samples, 10.97%)</title><rect x="1056.5" y="293" width="129.4" height="15.0" fill="rgb(239,157,37)" rx="2" ry="2" />
+<text  x="1059.47" y="303.5" >CoinFactorizatio..</text>
+</g>
+<g >
+<title>ClpSimplex::gutsOfSolution (12,406,457 samples, 0.06%)</title><rect x="10.4" y="325" width="0.7" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="13.40" y="335.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::gutsOfSolution (432,476,110 samples, 1.93%)</title><rect x="351.4" y="341" width="22.7" height="15.0" fill="rgb(248,198,47)" rx="2" ry="2" />
+<text  x="354.37" y="351.5" >C..</text>
+</g>
+<g >
+<title>ClpPackedMatrix::transposeTimes (42,060,877 samples, 0.19%)</title><rect x="900.7" y="293" width="2.3" height="15.0" fill="rgb(252,217,51)" rx="2" ry="2" />
+<text  x="903.74" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (99,196,747 samples, 0.44%)</title><rect x="949.8" y="277" width="5.3" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="952.83" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesScaled (3,169,754 samples, 0.01%)</title><rect x="346.9" y="277" width="0.2" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="349.91" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUDensish (2,873,421 samples, 0.01%)</title><rect x="121.8" y="277" width="0.2" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="124.85" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::pivotResult (996,579,490 samples, 4.45%)</title><rect x="128.9" y="341" width="52.4" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="131.87" y="351.5" >ClpSi..</text>
+</g>
+<g >
+<title>dgemm_ (22,620,902 samples, 0.10%)</title><rect x="425.7" y="229" width="1.2" height="15.0" fill="rgb(227,104,25)" rx="2" ry="2" />
+<text  x="428.67" y="239.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnU (933,285,845 samples, 4.16%)</title><rect x="782.0" y="309" width="49.2" height="15.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="785.05" y="319.5" >Coin..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnUDensish (732,447,688 samples, 3.27%)</title><rect x="782.0" y="293" width="38.6" height="15.0" fill="rgb(246,193,46)" rx="2" ry="2" />
+<text  x="785.05" y="303.5" >Coi..</text>
+</g>
+<g >
+<title>py::readMPS:/home/leprekus/projects/uvic/CSC/445/a1/src/venv/lib/python3.12/site-packages/pulp/mps_lp.py (10,248,344 samples, 0.05%)</title><rect x="1188.8" y="245" width="0.5" height="15.0" fill="rgb(207,11,2)" rx="2" ry="2" />
+<text  x="1191.78" y="255.5" ></text>
+</g>
+<g >
+<title>handle_pte_fault (2,099,337 samples, 0.01%)</title><rect x="693.8" y="197" width="0.2" height="15.0" fill="rgb(217,57,13)" rx="2" ry="2" />
+<text  x="696.85" y="207.5" ></text>
+</g>
+<g >
+<title>dlaswp_ (3,093,963 samples, 0.01%)</title><rect x="429.4" y="245" width="0.2" height="15.0" fill="rgb(244,181,43)" rx="2" ry="2" />
+<text  x="432.44" y="255.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::factor (6,081,150,828 samples, 27.13%)</title><rect x="374.6" y="309" width="320.1" height="15.0" fill="rgb(228,106,25)" rx="2" ry="2" />
+<text  x="377.60" y="319.5" >CoinFactorization::factor</text>
+</g>
+<g >
+<title>CoinFactorization::pivotRowSingleton (93,828,868 samples, 0.42%)</title><rect x="685.5" y="277" width="4.9" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="688.51" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeRSparse (17,519,718 samples, 0.08%)</title><rect x="117.4" y="293" width="0.9" height="15.0" fill="rgb(241,167,40)" rx="2" ry="2" />
+<text  x="120.38" y="303.5" ></text>
+</g>
+<g >
+<title>ClpSimplexPrimal::pivotResult (2,485,086,648 samples, 11.09%)</title><rect x="700.4" y="341" width="130.8" height="15.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="703.43" y="351.5" >ClpSimplexPrimal..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnLDensish (15,925,241 samples, 0.07%)</title><rect x="371.3" y="277" width="0.9" height="15.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="374.32" y="287.5" ></text>
+</g>
+<g >
+<title>_PyRun_SimpleFileObject (29,860,248 samples, 0.13%)</title><rect x="1188.4" y="389" width="1.6" height="15.0" fill="rgb(249,203,48)" rx="2" ry="2" />
+<text  x="1191.42" y="399.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (3,771,294 samples, 0.02%)</title><rect x="1186.6" y="245" width="0.2" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="1189.56" y="255.5" ></text>
+</g>
+<g >
+<title>PyObject_Vectorcall (11,678,102 samples, 0.05%)</title><rect x="1188.7" y="261" width="0.6" height="15.0" fill="rgb(220,69,16)" rx="2" ry="2" />
+<text  x="1191.70" y="271.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (178,535,157 samples, 0.80%)</title><rect x="934.2" y="277" width="9.4" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="937.16" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::transposeTimes2 (406,808,867 samples, 1.81%)</title><rect x="236.1" y="293" width="21.5" height="15.0" fill="rgb(228,108,25)" rx="2" ry="2" />
+<text  x="239.15" y="303.5" >C..</text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUDensish (2,210,769 samples, 0.01%)</title><rect x="347.5" y="277" width="0.1" height="15.0" fill="rgb(251,216,51)" rx="2" ry="2" />
+<text  x="350.50" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnLSparse (140,941,454 samples, 0.63%)</title><rect x="754.1" y="293" width="7.4" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="757.12" y="303.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (25,752,697 samples, 0.11%)</title><rect x="257.9" y="261" width="1.4" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="260.95" y="271.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,007,512 samples, 0.01%)</title><rect x="1188.6" y="117" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.57" y="127.5" ></text>
+</g>
+<g >
+<title>dgetrs_ (6,821,332 samples, 0.03%)</title><rect x="372.2" y="277" width="0.3" height="15.0" fill="rgb(207,10,2)" rx="2" ry="2" />
+<text  x="375.16" y="287.5" ></text>
+</g>
+<g >
+<title>PyMem_Free (2,685,403 samples, 0.01%)</title><rect x="1189.0" y="149" width="0.1" height="15.0" fill="rgb(253,225,53)" rx="2" ry="2" />
+<text  x="1191.98" y="159.5" ></text>
+</g>
+<g >
+<title>tick_nohz_handler (2,762,924 samples, 0.01%)</title><rect x="694.1" y="197" width="0.2" height="15.0" fill="rgb(248,200,48)" rx="2" ry="2" />
+<text  x="697.15" y="207.5" ></text>
+</g>
+<g >
+<title>ClpMatrixBase::listTransposeTimes (3,524,776 samples, 0.02%)</title><rect x="120.8" y="309" width="0.2" height="15.0" fill="rgb(215,46,11)" rx="2" ry="2" />
+<text  x="123.83" y="319.5" ></text>
+</g>
+<g >
+<title>PyObject_CallMethodObjArgs (2,109,292 samples, 0.01%)</title><rect x="1188.6" y="293" width="0.1" height="15.0" fill="rgb(250,208,49)" rx="2" ry="2" />
+<text  x="1191.57" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparsish (49,012,794 samples, 0.22%)</title><rect x="332.6" y="277" width="2.6" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="335.64" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeL (31,887,747 samples, 0.14%)</title><rect x="257.6" y="277" width="1.7" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="260.63" y="287.5" ></text>
+</g>
+<g >
+<title>[python3.12] (2,078,635 samples, 0.01%)</title><rect x="1189.8" y="277" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1192.80" y="287.5" ></text>
+</g>
+<g >
+<title>ClpPrimalColumnSteepest::djsAndSteepest (81,721,480 samples, 0.36%)</title><rect x="881.6" y="309" width="4.3" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="884.59" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::factorSparseSmall (54,988,506 samples, 0.25%)</title><rect x="11.6" y="277" width="2.9" height="15.0" fill="rgb(247,197,47)" rx="2" ry="2" />
+<text  x="14.56" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLByRow (40,925,014 samples, 0.18%)</title><rect x="364.1" y="293" width="2.1" height="15.0" fill="rgb(224,91,21)" rx="2" ry="2" />
+<text  x="367.08" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateTwoColumnsFT (1,046,825,439 samples, 4.67%)</title><rect x="19.8" y="309" width="55.1" height="15.0" fill="rgb(218,60,14)" rx="2" ry="2" />
+<text  x="22.83" y="319.5" >CoinF..</text>
+</g>
+<g >
+<title>tlb_finish_mmu (2,812,959 samples, 0.01%)</title><rect x="694.8" y="85" width="0.1" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="697.78" y="95.5" ></text>
+</g>
+<g >
+<title>[python3.12] (29,860,248 samples, 0.13%)</title><rect x="1188.4" y="357" width="1.6" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="1191.42" y="367.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (13,770,438 samples, 0.06%)</title><rect x="110.8" y="277" width="0.7" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="113.77" y="287.5" ></text>
+</g>
+<g >
+<title>folios_put_refs (2,247,935 samples, 0.01%)</title><rect x="694.8" y="37" width="0.1" height="15.0" fill="rgb(254,229,54)" rx="2" ry="2" />
+<text  x="697.81" y="47.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeR (17,519,718 samples, 0.08%)</title><rect x="117.4" y="309" width="0.9" height="15.0" fill="rgb(209,20,4)" rx="2" ry="2" />
+<text  x="120.38" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparsish (148,849,246 samples, 0.66%)</title><rect x="276.0" y="277" width="7.8" height="15.0" fill="rgb(239,159,38)" rx="2" ry="2" />
+<text  x="278.97" y="287.5" ></text>
+</g>
+<g >
+<title>dupcol_action::presolve (3,839,634 samples, 0.02%)</title><rect x="10.0" y="357" width="0.2" height="15.0" fill="rgb(214,45,10)" rx="2" ry="2" />
+<text  x="13.00" y="367.5" ></text>
+</g>
+<g >
+<title>dtrsm_ (89,765,254 samples, 0.40%)</title><rect x="929.4" y="245" width="4.7" height="15.0" fill="rgb(221,73,17)" rx="2" ry="2" />
+<text  x="932.42" y="255.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::goSparse (35,433,247 samples, 0.16%)</title><rect x="696.9" y="325" width="1.8" height="15.0" fill="rgb(205,2,0)" rx="2" ry="2" />
+<text  x="699.88" y="335.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeUSparse (5,224,955 samples, 0.02%)</title><rect x="1184.0" y="277" width="0.2" height="15.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="1186.96" y="287.5" ></text>
+</g>
+<g >
+<title>lock_vma_under_rcu (2,072,898 samples, 0.01%)</title><rect x="384.0" y="213" width="0.1" height="15.0" fill="rgb(251,211,50)" rx="2" ry="2" />
+<text  x="387.01" y="223.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnRFT (122,734,351 samples, 0.55%)</title><rect x="775.6" y="309" width="6.4" height="15.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="778.59" y="319.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::gutsOfTransposeTimesScaled (410,573,371 samples, 1.83%)</title><rect x="214.5" y="277" width="21.6" height="15.0" fill="rgb(227,105,25)" rx="2" ry="2" />
+<text  x="217.53" y="287.5" >C..</text>
+</g>
+<g >
+<title>vms_complete_munmap_vmas (3,378,825 samples, 0.02%)</title><rect x="694.8" y="117" width="0.2" height="15.0" fill="rgb(216,52,12)" rx="2" ry="2" />
+<text  x="697.78" y="127.5" ></text>
+</g>
+<g >
+<title>CoinIndexedVector::scan (6,794,008 samples, 0.03%)</title><rect x="957.3" y="277" width="0.4" height="15.0" fill="rgb(251,212,50)" rx="2" ry="2" />
+<text  x="960.34" y="287.5" ></text>
+</g>
+<g >
+<title>ClpSimplex::dual (6,407,193,248 samples, 28.58%)</title><rect x="10.4" y="389" width="337.2" height="15.0" fill="rgb(216,54,12)" rx="2" ry="2" />
+<text  x="13.36" y="399.5" >ClpSimplex::dual</text>
+</g>
+<g >
+<title>CoinFactorization::cleanup (149,315,739 samples, 0.67%)</title><rect x="374.6" y="293" width="7.9" height="15.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="377.61" y="303.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::preProcess (58,213,085 samples, 0.26%)</title><rect x="690.4" y="277" width="3.1" height="15.0" fill="rgb(245,186,44)" rx="2" ry="2" />
+<text  x="693.45" y="287.5" ></text>
+</g>
+<g >
+<title>ClpMatrixBase::generalExpanded (34,989,343 samples, 0.16%)</title><rect x="695.0" y="325" width="1.9" height="15.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="698.04" y="335.5" ></text>
+</g>
+<g >
+<title>dgetrf2_ (19,530,273 samples, 0.09%)</title><rect x="428.1" y="181" width="1.0" height="15.0" fill="rgb(218,61,14)" rx="2" ry="2" />
+<text  x="431.08" y="191.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::getColumnSpace (2,798,035 samples, 0.01%)</title><rect x="123.0" y="277" width="0.2" height="15.0" fill="rgb(242,172,41)" rx="2" ry="2" />
+<text  x="126.02" y="287.5" ></text>
+</g>
+<g >
+<title>_PyRun_AnyFileObject (29,860,248 samples, 0.13%)</title><rect x="1188.4" y="405" width="1.6" height="15.0" fill="rgb(229,112,26)" rx="2" ry="2" />
+<text  x="1191.42" y="415.5" ></text>
+</g>
+<g >
+<title>asm_exc_page_fault (3,638,684 samples, 0.02%)</title><rect x="681.4" y="245" width="0.2" height="15.0" fill="rgb(225,93,22)" rx="2" ry="2" />
+<text  x="684.37" y="255.5" ></text>
+</g>
+<g >
+<title>ClpPackedMatrix::times (4,399,870 samples, 0.02%)</title><rect x="121.5" y="309" width="0.2" height="15.0" fill="rgb(247,194,46)" rx="2" ry="2" />
+<text  x="124.50" y="319.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeL (3,804,564 samples, 0.02%)</title><rect x="1186.6" y="277" width="0.2" height="15.0" fill="rgb(248,199,47)" rx="2" ry="2" />
+<text  x="1189.55" y="287.5" ></text>
+</g>
+<g >
+<title>CoinFactorization::updateColumnTransposeLSparse (59,224,323 samples, 0.26%)</title><rect x="329.5" y="277" width="3.1" height="15.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="332.52" y="287.5" ></text>
+</g>
+<g >
+<title>__memset_avx512_unaligned_erms (3,681,653 samples, 0.02%)</title><rect x="694.5" y="293" width="0.2" height="15.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="697.50" y="303.5" ></text>
+</g>
+</g>
+</svg>
