@@ -120,9 +120,11 @@ size_t check_rle_run(size_t prev, size_t curr, size_t cap,  size_t *contiguous) 
 
 void print_table(u32 hist[], u16 codes[], u8 code_lengths[], u16 max_code) {
     for (size_t i = 0; i < max_code + 1; i++){
-        if(hist[i] > 0)
+        if(hist[i] > 0) {
             printf("symbol %zu) freq(%u) code(%u) len(%u)\n",
                    i, hist[i], codes[i], code_lengths[i]);
+		assert(code_lengths[i] > 0);
+	}
         else assert(code_lengths[i] == 0);
 
     }
