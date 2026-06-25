@@ -436,10 +436,9 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus st
 //u16 ll_map[285] = {0};
 #define CL_HIST_SIZE 19
 typedef struct {
-		u16 length;
-		u8 repeat;
-        u8 repeat_len;
-		u8 c_op; // code operation
+		u8 symbol; // symbols 0..18
+		u8 value; // x bit value 
+		u8 value_len; // bit length
 } CLSymbol;/* count LL and Distance frequencies */
 
 typedef struct {
@@ -465,19 +464,15 @@ static const uint8_t CL_ORDER[19] = {
  * repeat "3" 4 times = 
  * repeat "3" 1 + 3 times
  * <cls-code-for-3> <two-bit-literal-1> <cls-code-for-16>*/
-CLSymbol cls_create(u16 len, u8 repeat) {
+CLSymbol cls_create(u16 len, u8 count, bool is_zero) {
 	assert(0 <= len && len <= 15);
 	b2ctx.cl_hist[len]++;
-	u8 repeat_len = 0;
-	if(len == 0) {
-		if(3 <= repeat && repeat <= 10)
-			repeat_len = repeat - 3;
-		else if(11 <= repeat)
-			repeat_len = repeat - 11;
-	} else {
-		if()
-
-	}
+	CLSymbol tok;
+	if(count < 3) {
+		tok.value = 0;
+		tok.value_len = 0;
+		tok.symbol = len;
+	}	
 	u8 cl_symbol = 0;
 	b2ctx.cl_max = (b2ctx.cl_max > cl_symbol) ? 
 		b2ctx.cl_max : cl_symbol;
@@ -526,16 +521,7 @@ void rle_run(u8 code_lengths[], u16 max_code) {
 		if(is_zero && j - i == 138) break;
 	}
 	u32 count = j - i;
-	// emit one code
-	if(count == 1) {
-
- 	// emit two codes
-	} else if(1 < count && count < 3) {
-	
-	// emit count codes
-	} else { 
-
-	}
+	cls_create(code_lengths[i], count, is_zero);	
 
 	if(j < len) goto loop;
 }
