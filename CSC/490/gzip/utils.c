@@ -125,7 +125,8 @@ void print_table(u32 hist[], u16 codes[], u8 code_lengths[], u16 max_code) {
                    i, hist[i], codes[i], code_lengths[i]);
 		assert(code_lengths[i] > 0);
 	}
-        else assert(code_lengths[i] == 0);
+	// this works for LL & Dist, but CL actually encodes 0
+        //else assert(code_lengths[i] == 0);
 
     }
 }

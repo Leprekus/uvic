@@ -436,9 +436,31 @@ size_t block1(u8 *stream, size_t len, BitVec *v, pHandler emit, DeflateStatus st
 //u16 ll_map[285] = {0};
 #define CL_HIST_SIZE 19
 typedef struct {
-		u8 symbol; // symbols 0..18
-		u8 value; // x bit value 
-		u8 value_len; // bit length
+    enum CLSymbolKind { LEN_RLE, ZERO_RLE, LIT } kind;
+
+    union {
+        // kind == LIT
+        struct {
+            u8 len;
+        } lit;
+
+        // kind == ZERO_RLE
+        struct {
+            u8 symbol;    // symbols 0..18
+            u8 value;     // x bit value 
+            u8 value_len; // bit length
+        } zero_rle;
+
+        // kind == LEN_RLE (Combines both sets of fields)
+        struct {
+            u8 len;
+            struct {
+                u8 symbol;
+                u8 value;
+                u8 value_len;
+            } rle;
+        } len_rle;
+    } as;
 } CLSymbol;/* count LL and Distance frequencies */
 
 typedef struct {
@@ -451,6 +473,17 @@ typedef struct {
     u8 cl_max;
     u8 cl_code_lengths[CL_HIST_SIZE];
     u16 cl_codes[CL_HIST_SIZE];
+
+    CLSymbol cl_buf[512];
+    u16 cl_buf_idx;
+
+    size_t sym_stream_idx;
+    struct  SymStream { 
+	    enum {
+		    _LIT, _DIST, _LEN
+	    } kind; 
+	    u16 code; 
+    } *sym_stream;
 } Block2Ctx;
 /* initialized in each call to block2 so context is always fresh */
 Block2Ctx b2ctx;
@@ -464,55 +497,133 @@ static const uint8_t CL_ORDER[19] = {
  * repeat "3" 4 times = 
  * repeat "3" 1 + 3 times
  * <cls-code-for-3> <two-bit-literal-1> <cls-code-for-16>*/
-CLSymbol cls_create(u16 len, u8 count, bool is_zero) {
-	assert(0 <= len && len <= 15);
-	b2ctx.cl_hist[len]++;
-	CLSymbol tok;
-	if(count < 3) {
-		tok.value = 0;
-		tok.value_len = 0;
-		tok.symbol = len;
-	}	
-	u8 cl_symbol = 0;
-	b2ctx.cl_max = (b2ctx.cl_max > cl_symbol) ? 
-		b2ctx.cl_max : cl_symbol;
-	assert(b2ctx.cl_max < 19);
+CLSymbol cls_create_lit(u8 len) {
 	return (CLSymbol) {
-		.length = l,
-			.repeat = r,
-			.repeat_len = rl,
-			.c_op   = c
+		.kind = LIT,
+		.as.lit.len = len
 	};
 }
+CLSymbol cls_create_zero_rle(u8 sym, u8 val, u8 val_len) {
+	return (CLSymbol) {
+		.kind = ZERO_RLE,
+		.as.zero_rle = {
+			.symbol = sym,
+			.value = val,
+			.value_len = val_len
+		}
+	};
+}
+CLSymbol cls_create_len_rle(u8 len, u8 sym, u8 val, u8 val_len) {
+	return (CLSymbol) {
+		.kind = LEN_RLE,
+		.as.len_rle = {
+			.len = len,
+			.rle = {
+				.symbol = sym,
+				.value = val,
+				.value_len = val_len
+			}
+		}
+	};
+}
+
+void cls_sym_push(u16 len, u8 count, bool is_zero) {
+	assert(0 <= len && len <= 15);
+	u8 sym = 0;
+	CLSymbol tok;
+	if(count < 3) {
+		tok = cls_create_lit(len);
+		sym = len;
+		b2ctx.cl_hist[len]++;
+		if(count == 2) {
+			b2ctx.cl_buf[b2ctx.cl_buf_idx++] = tok;
+			tok = cls_create_lit(len);
+			b2ctx.cl_hist[len]++;
+		}
+	} else if(count <= 6 && !is_zero) {
+		sym = 16;
+		tok = cls_create_len_rle(len, sym, count - 3, 2);
+		b2ctx.cl_hist[len]++;
+		b2ctx.cl_hist[sym]++;
+	} else if(count <= 10 && is_zero) {
+		sym = 17;
+		tok = cls_create_zero_rle(sym, count - 3, 3);
+		b2ctx.cl_hist[sym]++;
+	} else if(11 <= count && is_zero) {
+		sym = 18;
+		tok = cls_create_zero_rle(sym, count - 11, 7);
+		b2ctx.cl_hist[sym]++;
+	// assert this path is never taken
+	} else {
+		assert(false == true); 
+	}
+	b2ctx.cl_max = (b2ctx.cl_max > sym) ? b2ctx.cl_max : sym;
+	b2ctx.cl_buf[b2ctx.cl_buf_idx++] = tok;
+	assert(b2ctx.cl_buf_idx < 512);
+	assert(b2ctx.cl_max < 19);
+	
+}
+void block2_stream_processor(LzssData d){
+	DeflateCtx *ctx = deflate_global_ctx;
+	if(d.kind == LITERAL) {
+		Code c = create_literal(d.literal, NOREV);
+		assert(0 <= c.code && c.code < 512);
+		b2ctx.ll_hist[c.code]++;
+		b2ctx.ll_max = (c.code > b2ctx.ll_max) ? c.code : b2ctx.ll_max;
+		b2ctx.sym_stream[b2ctx.sym_stream_idx++] = (struct SymStream) {
+			.code = c.code,
+			.kind = _LIT,
+		};
+	} else if(d.kind == BACKREF) {
+		Pair p = create_backref(d.ref.length, d.ref.distance, NOREV);
+		assert(0 <= p.len.code && p.len.code < 512);
+		assert(0 <= p.dist.code && p.dist.code < 512);
+		b2ctx.ll_hist[p.len.code]++;
+		b2ctx.ll_max = (p.len.code > b2ctx.ll_max) ? p.len.code : b2ctx.ll_max;
+
+		b2ctx.dist_hist[p.dist.code]++;
+		b2ctx.dist_max = (p.dist.code > b2ctx.dist_max) ? p.dist.code : b2ctx.dist_max;
+
+		b2ctx.sym_stream[b2ctx.sym_stream_idx++] = (struct SymStream) {
+			.kind = _LEN,
+			.code = p.len.code
+		}; 
+		b2ctx.sym_stream[b2ctx.sym_stream_idx++] = (struct SymStream) {
+			.kind = _DIST,
+			.code = p.dist.code
+		}; 
+
+	} else fprintf(stderr, "Error: LzssData.kind is neither LITERAL or BACKREF");
+}
+
 void block2_stream_handler(LzssData d){
 	DeflateCtx *ctx = deflate_global_ctx;
 	if(d.kind == LITERAL) {
 		Code c = create_literal(d.literal, NOREV);
 		assert(0 <= c.code && c.code < 512);
 		b2ctx.ll_hist[c.code]++;
-        b2ctx.ll_max = (c.code > b2ctx.ll_max) ? c.code : b2ctx.ll_max;
+		b2ctx.ll_max = (c.code > b2ctx.ll_max) ? c.code : b2ctx.ll_max;
 	} else if(d.kind == BACKREF) {
 		Pair p = create_backref(d.ref.length, d.ref.distance, NOREV);
 		assert(0 <= p.len.code && p.len.code < 512);
 		assert(0 <= p.dist.code && p.dist.code < 512);
 		b2ctx.ll_hist[p.len.code]++;
-        b2ctx.ll_max = (p.len.code > b2ctx.ll_max) ? p.len.code : b2ctx.ll_max;
+		b2ctx.ll_max = (p.len.code > b2ctx.ll_max) ? p.len.code : b2ctx.ll_max;
 
 		b2ctx.dist_hist[p.dist.code]++;
-        b2ctx.dist_max = (p.dist.code > b2ctx.dist_max) ? p.dist.code : b2ctx.dist_max;
+		b2ctx.dist_max = (p.dist.code > b2ctx.dist_max) ? p.dist.code : b2ctx.dist_max;
 
 	} else fprintf(stderr, "Error: LzssData.kind is neither LITERAL or BACKREF");
 }
 // IR of LL & DIST encoded table 
-CLSymbol cl_buf[512]; 
-u16 cl_buf_idx = 0;
-void rle_run(u8 code_lengths[], u16 max_code) {
-	u32 len = max_code + 1;
+void rle_run(u8 code_lengths[], u16 max_code){
+	size_t len = max_code + 1;
 	bool is_zero = false;
 	bool is_length = false;
 	u32 i = 0;
 	u32 j = 0;
 	loop:
+	// loop exits pointing at the next element to be visited
 	while(code_lengths[i] == code_lengths[j] && j < len) {
 		j++;
 		is_zero = code_lengths[i] == 0;
@@ -521,100 +632,188 @@ void rle_run(u8 code_lengths[], u16 max_code) {
 		if(is_zero && j - i == 138) break;
 	}
 	u32 count = j - i;
-	cls_create(code_lengths[i], count, is_zero);	
-
+	i = j;
+	size_t idx = (i > 0) ? i : 1;
+	printf("RLE code(%d) len(%d) count(%d) is_zero(%hu)\n", i, code_lengths[i - 1], count, is_zero);
+	//printf("RLE last %hu\n", code_lengths[size-1]);
+	cls_sym_push(code_lengths[idx - 1], count, is_zero);	
 	if(j < len) goto loop;
 }
 
+#define EOB 256
 size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	DeflateCtx *ctx = deflate_global_ctx;
+	struct SymStream *p_sym_stream = malloc(sizeof(struct SymStream) * len);
 	b2ctx = (Block2Ctx) {
 		.ll_hist = {0},
-			.ll_max = 0,
-			.dist_hist = {0},
-			.dist_max = 0,
-			.cl_hist = {0},
-			.cl_max = 0,
-			.cl_code_lengths = {0},
-			.cl_codes = {0}
-	};
+		.ll_max = EOB, // set the EOB marker as max symbol
+		.dist_hist = {0},
+		.dist_max = 0,
+		.cl_hist = {0},
+		.cl_max = 0,
+		.cl_code_lengths = {0},
+		.cl_codes = {0},
 
+		.cl_buf = {0},
+		.cl_buf_idx = 0,
+
+		.sym_stream_idx = 0,
+		.sym_stream = p_sym_stream
+	};
+	b2ctx.ll_hist[EOB] = 1; // set histogram of EOB to 1
 	//
 	//push_bits(ctx->v, 0x00, 1024, ctx->emit);
 	// emit literals and backreferences
-	lzss_compress_stream(stream, len, block2_stream_handler); 
+	lzss_compress_stream(stream, len, block2_stream_processor); 
 	// at this point all the literals and backreferences have been emitted,
 	// frequencies have been counted, and they are stored in stream
 	u8 ll_code_lengths[b2ctx.ll_max + 1]; memset(ll_code_lengths, 0, sizeof(ll_code_lengths));
 	u16 ll_codes[b2ctx.ll_max + 1]; memset(ll_codes, 0, sizeof(ll_codes));
+	// CANON HUFFMAN CODES & RLE for LL
 	compute_canon_hf_codes(15, b2ctx.ll_max, b2ctx.ll_hist, ll_code_lengths, ll_codes);
 	rle_run(ll_code_lengths, b2ctx.ll_max);
+	//printf("LL CODES\n");
+	//print_table(b2ctx.ll_hist, ll_codes, ll_code_lengths, b2ctx.ll_max); 
+	//printf("\n");
 
-	u8 dist_code_lengths[b2ctx.ll_max + 1]; 
-	u16 dist_codes[b2ctx.ll_max + 1]; 
+	u8 dist_code_lengths[b2ctx.dist_max + 1]; 
+	u16 dist_codes[b2ctx.dist_max + 1]; 
+	// CANON HUFFMAN CODES & RLE for DIST
 	if(b2ctx.dist_max > 0) {
-		exit(0);
-		compute_canon_hf_codes(5, b2ctx.dist_max, b2ctx.dist_hist, dist_code_lengths, dist_codes);
 		rle_run(dist_code_lengths, b2ctx.dist_max);
-	} 
+		
+	}  else {
+		b2ctx.dist_max = 0;
+		b2ctx.dist_hist[0] = 1;
+	}
+	compute_canon_hf_codes(5, b2ctx.dist_max, b2ctx.dist_hist, dist_code_lengths, dist_codes);
+	b2ctx.dist_hist[0] = 1;
+	//printf("DIST CODES\n");
+	//print_table(b2ctx.dist_hist, dist_codes, dist_code_lengths, b2ctx.dist_max); 
+	//printf("\n");
+	// CANON HUFFMAN CODES & RLE for CL
 	compute_canon_hf_codes(5, b2ctx.cl_max, b2ctx.cl_hist, b2ctx.cl_code_lengths, b2ctx.cl_codes);
-	//printf("written(%zu), len(%d) run(%hu)\n", written, ll_dist_max, run);
-	printf("LL CODES\n");
-	print_table(b2ctx.ll_hist, ll_codes, ll_code_lengths, b2ctx.ll_max); 
-	printf("\n");
+	
 
-	printf("DIST CODES\n");
-	print_table(b2ctx.dist_hist, dist_codes, dist_code_lengths, b2ctx.dist_max); 
-	printf("\n");
-
-	printf("CL CODES\n");
-	print_table(b2ctx.cl_hist, b2ctx.cl_codes, b2ctx.cl_code_lengths, b2ctx.cl_max); 
-	printf("\n");
+	//printf("CL CODES\n");
+	//print_table(b2ctx.cl_hist, b2ctx.cl_codes, b2ctx.cl_code_lengths, b2ctx.cl_max); 
+	//printf("\n");
 	//encode cl_buf using the cl prefix codes
-
 
 	// HEADER
 	assert(28 <= b2ctx.ll_max && b2ctx.ll_max <= 285);
-	assert(1 <= b2ctx.dist_max && b2ctx.dist_max <= 29);
+	assert(0 <= b2ctx.dist_max && b2ctx.dist_max <= 29);
 	push_bits(ctx->v, status == FINISH, 1, ctx->emit); // is_last
 	push_bits(ctx->v, 0x2, 2, ctx->emit); // btype 
-					      // Rule # 1 applies to hlit, hdist, hclen, & CL len table
-					      // hlit - number of LL entries
-	push_bits(ctx->v, b2ctx.ll_max - 257, 5, ctx->emit);  assert(b2ctx.ll_max - 257 <= 31);
+	// Rule # 1 applies to hlit, hdist, hclen, & CL len table
+	// hlit - number of LL entries
+ 	assert(b2ctx.ll_max + 1 >= 257);
+	//printf("hlit(%hu)\n", b2ctx.ll_max + 1);
+	push_bits(ctx->v, b2ctx.ll_max + 1 - 257, 5, ctx->emit); 
 	// hdist - number of Dist entries
-	push_bits(ctx->v, b2ctx.dist_max - 1, 5, ctx->emit); 
+	assert(b2ctx.dist_hist > 0);
+	//printf("hdist(%hu)\n", b2ctx.dist_max + 1);
+	push_bits(ctx->v, b2ctx.dist_max + 1 - 1, 5, ctx->emit); 
 	// hclen - number of CL entries
-	size_t cl_table_len = 19;
+	u8 cl_table_len = 19;
 	while(cl_table_len > 4 && b2ctx.cl_code_lengths[CL_ORDER[cl_table_len - 1]] == 0) {
 		cl_table_len--;
 	}
-	push_bits(ctx->v, cl_table_len - 4, 5, ctx->emit); 
+	//printf("cl_len(%zu)", cl_table_len);
+	assert(cl_table_len >= 4);
+	//printf("hclen(%zu)\n", cl_table_len);
+	push_bits(ctx->v, cl_table_len - 4, 4, ctx->emit); 
 	// CL len table 
 	for(size_t i = 0; i < cl_table_len; i++) {
 		size_t idx = CL_ORDER[i];
 		u8 len = b2ctx.cl_code_lengths[idx];
 		assert(len <= 7);                   
+		//printf("CL code(%zu) len(%hu)\n", idx, len);
 		push_bits(ctx->v, len, 3, ctx->emit);
-	}
+	} 
 
 	// LL & Dist len table
-	for(size_t i = 0; i < cl_buf_idx; i++) {
-		CLSymbol sym = cl_buf[i];
-		u16 len = sym.length;
-		size_t size = 0;
-		while(len > 0) { len >>= 1; size++; }
-		push_bits(ctx->v, sym.length, size, ctx->emit);
-		if(sym.c_op) {
-			push_bits(ctx->v, b2ctx.cl_codes[sym.c_op], size, ctx->emit);
-			push_bits(ctx->v, sym.repeat, sym.repeat_len, ctx->emit);
+	// emit the CL codes stored in cl_buf to create the table
+	for(size_t i = 0; i < b2ctx.cl_buf_idx; i++) {
+		CLSymbol tok = b2ctx.cl_buf[i];
+		//TODO 2: verify LL & dist table correct
+		switch(tok.kind) {
+			case LIT:  
+				printf("LL len(%hu) cl-code(%hu) cl-len(%hu)\n", 
+				tok.as.lit.len, b2ctx.cl_codes[tok.as.lit.len],
+				b2ctx.cl_code_lengths[tok.as.lit.len]);
+				push_bits(ctx->v, 
+					reverse_u16(b2ctx.cl_codes[tok.as.lit.len])>>(16-b2ctx.cl_code_lengths[tok.as.lit.len]),
+					b2ctx.cl_code_lengths[tok.as.lit.len],
+					ctx->emit);
+				break;
+			case ZERO_RLE: 
+				printf("LL zero-rle-symbol(%hu) code(%hu) code-len(%hu) count(%hu) len(%hu)\n", 
+				tok.as.zero_rle.symbol, b2ctx.cl_codes[tok.as.zero_rle.symbol],
+				b2ctx.cl_code_lengths[tok.as.zero_rle.symbol],
+				tok.as.zero_rle.value, tok.as.zero_rle.value_len);
+				// RLE symbol
+				push_bits(ctx->v, 
+					reverse_u16(b2ctx.cl_codes[tok.as.zero_rle.symbol])>>(16-b2ctx.cl_code_lengths[tok.as.zero_rle.symbol]),
+					b2ctx.cl_code_lengths[tok.as.zero_rle.symbol],
+					ctx->emit);
+
+				// literal offset
+				push_bits(ctx->v, 
+					tok.as.zero_rle.value,
+					tok.as.zero_rle.value_len,
+					ctx->emit);
+				break;
+			case LEN_RLE: 
+				printf("LL len-rle-code(%hu) \n", tok.as.len_rle.len);
+				// length
+				push_bits(ctx->v, 
+					reverse_u16(b2ctx.cl_codes[tok.as.len_rle.len])>>(16-b2ctx.cl_code_lengths[tok.as.len_rle.len]),
+					b2ctx.cl_code_lengths[tok.as.len_rle.len],
+					ctx->emit);
+				// RLE symbol
+				push_bits(ctx->v, 
+					reverse_u16(b2ctx.cl_codes[tok.as.len_rle.rle.symbol])>>(16-b2ctx.cl_code_lengths[tok.as.len_rle.rle.symbol]),
+					b2ctx.cl_code_lengths[tok.as.len_rle.rle.symbol],
+					ctx->emit);
+
+				// OFFSET
+				push_bits(ctx->v, 
+					b2ctx.cl_codes[tok.as.len_rle.rle.value],
+					b2ctx.cl_code_lengths[tok.as.len_rle.rle.value_len],
+					ctx->emit);
+				break;
+		}
+		
+	}
+
+	assert(b2ctx.sym_stream_idx == len);
+	// emit encoded bitstream
+	for(size_t i = 0; i < b2ctx.sym_stream_idx ; i++) {
+		struct SymStream item = b2ctx.sym_stream[i];
+		//TODO 3: verify bitstream encoding correct
+		switch(item.kind) {
+			case _LIT: 
+			case _LEN: 
+				assert(item.code <= b2ctx.ll_max);
+				push_bits(ctx->v,
+					reverse_u16(ll_codes[item.code])>>(16-ll_code_lengths[item.code]),
+					ll_code_lengths[item.code],
+					ctx->emit);
+				break;
+			case _DIST: 
+				assert(item.code <= b2ctx.ll_max);
+				push_bits(ctx->v,
+					reverse_u16(dist_codes[item.code])>>(16-dist_code_lengths[item.code]),
+					dist_code_lengths[item.code],
+					ctx->emit);
+				break;
 		}
 	}
+	
 	//push_bits(ctx->v, reverse_u8(15 - 4), 5, ctx->emit); // LL_Dist_lens - encoded tables
 	// after building the tree, we retrieve the huffman codes
 	// to compute the CL symbols
-	// TODO:
-	// 1. add test cases for HLIT & HDIST when there are few symbols, 
-	// such as in aaabaaa.txt
 
 	if(status == FINISH) {
 		bit_vec_pad(ctx->v); // pad BitVec if it's last block
@@ -638,5 +837,7 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	 *  - Repeat for HDIST
 	 *  - 
 	 * */
+
+	free(b2ctx.sym_stream);
 	return len;
 }

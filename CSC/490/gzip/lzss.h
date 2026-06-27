@@ -4,7 +4,7 @@
 
 typedef struct { size_t i, length, distance; } BackRef;
 typedef struct {
-	enum { LITERAL, BACKREF } kind;
+	enum TokenKind { LITERAL, BACKREF } kind;
 	union {
 		u8 literal;
 		BackRef ref;

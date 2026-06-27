@@ -335,6 +335,7 @@ void _cannonicalize_codes(size_t i_max_len, size_t i_max_code, u32 i_histogram[]
         }
     }
 
+    //printf("max(%zu) hist(%d) len(%d)\n", i_max_code, i_histogram[256], i_code_lengths[256]);
 }
 /*
  * i_max_len - maximum length i.e 15 bits for deflate
@@ -350,6 +351,7 @@ void compute_canon_hf_codes(
     
     int rc = packageMerge(i_max_len, i_max_code + 1, i_histogram, o_code_lengths);
     assert(o_code_lengths[i_max_code] > 0);
+    //printf("max(%zu) hist(%d) len(%d)\n", i_max_code, i_histogram[256], o_code_lengths[256]);
     assert(rc > 0);
     _cannonicalize_codes(i_max_len, i_max_code, i_histogram, o_code_lengths, o_codes);
 }
