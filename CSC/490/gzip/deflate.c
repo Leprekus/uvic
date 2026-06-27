@@ -357,7 +357,7 @@ ssize_t deflate_read(DeflateCtx *ctx) {
 /* deflate(bitstream) -> decompressed | huffman | huffman + lzss */
 size_t deflate(u8 *stream, size_t read, BitVec *v, pHandler emit, DeflateStatus status) {
 	
-	return block2(stream, read, status);
+	//return block2(stream, read, status);
 	return block1(stream, read, v, emit, status);
 	return block0(stream, read, emit, status);
 	
@@ -541,6 +541,8 @@ void cls_sym_push(u16 len, u8 count, bool is_zero) {
 			b2ctx.cl_hist[len]++;
 		}
 	} else if(count <= 6 && !is_zero) {
+		//TODO: check it is not necessary to offset by 1
+		// because count - 1 = len + repeat count-1 times
 		sym = 16;
 		tok = cls_create_len_rle(len, sym, count - 3, 2);
 		b2ctx.cl_hist[len]++;
@@ -610,6 +612,7 @@ void block2_stream_handler(LzssData d){
 		b2ctx.ll_hist[p.len.code]++;
 		b2ctx.ll_max = (p.len.code > b2ctx.ll_max) ? p.len.code : b2ctx.ll_max;
 
+		assert(0 <= p.dist.code && p.dist.code < 512);
 		b2ctx.dist_hist[p.dist.code]++;
 		b2ctx.dist_max = (p.dist.code > b2ctx.dist_max) ? p.dist.code : b2ctx.dist_max;
 
@@ -622,6 +625,7 @@ void rle_run(u8 code_lengths[], u16 max_code){
 	bool is_length = false;
 	u32 i = 0;
 	u32 j = 0;
+	size_t written = 0;
 	loop:
 	// loop exits pointing at the next element to be visited
 	while(code_lengths[i] == code_lengths[j] && j < len) {
@@ -634,9 +638,9 @@ void rle_run(u8 code_lengths[], u16 max_code){
 	u32 count = j - i;
 	i = j;
 	size_t idx = (i > 0) ? i : 1;
-	printf("RLE code(%d) len(%d) count(%d) is_zero(%hu)\n", i, code_lengths[i - 1], count, is_zero);
+	//printf("RLE code(%d) len(%d) count(%d) is_zero(%hu)\n", i, code_lengths[i - 1], count, is_zero);
 	//printf("RLE last %hu\n", code_lengths[size-1]);
-	cls_sym_push(code_lengths[idx - 1], count, is_zero);	
+	cls_sym_push(code_lengths[i - 1], count, is_zero);	
 	if(j < len) goto loop;
 }
 
@@ -679,14 +683,12 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	u8 dist_code_lengths[b2ctx.dist_max + 1]; 
 	u16 dist_codes[b2ctx.dist_max + 1]; 
 	// CANON HUFFMAN CODES & RLE for DIST
-	if(b2ctx.dist_max > 0) {
-		rle_run(dist_code_lengths, b2ctx.dist_max);
-		
-	}  else {
+	if(b2ctx.dist_max == 0) {
 		b2ctx.dist_max = 0;
 		b2ctx.dist_hist[0] = 1;
-	}
+	}  
 	compute_canon_hf_codes(5, b2ctx.dist_max, b2ctx.dist_hist, dist_code_lengths, dist_codes);
+	rle_run(dist_code_lengths, b2ctx.dist_max);
 	b2ctx.dist_hist[0] = 1;
 	//printf("DIST CODES\n");
 	//print_table(b2ctx.dist_hist, dist_codes, dist_code_lengths, b2ctx.dist_max); 
@@ -739,19 +741,19 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 		//TODO 2: verify LL & dist table correct
 		switch(tok.kind) {
 			case LIT:  
-				printf("LL len(%hu) cl-code(%hu) cl-len(%hu)\n", 
-				tok.as.lit.len, b2ctx.cl_codes[tok.as.lit.len],
-				b2ctx.cl_code_lengths[tok.as.lit.len]);
+				//printf("LL LEN(%hu) cl-code(%hu) cl-len(%hu)\n", 
+				//tok.as.lit.len, b2ctx.cl_codes[tok.as.lit.len],
+				//b2ctx.cl_code_lengths[tok.as.lit.len]);
 				push_bits(ctx->v, 
 					reverse_u16(b2ctx.cl_codes[tok.as.lit.len])>>(16-b2ctx.cl_code_lengths[tok.as.lit.len]),
 					b2ctx.cl_code_lengths[tok.as.lit.len],
 					ctx->emit);
 				break;
 			case ZERO_RLE: 
-				printf("LL zero-rle-symbol(%hu) code(%hu) code-len(%hu) count(%hu) len(%hu)\n", 
-				tok.as.zero_rle.symbol, b2ctx.cl_codes[tok.as.zero_rle.symbol],
-				b2ctx.cl_code_lengths[tok.as.zero_rle.symbol],
-				tok.as.zero_rle.value, tok.as.zero_rle.value_len);
+				//printf("LL zero-rle-symbol(%hu) code(%hu) code-len(%hu) count(%hu) len(%hu)\n", 
+				//tok.as.zero_rle.symbol, b2ctx.cl_codes[tok.as.zero_rle.symbol],
+				//b2ctx.cl_code_lengths[tok.as.zero_rle.symbol],
+				//tok.as.zero_rle.value, tok.as.zero_rle.value_len);
 				// RLE symbol
 				push_bits(ctx->v, 
 					reverse_u16(b2ctx.cl_codes[tok.as.zero_rle.symbol])>>(16-b2ctx.cl_code_lengths[tok.as.zero_rle.symbol]),
@@ -765,7 +767,7 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 					ctx->emit);
 				break;
 			case LEN_RLE: 
-				printf("LL len-rle-code(%hu) \n", tok.as.len_rle.len);
+				//printf("LL len-rle-code(%hu) \n", tok.as.len_rle.len);
 				// length
 				push_bits(ctx->v, 
 					reverse_u16(b2ctx.cl_codes[tok.as.len_rle.len])>>(16-b2ctx.cl_code_lengths[tok.as.len_rle.len]),
@@ -779,8 +781,8 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 
 				// OFFSET
 				push_bits(ctx->v, 
-					b2ctx.cl_codes[tok.as.len_rle.rle.value],
-					b2ctx.cl_code_lengths[tok.as.len_rle.rle.value_len],
+					tok.as.len_rle.rle.value,
+					tok.as.len_rle.rle.value_len,
 					ctx->emit);
 				break;
 		}
@@ -795,14 +797,16 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 		switch(item.kind) {
 			case _LIT: 
 			case _LEN: 
+				//printf("len-emit code(%hu) len(%hu)\n", ll_codes[item.code], ll_code_lengths[item.code]);
 				assert(item.code <= b2ctx.ll_max);
 				push_bits(ctx->v,
 					reverse_u16(ll_codes[item.code])>>(16-ll_code_lengths[item.code]),
 					ll_code_lengths[item.code],
 					ctx->emit);
 				break;
-			case _DIST: 
-				assert(item.code <= b2ctx.ll_max);
+			case _DIST:  //TODO: implement distance offsets
+				assert(item.code <= b2ctx.dist_max);
+				//printf("dist-emit code(%hu) len(%hu)\n", ll_codes[item.code], ll_code_lengths[item.code]);
 				push_bits(ctx->v,
 					reverse_u16(dist_codes[item.code])>>(16-dist_code_lengths[item.code]),
 					dist_code_lengths[item.code],
@@ -814,30 +818,14 @@ size_t block2(u8 *stream, size_t len, DeflateStatus status) {
 	//push_bits(ctx->v, reverse_u8(15 - 4), 5, ctx->emit); // LL_Dist_lens - encoded tables
 	// after building the tree, we retrieve the huffman codes
 	// to compute the CL symbols
-
+	
+	//printf("code(%hu) len(%hu)", ll_codes[EOB], ll_code_lengths[EOB]);
+	push_bits(ctx->v, reverse_u16(ll_codes[EOB])>>(16-ll_code_lengths[EOB]), ll_code_lengths[EOB], ctx->emit);	
 	if(status == FINISH) {
 		bit_vec_pad(ctx->v); // pad BitVec if it's last block
 		if(bit_vec_bit_count(ctx->v)) 
 			ctx->emit(bit_vec_data(ctx->v), bit_vec_byte_count(ctx->v));
 	}
-	/*
-	 * STEPS:
-	 * 1. count LL & distance frequencies
-	 * 2. generate huffman code from the alphabet union(LL, distance)
-	 * 3. construct the bitstream using huffman codes
-	 * 4. encode CL, LL, and Dist tables
-	 *
-	 * Notes:
-	 * - CL code lengths have a special order
-	 * - CL encodings must be at most 7 bits (so the length is encoded in 3 bits) 
-	 *
-	 * ENCODING BLOCK HEADER
-	 * - tell HLIT how many symbols are encoded, 
-	 *   n = 0 up to max symbol used from LL codes so HLIT = n - 257
-	 *  - Repeat for HDIST
-	 *  - 
-	 * */
-
 	free(b2ctx.sym_stream);
 	return len;
 }

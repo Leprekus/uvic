@@ -12,7 +12,7 @@ all: main
 
 # Link object files into the final executable (Includes -g via CFLAGS)
 main: $(OBJS)
-	$(CC) $(CFLAGS) -o main $(OBJS)
+	$(CC) $(CFLAGS) -o uvgz $(OBJS)
 	
 # Compile source files into object files (Includes -g via CFLAGS)
 %.o: %.c
