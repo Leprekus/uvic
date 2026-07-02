@@ -1,0 +1,4 @@
+*.o
+uvid_compress
+uvid_decompress
+__PyCache__/
