@@ -1,6 +1,6 @@
 EIGEN_PATH= .
 EXTRA_CXXFLAGS=
-CXXFLAGS=-O3 -Wall -std=c++20 $(EXTRA_CXXFLAGS)
+CXXFLAGS=-O3 -Wall -std=c++23 $(EXTRA_CXXFLAGS)
 CXXFLAGS+= -I$(EIGEN_PATH)
 
 all: uvid_compress uvid_decompress

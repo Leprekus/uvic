@@ -1,0 +1,27 @@
+#ifndef YUV_PIPELINE_HPP
+#define YUV_PIPELINE_HPP
+#include <ranges>
+#include <Eigen/Dense>
+#include "types.hpp"
+namespace Codec {
+   class YUVPipeline {
+      public:
+         /*
+          * returns an array of views,
+          * each view contains all the coordinates
+          * for a distinct 8x8 block in the width * height grid
+          * */
+         static auto chunk_frame(u32 width, u32 height){
+            auto blocks_y = std::views::iota(0U, height) | std::views::chunk(8); 
+            auto blocks_x = std::views::iota(0U, width)  | std::views::chunk(8); 
+            auto blocks = std::views::cartesian_product(blocks_x, blocks_y);
+            return blocks | std::views::transform([](auto &&blocks){
+               auto [grid_x, grid_y] = blocks;
+               return std::views::cartesian_product(grid_x, grid_y);
+            });
+         }
+
+   };
+}
+ 
+#endif

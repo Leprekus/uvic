@@ -13,17 +13,8 @@
 
 #ifndef OUTPUT_STREAM_HPP
 #define OUTPUT_STREAM_HPP
-
 #include <iostream>
-#include <cstdint>
-
-/* These definitions are more reliable for fixed width types than using "int" and assuming its width */
-using u8 = std::uint8_t;
-using u16 = std::uint16_t;
-using u32 = std::uint32_t;
-using u64 = std::uint64_t;
-
-
+#include "types.hpp"
 
 class OutputBitStream{
 public:

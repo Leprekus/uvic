@@ -2,3 +2,7 @@
 uvid_compress
 uvid_decompress
 __PyCache__/
+venv/
+*.raw
+*.uvi
+*.y4m

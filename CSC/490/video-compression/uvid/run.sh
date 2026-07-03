@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 rawify() {
   mkdir -p ./tests/raw
   for entry in "./tests/video_samples"/*

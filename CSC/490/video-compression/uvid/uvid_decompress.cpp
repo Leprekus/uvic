@@ -22,8 +22,14 @@
 #include <cassert>
 #include <cstdint>
 #include <tuple>
+#include <ranges>
+#include <algorithm>
+#include <Eigen/Dense>
 #include "input_stream.hpp"
 #include "yuv_stream.hpp"
+#include "dct.hpp"
+#include "quantize.hpp"
+#include "yuv_pipeline.hpp"
 
 
 int main(int argc, char** argv){
@@ -41,15 +47,37 @@ int main(int argc, char** argv){
 
    while (input_stream.read_byte()){
       YUVFrame420& frame = writer.frame();
-      for (u32 y = 0; y < height; y++)
-         for (u32 x = 0; x < width; x++)
-            frame.Y(x,y) = input_stream.read_byte();
-      for (u32 y = 0; y < height/2; y++)
-         for (u32 x = 0; x < width/2; x++)
-            frame.Cb(x,y) = input_stream.read_byte();
-      for (u32 y = 0; y < height/2; y++)
-         for (u32 x = 0; x < width/2; x++)
-            frame.Cr(x,y) = input_stream.read_byte();
+      //for (u32 y = 0; y < height; y++)
+      //   for (u32 x = 0; x < width; x++)
+      //      frame.Y(x,y) = input_stream.read_byte();
+
+      Eigen::MatrixXd Yb(8, 8), Cbb(8, 8), Crb(8, 8);
+      for(auto Yframe_view: Codec::YUVPipeline::chunk_frame(width, height)) {
+         for(auto &&[x, y]: Yframe_view)  
+            Yb(x % 8, y % 8) = input_stream.read_byte();
+
+         for(auto &&[x, y]: Yframe_view)  
+            frame.Y(x, y) = Yb(x % 8, y % 8); 
+      }
+
+      for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
+         for(auto &&[x, y]: Cframes_view) {
+            Cbb(x % 8, y % 8) = input_stream.read_byte();
+            Crb(x % 8, y % 8) = input_stream.read_byte();
+         }  
+
+         for(auto &&[x, y]: Cframes_view) {
+            frame.Cb(x, y) = Cbb(x % 8, y % 8);
+            frame.Cr(x, y) = Crb(x % 8, y % 8);
+         }
+      }
+
+      //for (u32 y = 0; y < height/2; y++)
+      //   for (u32 x = 0; x < width/2; x++)
+      //      frame.Cb(x,y) = input_stream.read_byte();
+      //for (u32 y = 0; y < height/2; y++)
+      //   for (u32 x = 0; x < width/2; x++)
+      //      frame.Cr(x,y) = input_stream.read_byte();
       writer.write_frame();
    }
 
