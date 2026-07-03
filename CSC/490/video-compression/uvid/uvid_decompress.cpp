@@ -47,11 +47,10 @@ int main(int argc, char** argv){
 
    while (input_stream.read_byte()){
       YUVFrame420& frame = writer.frame();
-      //for (u32 y = 0; y < height; y++)
-      //   for (u32 x = 0; x < width; x++)
-      //      frame.Y(x,y) = input_stream.read_byte();
-
+      // 8x8 blocks for each frame
       Eigen::MatrixXd Yb(8, 8), Cbb(8, 8), Crb(8, 8);
+
+      // process Y stream
       for(auto Yframe_view: Codec::YUVPipeline::chunk_frame(width, height)) {
          for(auto &&[x, y]: Yframe_view)  
             Yb(x % 8, y % 8) = input_stream.read_byte();
@@ -60,6 +59,7 @@ int main(int argc, char** argv){
             frame.Y(x, y) = Yb(x % 8, y % 8); 
       }
 
+      // process Cb & Cr streams
       for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
          for(auto &&[x, y]: Cframes_view) {
             Cbb(x % 8, y % 8) = input_stream.read_byte();
@@ -72,12 +72,6 @@ int main(int argc, char** argv){
          }
       }
 
-      //for (u32 y = 0; y < height/2; y++)
-      //   for (u32 x = 0; x < width/2; x++)
-      //      frame.Cb(x,y) = input_stream.read_byte();
-      //for (u32 y = 0; y < height/2; y++)
-      //   for (u32 x = 0; x < width/2; x++)
-      //      frame.Cr(x,y) = input_stream.read_byte();
       writer.write_frame();
    }
 

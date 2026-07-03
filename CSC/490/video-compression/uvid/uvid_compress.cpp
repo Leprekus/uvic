@@ -58,30 +58,10 @@ int main(int argc, char** argv){
    while (reader.read_next_frame()){
       output_stream.push_byte(1); //Use a one byte flag to indicate whether there is a frame here
       YUVFrame420& frame = reader.frame();
-      // process Y subsampling
-      //for (u32 y = 0; y < height; y++)
-      //   for (u32 x = 0; x < width; x++)
-      //      output_stream.push_byte(frame.Y(x,y));
-
-      // number of 8x8 blocks in a frame 
-      //auto blocks_y = std::views::iota(0U, height) | std::views::chunk(8); 
-      //auto blocks_x = std::views::iota(0U, width)  | std::views::chunk(8); 
-      //auto blocks = std::views::cartesian_product(blocks_x, blocks_y);
-      // Y, Cb, & Cr 8x8 blocks
+      // 8x8 blocks for each frame
       Eigen::MatrixXd Yb(8, 8), Cbb(8,8), Crb(8,8);
-      //for(auto &&[block_x, block_y]: blocks) {
-      //   for(int x: block_x) {
-      //      for(int y: block_y) // populate the 8x8 matrix
-      //         M(x % 8, y % 8) = frame.Y(x, y);
-      //   } 
-      //   M = Codec::DCT::forward(M); // apply the DCT transformation
-      //   M = Codec::Quantize::forward(M);
-      //   for(int x: block_x) {
-      //      for(int y : block_y)  // push the DCT matrix into the stream
-      //         output_stream.push_byte(M(x % 8, y % 8));
-      //   }
-      //}
-      
+
+      // process Y subsampling
       for(auto Yframe_view: Codec::YUVPipeline::chunk_frame(width, height)) {
          for(auto &&[x, y]: Yframe_view)  
             Yb(x % 8, y % 8) = frame.Y(x, y);
@@ -91,6 +71,7 @@ int main(int argc, char** argv){
       }
          
       // NOTE: if Cb & Cr blocks get mixed separate back each into its own loop
+      // process Cb & Cr subsampling
       for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
          for(auto &&[x, y]: Cframes_view) {
             Cbb(x % 8, y % 8) = frame.Cb(x, y);
@@ -102,17 +83,6 @@ int main(int argc, char** argv){
             output_stream.push_byte(Crb(Yx % 8, Yy % 8));
          }
       }
-      //Codec::YUVPipeline::group_by(width/2, height/2);
-      //Codec::YUVPipeline::group_by(width/2, height/2);
-
-      // process Cb subsampling
-      //for (u32 y = 0; y < height/2; y++)
-      //   for (u32 x = 0; x < width/2; x++)
-      //      output_stream.push_byte(frame.Cb(x,y));
-      // process Cr subsampling
-      //for (u32 y = 0; y < height/2; y++)
-      //   for (u32 x = 0; x < width/2; x++)
-      //      output_stream.push_byte(frame.Cr(x,y));
    }
 
    output_stream.push_byte(0); //Flag to indicate end of data
