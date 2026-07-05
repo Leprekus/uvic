@@ -11,6 +11,8 @@ uvid_compress: uvid_compress.o
 uvid_decompress: uvid_decompress.o
 	g++ -o $@ $^
 
+sandbox: sandbox.o
+	g++ -o $@ $^
 
 
 clean:

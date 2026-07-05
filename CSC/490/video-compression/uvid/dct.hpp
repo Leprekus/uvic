@@ -19,16 +19,12 @@ namespace Codec {
       private:
          inline static Eigen::MatrixXd tmp{8, 8};
       public:
-         static Eigen::MatrixXd &forward(Eigen::MatrixXd &A) {
-            return A;
-            tmp = A;
-            A =  C * tmp * C.transpose();
+         static Eigen::MatrixXd forward(Eigen::MatrixXd A) {
+            A =  C * A * C.transpose();
             return A;
          }
-         static Eigen::MatrixXd &inverse(Eigen::MatrixXd &D) {
-            return D;
-            tmp = D;
-            D = C.transpose() * tmp * C;
+         static Eigen::MatrixXd inverse(Eigen::MatrixXd D) {
+            D = C.transpose() * D * C;
             return D;
          }
    };

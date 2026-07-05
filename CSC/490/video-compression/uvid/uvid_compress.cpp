@@ -66,22 +66,29 @@ int main(int argc, char** argv){
          for(auto &&[x, y]: Yframe_view)  
             Yb(x % 8, y % 8) = frame.Y(x, y);
 
+         Yb = Codec::DCT::forward(Yb);
+         Yb = Codec::LumQuant::forward(Yb);
+
          for(auto &&[x, y]: Yframe_view)
             output_stream.push_byte(Yb(x % 8, y % 8));
       }
-         
       // NOTE: if Cb & Cr blocks get mixed separate back each into its own loop
       // process Cb & Cr subsampling
       for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
-         for(auto &&[x, y]: Cframes_view) {
+         for(auto &&[x, y]: Cframes_view)
             Cbb(x % 8, y % 8) = frame.Cb(x, y);
-            Crb(x % 8, y % 8) = frame.Cr(x, y);
-         }  
-
-         for(auto &&[Yx, Yy]: Cframes_view) {
+         Cbb = Codec::DCT::forward(Cbb);
+         Cbb = Codec::ChromQuant::forward(Cbb);
+         for(auto &&[Yx, Yy]: Cframes_view)
             output_stream.push_byte(Cbb(Yx % 8, Yy % 8));
+      }
+      for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
+         for(auto &&[x, y]: Cframes_view)
+            Crb(x % 8, y % 8) = frame.Cr(x, y);
+         Crb = Codec::DCT::forward(Crb);
+         Crb = Codec::ChromQuant::forward(Crb);
+         for(auto &&[Yx, Yy]: Cframes_view)
             output_stream.push_byte(Crb(Yx % 8, Yy % 8));
-         }
       }
    }
 

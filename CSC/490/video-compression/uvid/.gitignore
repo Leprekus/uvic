@@ -1,6 +1,7 @@
 *.o
 uvid_compress
 uvid_decompress
+sandbox
 __PyCache__/
 venv/
 *.raw
