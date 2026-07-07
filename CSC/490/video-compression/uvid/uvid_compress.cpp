@@ -53,6 +53,7 @@ int main(int argc, char** argv){
    output_stream.push_u32(height);
    output_stream.push_u32(width);
    assert(width == 720 && height == 480);
+   assert(width % 8 == 0 && height % 8 == 0);
 
    // read Y, Cb, Cr (3 bytes of data) from stdin into the active_frame
    while (reader.read_next_frame()){
@@ -63,14 +64,16 @@ int main(int argc, char** argv){
 
       // process Y subsampling
       for(auto Yframe_view: Codec::YUVPipeline::chunk_frame(width, height)) {
-         for(auto &&[x, y]: Yframe_view)  
+         assert(Yframe_view.size() == 64);
+         for(auto &&[x, y]: Yframe_view)
             Yb(x % 8, y % 8) = frame.Y(x, y);
 
          Yb = Codec::DCT::forward(Yb);
          Yb = Codec::LumQuant::forward(Yb);
 
          for(auto &&[x, y]: Yframe_view)
-            output_stream.push_byte(Yb(x % 8, y % 8));
+            output_stream.push_byte(
+                  static_cast<char>(Yb(x % 8, y % 8)));
       }
       // NOTE: if Cb & Cr blocks get mixed separate back each into its own loop
       // process Cb & Cr subsampling
@@ -79,16 +82,19 @@ int main(int argc, char** argv){
             Cbb(x % 8, y % 8) = frame.Cb(x, y);
          Cbb = Codec::DCT::forward(Cbb);
          Cbb = Codec::ChromQuant::forward(Cbb);
-         for(auto &&[Yx, Yy]: Cframes_view)
-            output_stream.push_byte(Cbb(Yx % 8, Yy % 8));
+         for(auto &&[x, y]: Cframes_view)
+            output_stream.push_byte(
+                  static_cast<char>(Cbb(x % 8, y % 8)));
       }
       for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
          for(auto &&[x, y]: Cframes_view)
             Crb(x % 8, y % 8) = frame.Cr(x, y);
          Crb = Codec::DCT::forward(Crb);
          Crb = Codec::ChromQuant::forward(Crb);
-         for(auto &&[Yx, Yy]: Cframes_view)
-            output_stream.push_byte(Crb(Yx % 8, Yy % 8));
+         for(auto &&[x, y]: Cframes_view)
+            output_stream.push_byte(
+               static_cast<char>(Crb(x % 8, y % 8))
+                  );
       }
    }
 

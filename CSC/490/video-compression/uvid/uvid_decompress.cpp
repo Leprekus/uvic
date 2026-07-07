@@ -53,7 +53,8 @@ int main(int argc, char** argv){
       // process Y stream
       for(auto Yframe_view: Codec::YUVPipeline::chunk_frame(width, height)) {
          for(auto &&[x, y]: Yframe_view)  
-            Yb(x % 8, y % 8) = input_stream.read_byte();
+            Yb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
+            //Yb << input_stream.read_byte();
          Yb = Codec::LumQuant::inverse(Yb);
          Yb = Codec::DCT::inverse(Yb);
          for(auto &&[x, y]: Yframe_view)  
@@ -62,7 +63,7 @@ int main(int argc, char** argv){
       // process Cb & Cr streams
       for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
          for(auto &&[x, y]: Cframes_view)
-            Cbb(x % 8, y % 8) = input_stream.read_byte();
+            Cbb(x % 8, y % 8) =  static_cast<char>(input_stream.read_byte());
          Cbb = Codec::ChromQuant::inverse(Cbb);
          Cbb = Codec::DCT::inverse(Cbb);
          for(auto &&[x, y]: Cframes_view)
@@ -70,7 +71,7 @@ int main(int argc, char** argv){
       }
       for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
          for(auto &&[x, y]: Cframes_view) 
-            Crb(x % 8, y % 8) = input_stream.read_byte();
+            Crb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
          Crb = Codec::ChromQuant::inverse(Crb);
          Crb = Codec::DCT::inverse(Crb);
          for(auto &&[x, y]: Cframes_view)

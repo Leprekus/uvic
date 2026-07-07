@@ -1,6 +1,8 @@
 #ifndef QUANTIZE_HPP 
 #define QUANTIZE_HPP
 #include "types.hpp"
+#include <cassert>
+#include <iostream>
 
 
 #include <Eigen/Dense>
@@ -31,18 +33,30 @@ namespace Codec {
    class Quantize {
       private:
          inline static Eigen::MatrixXd tmp{8, 8};
+         inline static bool printed = false;
 
       public:
          static Eigen::MatrixXd forward(Eigen::MatrixXd D) {
+            
             D = D.cwiseQuotient(QMatrix);
             D = D.array().round();
-            D.array() += 128;
-            assert((0 <= D.array()).all() && (D.array() <= 255).all());
+            if(!printed) {
+               printed = true;
+               std::cerr << "Quantized Compressor DCT" << std::endl;
+               std::cerr << D << std::endl;
+            }
+            assert((-128 <= D.array()).all() && (D.array() <= 128).all());
             return D;
          }
          static Eigen::MatrixXd inverse(Eigen::MatrixXd T) {
-            T = T.array() - 128;
+            if(!printed) {
+               printed = true;
+               std::cerr << "Quantized Decompressor DCT" << std::endl;
+               std::cerr << T << std::endl;
+            }
+            assert((-128 <= T.array()).all() && (T.array() <= 128).all());
             T = T.cwiseProduct(QMatrix);
+            
             return T;
          }
    };

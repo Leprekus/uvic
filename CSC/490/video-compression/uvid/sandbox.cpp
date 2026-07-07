@@ -42,15 +42,24 @@ int main() {
 
 
    int count = 0;
-   for(auto frame_view: Codec::YUVPipeline::chunk_frame(16, 10)) {
+   Eigen::MatrixXd M(8,8);
+   for(auto frame_view: Codec::YUVPipeline::chunk_frame(16, 16)) {
          for(auto &&[x, y]: frame_view) {
+            M(x % 8, y % 8) = x;
             if(count % 8 == 0) std::cout << std::endl;
             std::cout << "(" << x << "," << y << ")";
             count++;
          }
          count = 0;
          std::cout << std::endl;
+         for(auto &&[x, y]: frame_view) {
+            if(count % 8 == 0) std::cout << std::endl;
+            std::cout << "(" << M(x % 8, y % 8) << ")";
+            count++;
+         }
+         count = 0;
+         std::cout << std::endl;
+        
    }
-
    return 0;
 }
