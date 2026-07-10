@@ -8,18 +8,28 @@ and the elements of axis 1 are columns.
 rows = 0
 cols = 1
 n = 8
-f = lambda x, y: 1/np.sqrt(n) if x == 0 and y == 0 else np.sqrt(2/n)
+
+alpha = lambda x: 1/np.sqrt(n) if x == 0 else np.sqrt(2/n)
+cos = lambda u, x: np.cos( (np.pi*(2*x+1)*u)/(2*n) )
+f = np.eye(n)
+C = np.zeros((n, n))
+for i in range(n):
+    for j in range(n):
+        if i == 0:
+                C[i][j] = np.sqrt(1/8);
+        else:
+                C[i][j] = (np.sqrt(1/4)) * np.cos(((2*j + 1) * i * np.pi)/(16));
+        
+'''
+C = fft.dct(np.eye(n),  type=2, axis=0, norm='ortho')
 # Create a dummy data matrix
+'''
 S = np.arange(64).reshape(8, 8)
 # Extract the static matrix (using axis=0)
-I = np.eye(n) # identity matrix
-C = fft.dct(I, axis=rows, type=2, norm='ortho')
-
-# Compute 2D DCT using matrix multiplication
-DCT_2D = C @ S @ C.T
-
-print("input matrix")
-print(S)
+#for u in range(n):
+#    for v in range(n):
+#        DCT[u][v] *= (alpha(u) * alpha(v))
+#fft.dct(DCT, axis=cols, type=2, norm='ortho')
 print("static matrix")
 C_str = '{'
 for row in C:
@@ -28,9 +38,8 @@ for row in C:
     C_str += '},'
 C_str += '\n}'
 print(C_str)
-print(C)
-D =  C @ S @ C.T
-print("coefficient matrix")
-print(D)
-print("input matrix")
-print(np.round(C.T @ D @ C, 1))
+print("S matrix")
+print(S)
+print("Reconstructed S matrix")
+T = C.T @ (C @ S @ C.T) @ C
+print(T.round())

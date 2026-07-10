@@ -45,40 +45,70 @@ int main(int argc, char** argv){
 
    YUVStreamWriter writer {std::cout, width, height};
 
+   bool printed = false;
    while (input_stream.read_byte()){
       YUVFrame420& frame = writer.frame();
       // 8x8 blocks for each frame
-      Eigen::MatrixXd Yb(8, 8), Cbb(8, 8), Crb(8, 8);
+      Matrix8d Yb(8, 8), Cbb(8, 8), Crb(8, 8);
 
-      // process Y stream
-      for(auto Yframe_view: Codec::YUVPipeline::chunk_frame(width, height)) {
-         for(auto &&[x, y]: Yframe_view)  
-            Yb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
-            //Yb << input_stream.read_byte();
-         Yb = Codec::LumQuant::inverse(Yb);
-         Yb = Codec::DCT::inverse(Yb);
-         for(auto &&[x, y]: Yframe_view)  
-            frame.Y(x, y) = Yb(x % 8, y % 8); 
-      }
-      // process Cb & Cr streams
-      for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
-         for(auto &&[x, y]: Cframes_view)
-            Cbb(x % 8, y % 8) =  static_cast<char>(input_stream.read_byte());
-         Cbb = Codec::ChromQuant::inverse(Cbb);
-         Cbb = Codec::DCT::inverse(Cbb);
-         for(auto &&[x, y]: Cframes_view)
-            frame.Cb(x, y) = Cbb(x % 8, y % 8);
-      }
-      for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
-         for(auto &&[x, y]: Cframes_view) 
-            Crb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
-         Crb = Codec::ChromQuant::inverse(Crb);
-         Crb = Codec::DCT::inverse(Crb);
-         for(auto &&[x, y]: Cframes_view)
-            frame.Cr(x, y) = Crb(x % 8, y % 8);
-         
-      }
+      for (u32 y0 = 0; y0 < height; y0 += 8) {
+         for(u32 x0 = 0; x0 < width; x0 += 8) {
+            // fill up 8x8 block
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  // transformed values range fom -128 - 127
+                  Yb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
+            // write 8x8 into the bitstream
+            Yb = Codec::QuantizeYb::inverse(Yb);
+            Yb = Codec::DCT::inverse(Yb);
+           
 
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                 frame.Y(x, y) = static_cast<u8>(Yb(x % 8, y % 8));
+         }
+      }
+      for (u32 y0 = 0; y0 < height/2; y0 += 8) {
+         for(u32 x0 = 0; x0 < width/2; x0 += 8) {
+            // fill up 8x8 block
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  // transformed values range fom -128 - 127
+                  Cbb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
+            // write 8x8 into the bitstream
+            Cbb = Codec::QuantizeYb::inverse(Cbb);
+            Cbb = Codec::DCT::inverse(Cbb);
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                 frame.Cb(x, y) = static_cast<u8>(Cbb(x % 8, y % 8));
+         }
+      }
+      for (u32 y0 = 0; y0 < height/2; y0 += 8) {
+         for(u32 x0 = 0; x0 < width/2; x0 += 8) {
+            // fill up 8x8 block
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  // transformed values range fom -128 - 127
+                  Crb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
+            // write 8x8 into the bitstream
+            Crb = Codec::QuantizeYb::inverse(Crb);
+            Crb = Codec::DCT::inverse(Crb);
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                 frame.Cr(x, y) = static_cast<u8>(Crb(x % 8, y % 8));
+         }
+      }
+      //for (u32 y = 0; y < height; y++) 
+      //   for (u32 x = 0; x < width; x++)
+      //      frame.Y(x,y) = input_stream.read_byte();
+      /*
+      for (u32 y = 0; y < height/2; y++)
+         for (u32 x = 0; x < width/2; x++)
+            frame.Cb(x,y) = input_stream.read_byte();
+      for (u32 y = 0; y < height/2; y++)
+         for (u32 x = 0; x < width/2; x++)
+            frame.Cr(x,y) = input_stream.read_byte();
+      */
       writer.write_frame();
    }
 

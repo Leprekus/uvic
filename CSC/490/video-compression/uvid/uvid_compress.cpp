@@ -48,54 +48,77 @@ int main(int argc, char** argv){
    // create instances of reader & output stream
    YUVStreamReader reader {std::cin, width, height};
    OutputBitStream output_stream {std::cout};
-
    // add the width and height into the stream
    output_stream.push_u32(height);
    output_stream.push_u32(width);
    assert(width == 720 && height == 480);
-   assert(width % 8 == 0 && height % 8 == 0);
-
    // read Y, Cb, Cr (3 bytes of data) from stdin into the active_frame
    while (reader.read_next_frame()){
       output_stream.push_byte(1); //Use a one byte flag to indicate whether there is a frame here
       YUVFrame420& frame = reader.frame();
       // 8x8 blocks for each frame
-      Eigen::MatrixXd Yb(8, 8), Cbb(8,8), Crb(8,8);
-
-      // process Y subsampling
-      for(auto Yframe_view: Codec::YUVPipeline::chunk_frame(width, height)) {
-         assert(Yframe_view.size() == 64);
-         for(auto &&[x, y]: Yframe_view)
-            Yb(x % 8, y % 8) = frame.Y(x, y);
-
-         Yb = Codec::DCT::forward(Yb);
-         Yb = Codec::LumQuant::forward(Yb);
-
-         for(auto &&[x, y]: Yframe_view)
-            output_stream.push_byte(
-                  static_cast<char>(Yb(x % 8, y % 8)));
+      Matrix8d Yb(8, 8), Cbb(8,8), Crb(8,8);
+      // process Y frame
+      for (u32 y0 = 0; y0 < height; y0 += 8) {
+         for(u32 x0 = 0; x0 < width; x0 += 8) {
+            // fill up 8x8 block
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  // original values range from 0 - 255 
+                  Yb(x % 8, y % 8) = static_cast<double>(frame.Y(x, y)); 
+            Yb = Codec::DCT::forward(Yb);
+            Yb = Codec::QuantizeYb::forward(Yb);
+            // write 8x8 into the bitstream
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  // emit transformed values into bitstream
+                  output_stream.push_byte(static_cast<u8>(Yb(x % 8, y % 8)));
+         }
       }
-      // NOTE: if Cb & Cr blocks get mixed separate back each into its own loop
-      // process Cb & Cr subsampling
-      for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
-         for(auto &&[x, y]: Cframes_view)
-            Cbb(x % 8, y % 8) = frame.Cb(x, y);
-         Cbb = Codec::DCT::forward(Cbb);
-         Cbb = Codec::ChromQuant::forward(Cbb);
-         for(auto &&[x, y]: Cframes_view)
-            output_stream.push_byte(
-                  static_cast<char>(Cbb(x % 8, y % 8)));
+      // process Cb frame
+      for (u32 y0 = 0; y0 < height/2; y0 += 8) {
+         for(u32 x0 = 0; x0 < width/2; x0 += 8) {
+            // fill up 8x8 block
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  // original values range from 0 - 255 
+                  Cbb(x % 8, y % 8) = static_cast<double>(frame.Cb(x, y)); 
+            Cbb = Codec::DCT::forward(Cbb);
+            Cbb = Codec::QuantizeYb::forward(Cbb);
+            // write 8x8 into the bitstream
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  output_stream.push_byte(static_cast<u8>(Cbb(x % 8, y % 8)));
+         }
+      } 
+      // process Cr frame
+      for (u32 y0 = 0; y0 < height/2; y0 += 8) {
+         for(u32 x0 = 0; x0 < width/2; x0 += 8) {
+            // fill up 8x8 block
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  // original values range from 0 - 255 
+                  Crb(x % 8, y % 8) = static_cast<double>(frame.Cr(x, y)); 
+            Crb = Codec::DCT::forward(Crb);
+            Crb = Codec::QuantizeYb::forward(Crb);
+            // write 8x8 into the bitstream
+            for(u32 y = y0; y < y0 + 8; y++)
+               for(u32 x = x0; x < x0 + 8; x++)
+                  output_stream.push_byte(static_cast<u8>(Crb(x % 8, y % 8)));
+         }
       }
-      for(auto Cframes_view: Codec::YUVPipeline::chunk_frame(width/2, height/2)) {
-         for(auto &&[x, y]: Cframes_view)
-            Crb(x % 8, y % 8) = frame.Cr(x, y);
-         Crb = Codec::DCT::forward(Crb);
-         Crb = Codec::ChromQuant::forward(Crb);
-         for(auto &&[x, y]: Cframes_view)
-            output_stream.push_byte(
-               static_cast<char>(Crb(x % 8, y % 8))
-                  );
-      }
+      //for (u32 y = 0; y < height; y++)
+      //   for (u32 x = 0; x < width; x++)
+      //      output_stream.push_byte(frame.Y(x,y));
+      /*
+         for (u32 y = 0; y < height/2; y++)
+         for (u32 x = 0; x < width/2; x++)
+         output_stream.push_byte(frame.Cb(x,y));
+         for (u32 y = 0; y < height/2; y++)
+         for (u32 x = 0; x < width/2; x++)
+         output_stream.push_byte(frame.Cr(x,y));
+
+*/
    }
 
    output_stream.push_byte(0); //Flag to indicate end of data

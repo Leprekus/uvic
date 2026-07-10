@@ -8,7 +8,7 @@
 #include <Eigen/Dense>
       
 namespace Codec {
-   static const Eigen::MatrixXd QLum {
+   static const Matrix8d QYb {
       {16, 11, 10, 16, 24, 40, 51, 61},
       {12, 12, 14, 19, 26, 58, 60, 55,},
       {14, 13, 16, 24, 40, 57, 69, 56},
@@ -18,7 +18,7 @@ namespace Codec {
       {49, 64, 78, 87, 103, 121, 120, 101},
       {72, 92, 95, 98, 112, 100, 103, 99},
    };
-   static const Eigen::MatrixXd QChrom {
+   static const Matrix8d QCb {
       {17, 18, 24, 47, 99, 99, 99, 99},
       {18, 21, 26, 66, 99, 99, 99, 99},
       {24, 26, 56, 99, 99, 99, 99, 99},
@@ -28,40 +28,29 @@ namespace Codec {
       {99, 99, 99, 99, 99, 99, 99, 99},
       {99, 99, 99, 99, 99, 99, 99, 99},
    };
-   template <const Eigen::MatrixXd &QMatrix>
+   template <const Matrix8d &QMatrix>
    
    class Quantize {
-      private:
-         inline static Eigen::MatrixXd tmp{8, 8};
-         inline static bool printed = false;
-
       public:
-         static Eigen::MatrixXd forward(Eigen::MatrixXd D) {
-            
+         static Matrix8d forward(Matrix8d D) {
             D = D.cwiseQuotient(QMatrix);
-            D = D.array().round();
-            if(!printed) {
-               printed = true;
-               std::cerr << "Quantized Compressor DCT" << std::endl;
-               std::cerr << D << std::endl;
+            D = D.array().round(); // round before writing to bitstream
+            if(!((-128 <= D.array()).all() && (D.array() <= 127).all())){
+            std::cerr << "offender" << std::endl;
+            std::cerr << D;
+            assert((-128 <= D.array()).all() && (D.array() <= 127).all());
             }
-            assert((-128 <= D.array()).all() && (D.array() <= 128).all());
+            assert((-128 <= D.array()).all() && (D.array() <= 127).all());
             return D;
          }
-         static Eigen::MatrixXd inverse(Eigen::MatrixXd T) {
-            if(!printed) {
-               printed = true;
-               std::cerr << "Quantized Decompressor DCT" << std::endl;
-               std::cerr << T << std::endl;
-            }
-            assert((-128 <= T.array()).all() && (T.array() <= 128).all());
+         static Matrix8d inverse(Matrix8d T) {
+            assert((-128 <= T.array()).all() && (T.array() <= 127).all());
             T = T.cwiseProduct(QMatrix);
-            
             return T;
          }
    };
-   using LumQuant = Quantize<QLum>;
-   using ChromQuant = Quantize<QChrom>;
+   using QuantizeYb = Quantize<QYb>;
+   using QuantizeCb = Quantize<QCb>;
 
 }
 
