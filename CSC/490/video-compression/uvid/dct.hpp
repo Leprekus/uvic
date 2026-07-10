@@ -27,7 +27,6 @@ namespace Codec {
          }
          static Matrix8d inverse(Matrix8d D) {
             D = C.transpose() * D * C;
-            D = D.array().round();
             return D;
          }
    };

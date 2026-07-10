@@ -3,10 +3,38 @@
 #include <ranges>
 #include <Eigen/Dense>
 #include "types.hpp"
+#include "dct.hpp"
+#include "quantize.hpp"
+
 namespace Codec {
+   enum BlockType { YBlock, CBlock };
+   template <const BlockType type>
+
    class YUVPipeline {
+       
       public:
-         
+         static Matrix8d &DCTForward(Matrix8d &block) {
+            block = block.array() - 128;
+            block = Codec::DCT::forward(block);
+            if(type == BlockType::YBlock)
+               block = Codec::QuantizeYb::forward(block);
+            else if(type == BlockType::CBlock)
+               block = Codec::QuantizeCb::forward(block);
+            block = block.array().round();
+            return block;
+         } 
+         static Matrix8d &DCTInverse(Matrix8d &block) {
+            if(type == BlockType::YBlock)
+               block = Codec::QuantizeYb::inverse(block);
+            else if(type == BlockType::CBlock)
+               block = Codec::QuantizeCb::inverse(block);
+            block = Codec::DCT::inverse(block);
+            block = block.array().round();
+            block = block.array() + 128;
+            block = block.cwiseMax(0).cwiseMin(255);
+            //block = block.cwiseMin(0).cwiseMax(255);
+            return block;
+         }
 
          /*
           * returns an array of views,
@@ -49,6 +77,9 @@ namespace Codec {
          }
 
    };
+   using DCTTransformYBlock = YUVPipeline<BlockType::YBlock>;
+   using DCTTransformCBlock = YUVPipeline<BlockType::CBlock>;
+
 }
  
 #endif

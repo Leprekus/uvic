@@ -28,6 +28,7 @@
 #include <Eigen/Dense>
 #include "output_stream.hpp"
 #include "yuv_stream.hpp"
+#include "math.hpp"
 #include "dct.hpp"
 #include "quantize.hpp"
 #include "yuv_pipeline.hpp"
@@ -48,42 +49,48 @@ int main(int argc, char** argv){
    // create instances of reader & output stream
    YUVStreamReader reader {std::cin, width, height};
    OutputBitStream output_stream {std::cout};
-   auto YBlockPipeline = Codec::YUVPipeline<Codec::BlockType::YBlock>();
-   auto CBlockPipeline = Codec::YUVPipeline<Codec::BlockType::CBlock>();
    // add the width and height into the stream
    output_stream.push_u32(height);
    output_stream.push_u32(width);
-   // 8x8 blocks for each frame
+   assert(width == 720 && height == 480);
    // read Y, Cb, Cr (3 bytes of data) from stdin into the active_frame
+   
+   Mat DCT = Codec::Math::create_mat(8); DCT = Codec::Math::DCT1D(DCT);
+   Mat DCT_T = DCT; DCT_T = Codec::Math::transpose(DCT_T);
+
    while (reader.read_next_frame()){
       output_stream.push_byte(1); //Use a one byte flag to indicate whether there is a frame here
       YUVFrame420& frame = reader.frame();
-      Matrix8d  Yb(8, 8), Cbb(8, 8), Crb(8, 8);
-      
+      // 8x8 blocks for each frame
+      Mat R = Codec::Math::create_mat(8);
+      Mat Yb = Codec::Math::create_mat(8);
+      Mat Cbb = Codec::Math::create_mat(8);
+      Mat Crb = Codec::Math::create_mat(8);
       // process Y frame
-      for(auto &&y_frame: YBlockPipeline.chunk_frame(width, height)){
+      for(auto &&y_frame: Codec::YUVPipeline::chunk_frame(width, height)){
          for(auto &&[x, y]: y_frame)
-            Yb(x % 8, y % 8) = frame.Y(x, y);
-         Yb = YBlockPipeline.DCTForward(Yb);
+            Yb.at(x % 8).at(y % 8) = frame.Y(x, y);
+         Yb = Codec::Math::dot(DCT, Yb, DCT_T);
+         Yb = Codec::Math::quantize(Yb);
          for(auto &&[x, y]: y_frame)
-            output_stream.push_byte(Yb(x % 8, y % 8));
+            output_stream.push_byte(Yb.at(x % 8).at(y % 8));
       }
-      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height)){
+      for(auto &&c_frame: Codec::YUVPipeline::chunk_frame(width, height)){
          for(auto &&[x, y]: c_frame)
-            Cbb(x % 8, y % 8) = frame.Cb(x, y);
-         Cbb = CBlockPipeline.DCTForward(Cbb);
+            Cbb.at(x % 8).at(y % 8) = frame.Cb(x, y);
+         
          for(auto &&[x, y]: c_frame)
-            output_stream.push_byte(Cbb(x % 8, y % 8));
+            output_stream.push_byte(Cbb.at(x % 8).at(y % 8));
       }
-      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height)){
+      for(auto &&c_frame: Codec::YUVPipeline::chunk_frame(width, height)){
          for(auto &&[x, y]: c_frame)
-            Crb(x % 8, y % 8) = frame.Cr(x, y);
-         Crb = CBlockPipeline.DCTForward(Crb);
+            Crb.at(x % 8).at(y % 8) = frame.Cr(x, y);
+         
          for(auto &&[x, y]: c_frame)
-            output_stream.push_byte(Crb(x % 8, y % 8));
+            output_stream.push_byte(Crb.at(x % 8).at(y % 8));
       }
 
-
+     
       //for (u32 y = 0; y < height; y++)
       //   for (u32 x = 0; x < width; x++)
       //      output_stream.push_byte(frame.Y(x,y));
@@ -97,7 +104,7 @@ int main(int argc, char** argv){
 
 */
    }
-  
+
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
 

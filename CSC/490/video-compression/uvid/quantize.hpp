@@ -34,17 +34,9 @@ namespace Codec {
       public:
          static Matrix8d forward(Matrix8d D) {
             D = D.cwiseQuotient(QMatrix);
-            D = D.array().round(); // round before writing to bitstream
-            if(!((-128 <= D.array()).all() && (D.array() <= 127).all())){
-            std::cerr << "offender" << std::endl;
-            std::cerr << D;
-            assert((-128 <= D.array()).all() && (D.array() <= 127).all());
-            }
-            assert((-128 <= D.array()).all() && (D.array() <= 127).all());
             return D;
          }
          static Matrix8d inverse(Matrix8d T) {
-            assert((-128 <= T.array()).all() && (T.array() <= 127).all());
             T = T.cwiseProduct(QMatrix);
             return T;
          }
