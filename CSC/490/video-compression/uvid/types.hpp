@@ -9,5 +9,14 @@ using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
 using Matrix8d = Eigen::Matrix<double, 8, 8>;
-using Mat = std::vector<std::vector<double>>;
+using Matrix16d = Eigen::Matrix<double, 16, 16>;
+typedef struct {
+   Matrix16d Y;
+   Matrix8d Cb;
+   Matrix8d Cr;
+} Macroblock;
+enum FrameType {
+   IFRAME,
+   PFRAME
+};
 #endif

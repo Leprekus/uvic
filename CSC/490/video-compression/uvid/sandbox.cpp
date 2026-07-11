@@ -7,12 +7,13 @@
 #include "quantize.hpp"
 #include "yuv_pipeline.hpp"
 
+auto Ypipeline = Codec::YUVPipeline<Codec::BlockType::YBlock>();
 auto test_pipeline(Matrix8d &block) {
    std::cout << "original" << std::endl;
    std::cout << block << std::endl;
 
    std::cout << "forward" << std::endl;
-   block = Codec::YUVPipeline::forward(block, 'y');
+   block = Ypipeline.DCTForward(block);
    std::cout << block << std::endl;
 
    std::vector<u8>stream;
@@ -28,7 +29,7 @@ auto test_pipeline(Matrix8d &block) {
       }
    }
 
-   D = Codec::YUVPipeline::inverse(D, 'y');
+   D = Ypipeline.DCTInverse(D);
    std::cout << "reconstructed" << std::endl;
    std::cout << D << std::endl;
 }
@@ -66,6 +67,5 @@ int main() {
          87, 79,69,68,65,76,78,94,
    test_pipeline(block); 
    
-
-   return 0;
-}
+      return 0;
+   }

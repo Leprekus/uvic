@@ -26,18 +26,54 @@
 
 #include <ranges>
 #include <Eigen/Dense>
+#include "utils.hpp"
 #include "output_stream.hpp"
 #include "yuv_stream.hpp"
 #include "dct.hpp"
 #include "quantize.hpp"
 #include "yuv_pipeline.hpp"
 
+bool printed = false;
+auto write_mb_to_stream(OutputBitStream &stream, Macroblock &mb) {
+   //std::cerr << "original Y" << std::endl;
+   //std::cerr << mb.Y;
+   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
+   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
+   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+                                                      
+   transform_and_quantize<QCbBlock>(mb.Cb);
+   transform_and_quantize<QCbBlock>(mb.Cr);
+   
 
+   for(auto y = 0; y < 16; y++)
+      for(auto x = 0; x < 16; x++)
+         stream.push_byte(mb.Y(x, y));
+
+   for(auto y = 0; y < 8; y++)
+      for(auto x = 0; x < 8; x++)
+         stream.push_byte(mb.Cb(x, y));
+
+   for(auto y = 0; y < 8; y++)
+      for(auto x = 0; x < 8; x++)
+         stream.push_byte(mb.Cr(x, y));
+   if(!printed) {
+      printed = true;
+      std::cerr << "compressor transformed Y" << std::endl;
+      std::cerr << mb.Y;
+      std::cerr << "compressor reconstructed Y" << std::endl;
+      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
+      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
+      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+      std::cerr << mb.Y;
+   }
+
+}
 int main(int argc, char** argv){
-   Eigen::Vector2d V;
 
    if (argc < 4){
-      std::cerr << "Usage: " << argv[0] << " <width> <height> <low/medium/high>" << std::endl;
+      std::cout << "Usage: " << argv[0] << " <width> <height> <low/medium/high>" << std::endl;
       return 1;
    }
    // convert arguments to uints
@@ -48,58 +84,43 @@ int main(int argc, char** argv){
    // create instances of reader & output stream
    YUVStreamReader reader {std::cin, width, height};
    OutputBitStream output_stream {std::cout};
-   auto YBlockPipeline = Codec::YUVPipeline<Codec::BlockType::YBlock>();
-   auto CBlockPipeline = Codec::YUVPipeline<Codec::BlockType::CBlock>();
    // add the width and height into the stream
    output_stream.push_u32(height);
    output_stream.push_u32(width);
    // 8x8 blocks for each frame
    // read Y, Cb, Cr (3 bytes of data) from stdin into the active_frame
+   bool haveIFrame = false;
+   bool printed = false;
+   Macroblock mb;
+   mb.Y.setZero();
+   mb.Cb.setZero();
+   mb.Cr.setZero();
+   std::vector<YUVFrame420>frame_buffer(64, YUVFrame420(width, height));
    while (reader.read_next_frame()){
-      output_stream.push_byte(1); //Use a one byte flag to indicate whether there is a frame here
       YUVFrame420& frame = reader.frame();
-      Matrix8d  Yb(8, 8), Cbb(8, 8), Crb(8, 8);
-      
-      // process Y frame
-      for(auto &&y_frame: YBlockPipeline.chunk_frame(width, height, 8)){
-         for(auto &&[x, y]: y_frame)
-            Yb(x % 8, y % 8) = frame.Y(x, y);
-         Yb = YBlockPipeline.DCTForward(Yb);
-         for(auto &&[x, y]: y_frame)
-            output_stream.push_byte(Yb(x % 8, y % 8));
+      output_stream.push_byte(1); // push flag indicating there is a frame and it's an IFRAME
+      for(auto y0 = 0; y0 < height; y0 += 16) {
+         for(auto x0 = 0; x0 < width; x0 += 16) {
+            /* fill blocks */
+            for(auto y = 0; y < 16; y++) {
+               for(auto x = 0; x < 16; x++) {
+                  /* fill Y block */
+                  mb.Y(x, y) = frame.Y(x0 + x, y0 + y);
+                  /* fill Cb, Cr blocks */
+                  if(x < 8 && y < 8) {
+                     mb.Cb(x, y) = frame.Cb(x0/2 + x, y0/2 + y);
+                     mb.Cr(x, y) = frame.Cr(x0/2 + x, y0/2 + y);
+                  }
+               }
+            }
+            /* create an I-Frame every 64 frames */
+            if(false || frame_buffer.size() % 64) {}
+            write_mb_to_stream(output_stream, mb);
+         }
+         
       }
-      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height, 8)){
-         for(auto &&[x, y]: c_frame)
-            Cbb(x % 8, y % 8) = frame.Cb(x, y);
-         Cbb = CBlockPipeline.DCTForward(Cbb);
-         for(auto &&[x, y]: c_frame)
-            output_stream.push_byte(Cbb(x % 8, y % 8));
-      }
-      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height, 8)){
-         for(auto &&[x, y]: c_frame)
-            Crb(x % 8, y % 8) = frame.Cr(x, y);
-         Crb = CBlockPipeline.DCTForward(Crb);
-         for(auto &&[x, y]: c_frame)
-            output_stream.push_byte(Crb(x % 8, y % 8));
-      }
-
-
-      //for (u32 y = 0; y < height; y++)
-      //   for (u32 x = 0; x < width; x++)
-      //      output_stream.push_byte(frame.Y(x,y));
-      /*
-         for (u32 y = 0; y < height/2; y++)
-         for (u32 x = 0; x < width/2; x++)
-         output_stream.push_byte(frame.Cb(x,y));
-         for (u32 y = 0; y < height/2; y++)
-         for (u32 x = 0; x < width/2; x++)
-         output_stream.push_byte(frame.Cr(x,y));
-
-*/
    }
-  
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
-
    return 0;
 }

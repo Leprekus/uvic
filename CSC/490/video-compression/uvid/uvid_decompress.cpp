@@ -30,7 +30,35 @@
 #include "dct.hpp"
 #include "quantize.hpp"
 #include "yuv_pipeline.hpp"
+#include "utils.hpp"
 
+bool printed = false;
+auto reconstruct_mb(InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+                                                      
+   reconstruct_block<QCbBlock>(mb.Cb);
+   reconstruct_block<QCbBlock>(mb.Cr);
+   if(!printed){
+      printed = true;
+      std::cerr << "decompressor reconstructed Y" << std::endl;
+      std::cerr << mb.Y;
+   }
+
+   for(auto y = 0; y < 16; y++)
+      for(auto x = 0; x < 16; x++)
+         frame.Y(x0 + x, y0 + y) = mb.Y(x, y);
+
+   for(auto y = 0; y < 8; y++)
+      for(auto x = 0; x < 8; x++)
+         frame.Cb(x0/2 + x, y0/2 + y) = mb.Cb(x, y);
+
+   for(auto y = 0; y < 8; y++)
+      for(auto x = 0; x < 8; x++)
+         frame.Cr(x0/2 + x, y0/2 + y) = mb.Cr(x, y);
+}
 
 int main(int argc, char** argv){
 
@@ -43,47 +71,39 @@ int main(int argc, char** argv){
    u32 width {input_stream.read_u32()};
    // 8x8 blocks for each frame
    YUVStreamWriter writer {std::cout, width, height};
-   auto YBlockPipeline = Codec::YUVPipeline<Codec::BlockType::YBlock>();
-   auto CBlockPipeline = Codec::YUVPipeline<Codec::BlockType::CBlock>();
-   while (input_stream.read_byte()){
-      YUVFrame420& frame = writer.frame();
-      Matrix8d  Yb(8, 8), Cb(8, 8), Cr(8, 8);
-      
-      for(auto &&y_frame: YBlockPipeline.chunk_frame(width, height, 8)){
-         for(auto &&[x, y]: y_frame)
-            Yb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
-      
-         Yb = YBlockPipeline.DCTInverse(Yb);
-         for(auto &&[x, y]: y_frame)
-            frame.Y(x, y) = Yb(x % 8, y% 8);
-      }
-      for(auto &&y_frame: CBlockPipeline.chunk_frame(width, height, 8)){
-         for(auto &&[x, y]: y_frame)
-            Cb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
-         Cb = CBlockPipeline.DCTInverse(Cb);
-         for(auto &&[x, y]: y_frame)
-            frame.Cb(x, y) = Cb(x % 8, y % 8);
-      }      
-      for(auto &&y_frame: CBlockPipeline.chunk_frame(width, height, 8)){
-         for(auto &&[x, y]: y_frame)
-            Cr(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
-         Cr = CBlockPipeline.DCTInverse(Cr);
-         for(auto &&[x, y]: y_frame)
-            frame.Cr(x, y) = Cr(x % 8, y % 8);
-      }
+   bool isIframe = false;
+   Macroblock mb;
+   mb.Y.setZero();
+   mb.Cb.setZero();
+   mb.Cr.setZero();
 
-      //for (u32 y = 0; y < height; y++) 
-      //   for (u32 x = 0; x < width; x++)
-      //      frame.Y(x,y) = input_stream.read_byte();
-      /*
-         for (u32 y = 0; y < height/2; y++)
-         for (u32 x = 0; x < width/2; x++)
-         frame.Cb(x,y) = input_stream.read_byte();
-         for (u32 y = 0; y < height/2; y++)
-         for (u32 x = 0; x < width/2; x++)
-         frame.Cr(x,y) = input_stream.read_byte();
-         */
+   while ((isIframe = input_stream.read_byte())){
+
+      YUVFrame420& frame = writer.frame();
       writer.write_frame();
+      for(auto y0 = 0; y0 < height; y0 += 16) {
+         for(auto x0 = 0; x0 < width; x0 += 16) {
+            /* fill Y */
+            for(auto y = 0; y < 16; y++)
+               for(auto x = 0; x < 16; x++)
+                  mb.Y(x, y) = static_cast<char>(input_stream.read_byte());
+            /* fill Cb */
+            for(auto y = 0; y < 8; y++)
+               for(auto x = 0; x < 8; x++)
+                   mb.Cb(x, y) = static_cast<char>(input_stream.read_byte());
+            /* fill Cr */
+            for(auto y = 0; y < 8; y++)
+               for(auto x = 0; x < 8; x++)
+                  mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
+               
+      
+
+            /* create an I-Frame every 64 frames */
+            reconstruct_mb(input_stream, frame, mb, x0, y0);
+         }
+         
+      }
    }
+   //exit(1);
    return 0;
 }

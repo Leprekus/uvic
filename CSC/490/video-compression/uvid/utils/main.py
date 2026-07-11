@@ -1,5 +1,7 @@
-from scipy import fft
+import io
 import numpy as np
+from scipy import fft, linalg
+
 
 '''
 In a two-dimensional vector, the elements of axis 0 are rows 
@@ -37,9 +39,40 @@ for row in C:
     for col in row: C_str += str(col) + ','
     C_str += '},'
 C_str += '\n}'
-print(C_str)
-print("S matrix")
-print(S)
-print("Reconstructed S matrix")
-T = C.T @ (C @ S @ C.T) @ C
-print(T.round())
+#print(C_str)
+#print("S matrix")
+#print(S)
+#print("Reconstructed S matrix")
+#T = C.T @ (C @ S @ C.T) @ C
+#print(T.round())
+
+raw_data = \
+'''
+ 1  1 -1 -1 -1  1  1  0 -1 -1  1  1  1  1  1  0
+-1  1  0 -1  0  1  1  0 -1 -1  1  1  1  1  0  0
+ 0  0 -1 -1  0  1  1  0 -1 -1  1  1  1  1  0  1
+ 1  0 -1 -1 -1  1  1  0 -1 -1  1  1  1  1  0  1
+ 1  0 -1 -1 -1  1  1  1 -1  0  1  1  1  1  0  0
+ 1  0 -1 -1  0  1  1  1 -1 -1  1  1  1  1  0  1
+ 1  0 -1 -1  1  1  0 -1 -1 -1 -1 -1 -1 -1 -1 -1
+ 1  1  0 -1  0  1  0 -1 -1  1 -1 -1 -1 -1 -1 -1
+-1 -1 -1 -1  1  0 -1  1  1  1  1  1  1  1  1  1
+-1 -1 -1 -1  1  0  0  1  1  0  1  1  1  1  0  1
+-1 -1 -1 -1  0  0  1  1 -1  0  1  1  1 -1 -1  1
+-1 -1 -1 -1  0 -1  1  1 -1 -1 -1  0  0 -1 -1  1
+-1 -1 -1 -1 -1 -1  1  1 -1 -1 -1 -1 -1 -1 -1 -1
+-1 -1 -1 -1 -1 -1  1  1 -1 -1 -1 -1 -1 -1 -1 -1
+-1  0 -1 -1 -1  0  1  1 -1 -1  1  1  1 -1 -1  0
+-1 -1 -1 -1 -1  0  1  1 -1  0  1  1  1  0 -1  1
+'''
+M = np.loadtxt(io.StringIO(raw_data.strip()), dtype=int)
+H = linalg.hadamard(16)
+T = H @ M @ H
+print('original')
+print(M)
+print('transformed')
+print(T)
+print('pre scaled')
+print(H @ T @ H)
+print('scaled')
+print((H @ T @ H)/(16*16))

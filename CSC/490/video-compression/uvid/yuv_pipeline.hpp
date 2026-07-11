@@ -5,6 +5,7 @@
 #include "types.hpp"
 #include "dct.hpp"
 #include "quantize.hpp"
+#include "yuv_stream.hpp"
 
 namespace Codec {
    enum BlockType { YBlock, CBlock };
@@ -13,7 +14,7 @@ namespace Codec {
    class YUVPipeline {
        
       public:
-         static Matrix8d &DCTForward(Matrix8d &block) {
+          Matrix8d &DCTForward(Matrix8d &block) {
             // center data around -127 and 128
             block = block.array() - 128;
             block = Codec::DCT::forward(block);
@@ -26,7 +27,7 @@ namespace Codec {
             block = block.array().round();
             return block;
          } 
-         static Matrix8d &DCTInverse(Matrix8d &block) {
+         Matrix8d &DCTInverse(Matrix8d &block) {
             // choose the correct quantization matrix for
             // Y / (Cb | Cr) blocks
             if(type == BlockType::YBlock)
@@ -41,13 +42,28 @@ namespace Codec {
             block = block.cwiseMax(0).cwiseMin(255);
             return block;
          }
+         template <typename ChunkIterable, typename BlockRead, typename BlockProcess, typename BlockWrite>
+         auto process_block(
+               ChunkIterable chunks,
+               BlockRead block_read,
+               BlockProcess block_process,
+               BlockWrite block_write
+               ) {
+            for(auto &&frame: chunks){
+               for(auto &&[x, y]: frame)
+                  block_read(x, y);
+               block_process();
+               for(auto &&[x, y]: frame)
+                  block_write(x, y);
+            }
+         }
 
          /*
           * returns an array of views,
           * each view contains all the coordinates
           * for a distinct 8x8 block in the width * height grid
           * */
-         static auto chunk_frame(u32 width, u32 height, u32 chunk_size){
+         auto chunk_frame(u32 width, u32 height, u32 chunk_size){
             auto blocks_y = std::views::iota(0U, height) | std::views::chunk(chunk_size); 
             auto blocks_x = std::views::iota(0U, width)  | std::views::chunk(chunk_size); 
             auto blocks = std::views::cartesian_product(blocks_x, blocks_y);
@@ -58,28 +74,92 @@ namespace Codec {
          }
 
          
-         static auto block_transformation(
+
+         
+         template<
+            typename YRead, typename CRead, 
+            typename MacroProcess, typename MacroWrite
+               >
+         auto process_macroblock(
                u32 width, u32 height,
-               std::function<void(u32 &x, u32 &y)> block_read,
-               std::function<void()> block_process,
-               std::function<void(u32 &x, u32 &y)> block_write
-
+               YRead y_read,
+               CRead c_read,
+               MacroProcess macro_process,
+               MacroWrite macro_write
                ) {
-            for (u32 y0 = 0; y0 < height; y0 += 8) {
-               for(u32 x0 = 0; x0 < width; x0 += 8) {
-                  // fill up 8x8 block
-                  for(u32 y = y0; y < y0 + 8; y++)
-                     for(u32 x = x0; x < x0 + 8; x++)
-                        // bitsream  
-                        block_read(x, y);
-                  // write 8x8 into the bitstream
-                  block_process();
-                  for(u32 y = y0; y < y0 + 8; y++)
-                     for(u32 x = x0; x < x0 + 8; x++)
-                        block_write(x, y);
+            // TODO: add max if this fails
+            for(auto i = 0; i < height; i += 16) {
+               for(auto j = 0; j < width; j += 16) {
+                  // Read into Y 16x16 block
+                  for(auto y = i; y < i + 16; y++) 
+                     for(auto x = j; x < j + 16; x++)
+                      y_read(x, y);
+                  // C 8x8 block
+                  for(auto y = i/2; y < i/2 + 8; y++) 
+                     for(auto x = j/2; x < j/2 + 8; x++)
+                        c_read(x, y);
+                  
+                  macro_process(j, i);
+                  macro_write(j, i);
                }
-            }
+            }  
 
+         }
+         auto vector_search(
+               auto x0, auto y0,
+               YUVFrame420 &compressed_frame, 
+               Matrix16d &YM, Matrix8d &Cb, Matrix8d &Cr) {
+            // Y processing
+            for(auto y = y0; y < y0 + 16; y++)
+               for(auto x = x0; x < x0 + 16; x++)
+                  // store delta
+                  YM(x % 16, y % 16) = YM(x % 16, y % 16) - compressed_frame.Y(x, y);
+            for(auto y = y0; y < y0 + 16; y++)
+               for(auto x = x0; x < x0 + 16; x++)
+                  // quantize and round
+                  YM = (YM / 2).array().round();
+
+            // Cb, Cr processing
+            for(auto y = y0/2; y < y0/2 + 16; y++)
+               for(auto x = x0/2; x < x0/2 + 16; x++) {
+                  // store delta
+                  Cb(x % 8, y % 8) = Cb(x % 8, y % 8) - compressed_frame.Cb(x, y);
+                  Cr(x % 8, y % 8) = Cr(x % 8, y % 8) - compressed_frame.Cr(x, y);
+               }
+            for(auto y = y0/2; y < y0/2 + 16; y++)
+               for(auto x = x0/2; x < x0/2 + 16; x++) {
+                  // quantize and round
+                  Cb = (Cb / 2).array().round();
+                  Cr = (Cr / 2).array().round();
+               }
+         }
+   auto restore_delta(
+               auto x0, auto y0,
+               YUVFrame420 &compressed_frame, 
+               Matrix16d &YM, Matrix8d &Cb, Matrix8d &Cr) {
+            // Y processing
+            for(auto y = y0; y < y0 + 16; y++)
+               for(auto x = x0; x < x0 + 16; x++)
+                  // store delta
+                  YM(x % 16, y % 16) = YM(x % 16, y % 16) + compressed_frame.Y(x, y);
+            for(auto y = y0; y < y0 + 16; y++)
+               for(auto x = x0; x < x0 + 16; x++)
+                  // dequantize, round, and clamp
+                  YM = (YM * 2).array().round().cwiseMax(0).cwiseMin(255);
+
+            // Cb, Cr processing
+            for(auto y = y0/2; y < y0/2 + 16; y++)
+               for(auto x = x0/2; x < x0/2 + 16; x++) {
+                  // store delta
+                  Cb(x % 8, y % 8) = Cb(x % 8, y % 8) + compressed_frame.Cb(x, y);
+                  Cr(x % 8, y % 8) = Cr(x % 8, y % 8) + compressed_frame.Cr(x, y);
+               }
+            for(auto y = y0/2; y < y0/2 + 16; y++)
+               for(auto x = x0/2; x < x0/2 + 16; x++) {
+                  // quantize and round
+                  Cb = (Cb * 2).array().round().cwiseMax(0).cwiseMin(255);
+                  Cr = (Cr * 2).array().round().cwiseMax(0).cwiseMin(255);
+               }
          }
 
    };
