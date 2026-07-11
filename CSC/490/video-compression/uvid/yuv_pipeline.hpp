@@ -14,8 +14,11 @@ namespace Codec {
        
       public:
          static Matrix8d &DCTForward(Matrix8d &block) {
+            // center data around -127 and 128
             block = block.array() - 128;
             block = Codec::DCT::forward(block);
+            // choose the correct quantization matrix for
+            // Y / (Cb | Cr) blocks
             if(type == BlockType::YBlock)
                block = Codec::QuantizeYb::forward(block);
             else if(type == BlockType::CBlock)
@@ -24,15 +27,18 @@ namespace Codec {
             return block;
          } 
          static Matrix8d &DCTInverse(Matrix8d &block) {
+            // choose the correct quantization matrix for
+            // Y / (Cb | Cr) blocks
             if(type == BlockType::YBlock)
                block = Codec::QuantizeYb::inverse(block);
             else if(type == BlockType::CBlock)
                block = Codec::QuantizeCb::inverse(block);
             block = Codec::DCT::inverse(block);
             block = block.array().round();
+            // restore the offset peformed in the forward() operation
             block = block.array() + 128;
+            // clamp values between 0 and 255 
             block = block.cwiseMax(0).cwiseMin(255);
-            //block = block.cwiseMin(0).cwiseMax(255);
             return block;
          }
 
@@ -41,9 +47,9 @@ namespace Codec {
           * each view contains all the coordinates
           * for a distinct 8x8 block in the width * height grid
           * */
-         static auto chunk_frame(u32 width, u32 height){
-            auto blocks_y = std::views::iota(0U, height) | std::views::chunk(8); 
-            auto blocks_x = std::views::iota(0U, width)  | std::views::chunk(8); 
+         static auto chunk_frame(u32 width, u32 height, u32 chunk_size){
+            auto blocks_y = std::views::iota(0U, height) | std::views::chunk(chunk_size); 
+            auto blocks_x = std::views::iota(0U, width)  | std::views::chunk(chunk_size); 
             auto blocks = std::views::cartesian_product(blocks_x, blocks_y);
             return blocks | std::views::transform([](auto &&blocks){
                auto [grid_x, grid_y] = blocks;

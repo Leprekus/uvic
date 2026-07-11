@@ -32,6 +32,10 @@ debug() {
   ffmpeg -f rawvideo -pixel_format yuv420p -framerate 30 -video_size 352x288 -i - -f yuv4mpegpipe "$fpath" < "./out/raw/$filename.raw" 
 
   mpv "$fpath"
+  echo "$filename.y4m size"
+  du -B K "./tests/video_samples/$filename.y4m"
+  echo "$ilenmae.uvi size"
+  du -B K "$dpath"
 }
 
 while getopts 'hrd:' opt;

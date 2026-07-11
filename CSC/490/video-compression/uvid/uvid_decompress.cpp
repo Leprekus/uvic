@@ -49,7 +49,7 @@ int main(int argc, char** argv){
       YUVFrame420& frame = writer.frame();
       Matrix8d  Yb(8, 8), Cb(8, 8), Cr(8, 8);
       
-      for(auto &&y_frame: YBlockPipeline.chunk_frame(width, height)){
+      for(auto &&y_frame: YBlockPipeline.chunk_frame(width, height, 8)){
          for(auto &&[x, y]: y_frame)
             Yb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
       
@@ -57,14 +57,14 @@ int main(int argc, char** argv){
          for(auto &&[x, y]: y_frame)
             frame.Y(x, y) = Yb(x % 8, y% 8);
       }
-      for(auto &&y_frame: CBlockPipeline.chunk_frame(width, height)){
+      for(auto &&y_frame: CBlockPipeline.chunk_frame(width, height, 8)){
          for(auto &&[x, y]: y_frame)
-            Cb(x % 8, y % 8) =static_cast<char>(input_stream.read_byte());
+            Cb(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
          Cb = CBlockPipeline.DCTInverse(Cb);
          for(auto &&[x, y]: y_frame)
             frame.Cb(x, y) = Cb(x % 8, y % 8);
       }      
-      for(auto &&y_frame: CBlockPipeline.chunk_frame(width, height)){
+      for(auto &&y_frame: CBlockPipeline.chunk_frame(width, height, 8)){
          for(auto &&[x, y]: y_frame)
             Cr(x % 8, y % 8) = static_cast<char>(input_stream.read_byte());
          Cr = CBlockPipeline.DCTInverse(Cr);

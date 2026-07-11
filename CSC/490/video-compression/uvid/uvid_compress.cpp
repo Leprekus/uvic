@@ -61,21 +61,21 @@ int main(int argc, char** argv){
       Matrix8d  Yb(8, 8), Cbb(8, 8), Crb(8, 8);
       
       // process Y frame
-      for(auto &&y_frame: YBlockPipeline.chunk_frame(width, height)){
+      for(auto &&y_frame: YBlockPipeline.chunk_frame(width, height, 8)){
          for(auto &&[x, y]: y_frame)
             Yb(x % 8, y % 8) = frame.Y(x, y);
          Yb = YBlockPipeline.DCTForward(Yb);
          for(auto &&[x, y]: y_frame)
             output_stream.push_byte(Yb(x % 8, y % 8));
       }
-      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height)){
+      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height, 8)){
          for(auto &&[x, y]: c_frame)
             Cbb(x % 8, y % 8) = frame.Cb(x, y);
          Cbb = CBlockPipeline.DCTForward(Cbb);
          for(auto &&[x, y]: c_frame)
             output_stream.push_byte(Cbb(x % 8, y % 8));
       }
-      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height)){
+      for(auto &&c_frame: CBlockPipeline.chunk_frame(width, height, 8)){
          for(auto &&[x, y]: c_frame)
             Crb(x % 8, y % 8) = frame.Cr(x, y);
          Crb = CBlockPipeline.DCTForward(Crb);
