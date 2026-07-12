@@ -41,11 +41,11 @@ auto reconstruct_mb(InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb, 
                                                       
    reconstruct_block<QCbBlock>(mb.Cb);
    reconstruct_block<QCbBlock>(mb.Cr);
-   if(!printed){
-      printed = true;
-      std::cerr << "decompressor reconstructed Y" << std::endl;
-      std::cerr << mb.Y;
-   }
+   //if(!printed){
+   //   printed = true;
+   //   std::cerr << "decompressor reconstructed Y" << std::endl;
+   //   std::cerr << mb.Y;
+   //}
 
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)

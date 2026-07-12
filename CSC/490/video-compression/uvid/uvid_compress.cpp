@@ -34,6 +34,7 @@
 #include "yuv_pipeline.hpp"
 
 bool printed = false;
+std::vector<Macroblock> frame_buffer;
 auto write_mb_to_stream(OutputBitStream &stream, Macroblock &mb) {
    //std::cerr << "original Y" << std::endl;
    //std::cerr << mb.Y;
@@ -57,18 +58,31 @@ auto write_mb_to_stream(OutputBitStream &stream, Macroblock &mb) {
    for(auto y = 0; y < 8; y++)
       for(auto x = 0; x < 8; x++)
          stream.push_byte(mb.Cr(x, y));
-   if(!printed) {
-      printed = true;
-      std::cerr << "compressor transformed Y" << std::endl;
-      std::cerr << mb.Y;
-      std::cerr << "compressor reconstructed Y" << std::endl;
-      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
-      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
-      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-      reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
-      std::cerr << mb.Y;
-   }
+  // if(!printed) {
+  //    printed = true;
+  //    std::cerr << "compressor transformed Y" << std::endl;
+  //    std::cerr << mb.Y;
+  //    std::cerr << "compressor reconstructed Y" << std::endl;
+  //    reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
+  //    reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
+  //    reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+  //    reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+  //    std::cerr << mb.Y;
+  // }
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+                                                      
+   reconstruct_block<QCbBlock>(mb.Cb);
+   reconstruct_block<QCbBlock>(mb.Cr);
 
+   // copy decompressed macro block to buffer
+   frame_buffer.push_back({
+      .Y = mb.Y,
+      .Cb = mb.Cb,
+      .Cr = mb.Cr
+   });
 }
 int main(int argc, char** argv){
 
@@ -79,6 +93,10 @@ int main(int argc, char** argv){
    // convert arguments to uints
    u32 width = std::stoi(argv[1]);
    u32 height = std::stoi(argv[2]);
+   // add padding
+   // https://stackoverflow.com/questions/49903319/simple-way-to-calculate-padding-based-on-modulo-remainder
+   width += -(width % 16);
+   height += -(height % 16);
    std::string quality{argv[3]};
 
    // create instances of reader & output stream
@@ -87,18 +105,17 @@ int main(int argc, char** argv){
    // add the width and height into the stream
    output_stream.push_u32(height);
    output_stream.push_u32(width);
-   // 8x8 blocks for each frame
-   // read Y, Cb, Cr (3 bytes of data) from stdin into the active_frame
    bool haveIFrame = false;
-   bool printed = false;
+   // initialize state
    Macroblock mb;
    mb.Y.setZero();
    mb.Cb.setZero();
    mb.Cr.setZero();
-   std::vector<YUVFrame420>frame_buffer(64, YUVFrame420(width, height));
+   frame_buffer.reserve(64 * width/16 * height/16 );
+
+   std::cerr << frame_buffer.size() << std::endl; 
    while (reader.read_next_frame()){
       YUVFrame420& frame = reader.frame();
-      output_stream.push_byte(1); // push flag indicating there is a frame and it's an IFRAME
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
             /* fill blocks */
@@ -114,11 +131,15 @@ int main(int argc, char** argv){
                }
             }
             /* create an I-Frame every 64 frames */
-            if(false || frame_buffer.size() % 64) {}
+            if(false || frame_buffer.size() % 64) {
+
+            } else  // push flag indicating there is a frame and it's an IFRAME
+               output_stream.push_byte(1); 
             write_mb_to_stream(output_stream, mb);
          }
          
       }
+      std::cerr << frame_buffer.size() << std::endl;
    }
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
