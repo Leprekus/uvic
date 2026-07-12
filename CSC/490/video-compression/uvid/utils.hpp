@@ -1,5 +1,6 @@
 #include "types.hpp"
 #include <Eigen/Dense>
+#include <iostream>
 
 static const Matrix8d C {
    {0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,},
@@ -76,3 +77,46 @@ static void reconstruct_block(Matrix8dRef block) {
    // clamp values between 0 and 255 
    block = block.cwiseMax(0).cwiseMin(255);
 }
+
+
+class FrameBuffer {
+   private:
+      u32 width, height, capacity;
+      std::vector<Macroblock> buffer;
+   public:
+      FrameBuffer(u32 w, u32 h) {
+         width = w / 16;
+         height = h / 16;
+         const int macroblocks_per_frame = ceil(((double)width * height)/384); 
+         capacity = macroblocks_per_frame;
+         buffer.reserve(capacity);
+      }
+      Macroblock &get_mb(auto x, auto y) {
+         /*
+          * calculate index as:
+          * 1. round to neareast block (multiple of 16): x = x + (-x mod 16)
+          * 2. divide over 16 (>>4) to map a pixel to a block index
+          * 3. multiply width * y + x to get the idx for the ith macroblock
+          * */
+         x = (x + (-x & 15)) >> 4;
+         y = (y + (-y & 15)) >> 4;
+         return buffer.at(width * y + x);
+      }
+      void push_mb(Macroblock &mb) {
+         buffer.push_back({
+               .Y = mb.Y,
+               .Cb = mb.Cb,
+               .Cr = mb.Cr
+               });
+      }
+      void clear() {
+         buffer.clear();
+      }
+      auto size() {
+         return buffer.size();
+      }
+      u32 frame_count() { 
+         u32 count = buffer.size() / (width * height);
+         return count;
+      }
+};

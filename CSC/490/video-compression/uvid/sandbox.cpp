@@ -67,5 +67,6 @@ int main() {
          87, 79,69,68,65,76,78,94,
    test_pipeline(block); 
    
+      0 % 16;
       return 0;
    }
