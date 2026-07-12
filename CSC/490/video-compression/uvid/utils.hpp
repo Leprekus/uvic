@@ -46,30 +46,30 @@ static void dct_inverse(Matrix8dRef D) {
 }
 
 template <const Matrix8d &QMatrix>
-static void quantize_forward(Matrix8dRef D) {
-   D = D.cwiseQuotient(QMatrix);
+static void quantize_forward(Quality q, Matrix8dRef D) {
+   D = D.cwiseQuotient((QMatrix * qual_val[q]).array().round().matrix());
 }
 
 template <const Matrix8d &QMatrix>
-static void quantize_inverse(Matrix8dRef T) {
-   T = T.cwiseProduct(QMatrix);
+static void quantize_inverse(Quality q, Matrix8dRef T) {
+   T = T.cwiseProduct((QMatrix * qual_val[q]).array().round().matrix());
 }
 template <const Matrix8d &QMatrix>
-static void transform_and_quantize(Matrix8dRef block) {
+static void transform_and_quantize(Quality q, Matrix8dRef block) {
    // center data around -127 and 128
    block = block.array() - 128;
    dct_forward(block);
    // choose the correct quantization matrix for
    // Y / (Cb | Cr) blocks
-   quantize_forward<QMatrix>(block);
-   block = block.array().round();
+   quantize_forward<QMatrix>(q, block);
+   block = block.array().round().cwiseMax(-127).cwiseMin(128);
 }
 
 template <const Matrix8d &QMatrix>
-static void reconstruct_block(Matrix8dRef block) {
+static void reconstruct_block(Quality q, Matrix8dRef block) {
    // choose the correct quantization matrix for
    // Y / (Cb | Cr) blocks
-   quantize_inverse<QMatrix>(block);
+   quantize_inverse<QMatrix>(q, block);
    dct_inverse(block);
    block = block.array().round();
    // restore the offset peformed in the forward() operation
@@ -120,3 +120,4 @@ class FrameBuffer {
          return count;
       }
 };
+

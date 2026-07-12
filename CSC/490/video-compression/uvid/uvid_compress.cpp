@@ -36,6 +36,7 @@
 
 bool printed = false;
 std::optional<FrameBuffer> frame_buffer;
+Quality qual = Quality::MED;
 auto write_mb(OutputBitStream &stream, Macroblock &mb) {
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
@@ -50,42 +51,42 @@ auto write_mb(OutputBitStream &stream, Macroblock &mb) {
          stream.push_byte(mb.Cr(x, y));
 }
 auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb) {
-   //if(!printed) {
-   //   std::cerr << "original Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //}
+   if(!printed) {
+      std::cerr << "original Y" << std::endl;
+      std::cerr << mb.Y;
+   }
    
-   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
-   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
-   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-   transform_and_quantize<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
+   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
+   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
                                                       
-   transform_and_quantize<QCbBlock>(mb.Cb);
-   transform_and_quantize<QCbBlock>(mb.Cr);
+   transform_and_quantize<QCbBlock>(qual, mb.Cb);
+   transform_and_quantize<QCbBlock>(qual, mb.Cr);
    
    write_mb(stream, mb);
 
-   //if(!printed) {
-   //   printed = true;
-   //   std::cerr << "compressor transformed Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //   std::cerr << "compressor reconstructed Y" << std::endl;
-   //   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
-   //   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
-   //   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-   //   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
-   //   std::cerr << mb.Y;
-   //}
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+   if(!printed) {
+      printed = true;
+      std::cerr << "compressor transformed Y" << std::endl;
+      std::cerr << mb.Y;
+      std::cerr << "compressor reconstructed Y" << std::endl;
+      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
+      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
+      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+      std::cerr << mb.Y;
+   }
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
                                                       
-   reconstruct_block<QCbBlock>(mb.Cb);
-   reconstruct_block<QCbBlock>(mb.Cr);
+   reconstruct_block<QCbBlock>(qual, mb.Cb);
+   reconstruct_block<QCbBlock>(qual, mb.Cr);
 
    // copy decompressed macro block to buffer
-   frame_buffer->push_mb(mb);
+   //frame_buffer->push_mb(mb);
 }
 int count = 0;
 void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
@@ -118,6 +119,7 @@ void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, aut
 int main(int argc, char** argv){
 
    if (argc < 4){
+      terminate:
       std::cout << "Usage: " << argv[0] << " <width> <height> <low/medium/high>" << std::endl;
       return 1;
    }
@@ -129,6 +131,14 @@ int main(int argc, char** argv){
    width += (-width % 16);
    height += (-height % 16);
    std::string quality{argv[3]};
+   if(quality == "low")
+      qual = Quality::LOW;
+   else if(quality == "medium")
+      qual = Quality::MED; 
+   else if(quality == "high") 
+      qual = Quality::HIGH;
+   else goto terminate;
+   
 
    // create instances of reader & output stream
    YUVStreamReader reader {std::cin, width, height};
@@ -136,6 +146,7 @@ int main(int argc, char** argv){
    // add the width and height into the stream
    output_stream.push_u32(height);
    output_stream.push_u32(width);
+   output_stream.push_byte(qual);
    bool haveIFrame = false;
    // initialize state
    Macroblock mb;
@@ -145,7 +156,6 @@ int main(int argc, char** argv){
    const int macroblocks_per_frame = ceil(((double)width * height)/384); 
    frame_buffer = FrameBuffer{ width, height };
    while (reader.read_next_frame()){
-      count++;
       // push flag to indicate there's a next frame
       output_stream.push_byte(1);
       YUVFrame420& frame = reader.frame();
@@ -164,7 +174,7 @@ int main(int argc, char** argv){
                }
             }
             /* create an I-Frame every 64 frames */
-            if(frame_buffer->frame_count() == 0) {
+            if(false || frame_buffer->frame_count() == 0) {
                encode_and_write_mb(output_stream, mb);
             } else { 
                encode_and_write_vector_search(output_stream, mb, x0, y0);
@@ -172,7 +182,7 @@ int main(int argc, char** argv){
          }
 
       }
-      assert(frame_buffer->frame_count() == 1);
+      //assert(frame_buffer->frame_count() == 1);
    }
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();

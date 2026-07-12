@@ -19,4 +19,9 @@ enum FrameType {
    IFRAME,
    PFRAME
 };
+enum Quality {
+   LOW = 0, MED = 1, HIGH = 2
+};
+const double qual_val[3] =  { 1.5, 1, 0.618 };
+
 #endif

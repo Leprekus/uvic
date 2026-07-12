@@ -34,6 +34,7 @@
 
 bool printed = false;
 std::optional<FrameBuffer> frame_buffer;
+Quality qual = Quality::MED;
 void write_mb(YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
@@ -48,19 +49,19 @@ void write_mb(YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
          frame.Cr(x0/2 + x, y0/2 + y) = mb.Cr(x, y);
 }
 auto reconstruct_mb(InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 0)); // Top-Left
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(0, 8)); // Top-Right
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-   reconstruct_block<QYBlock>(mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
                                                       
-   reconstruct_block<QCbBlock>(mb.Cb);
-   reconstruct_block<QCbBlock>(mb.Cr);
-   frame_buffer->push_mb(mb); // store decompressed I-frame
-   //if(!printed){
-   //   printed = true;
-   //   std::cerr << "decompressor reconstructed Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //}
+   reconstruct_block<QCbBlock>(qual, mb.Cb);
+   reconstruct_block<QCbBlock>(qual, mb.Cr);
+   //frame_buffer->push_mb(mb); // store decompressed I-frame
+   if(!printed){
+      printed = true;
+      std::cerr << "decompressor reconstructed Y" << std::endl;
+      std::cerr << mb.Y;
+   }
 
    write_mb(frame, mb, x0, y0); 
 }
@@ -101,6 +102,14 @@ int main(int argc, char** argv){
 
    u32 height {input_stream.read_u32()};
    u32 width {input_stream.read_u32()};
+   u8 qual_opt = input_stream.read_byte();
+   if(qual_opt == Quality::LOW) qual = Quality::LOW;
+   else if(qual_opt == Quality::MED) qual = Quality::MED;
+   else if(qual_opt == Quality::HIGH) qual = Quality::HIGH;
+   else {
+      std::cerr << "invalid quality: " << static_cast<int>(qual_opt); 
+      exit(1);
+   };
    // 8x8 blocks for each frame
    YUVStreamWriter writer {std::cout, width, height};
    Macroblock mb;
@@ -128,7 +137,7 @@ int main(int argc, char** argv){
                for(auto x = 0; x < 8; x++)
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
-            if(frame_buffer->frame_count() == 0)
+            if(false || frame_buffer->frame_count() == 0)
                reconstruct_mb(input_stream, frame, mb, x0, y0);
             else 
                reconstruct_vector(frame, mb, x0, y0);
@@ -136,6 +145,5 @@ int main(int argc, char** argv){
          
       }
    }
-   //exit(1);
    return 0;
 }
