@@ -12,7 +12,10 @@ static const Matrix8d C {
       {0.19134171618254492,-0.4619397662556434,0.46193976625564326,-0.19134171618254495,-0.19134171618254528,0.46193976625564337,-0.4619397662556432,0.19134171618254478,},
       {0.09754516100806417,-0.2777851165098011,0.41573480615127273,-0.4903926402016153,0.4903926402016152,-0.4157348061512725,0.27778511650980076,-0.09754516100806429,},
 };
-static const Matrix8d QYBlock {
+
+const double low = 1.618;
+const double high = 0.618;
+static const Matrix8d QYMed {
       {16, 11, 10, 16, 24, 40, 51, 61},
       {12, 12, 14, 19, 26, 58, 60, 55,},
       {14, 13, 16, 24, 40, 57, 69, 56},
@@ -22,7 +25,10 @@ static const Matrix8d QYBlock {
       {49, 64, 78, 87, 103, 121, 120, 101},
       {72, 92, 95, 98, 112, 100, 103, 99},
    };
-   static const Matrix8d QCbBlock {
+static const Matrix8d QYLow = (QYMed * 1.618).array().round().matrix(); 
+static const Matrix8d QYHigh = (QYMed * 0.618).array().round().matrix(); 
+
+static const Matrix8d QCMed {
       {17, 18, 24, 47, 99, 99, 99, 99},
       {18, 21, 26, 66, 99, 99, 99, 99},
       {24, 26, 56, 99, 99, 99, 99, 99},
@@ -32,7 +38,17 @@ static const Matrix8d QYBlock {
       {99, 99, 99, 99, 99, 99, 99, 99},
       {99, 99, 99, 99, 99, 99, 99, 99},
    };
-   
+static const Matrix8d QCLow = (QCMed * 2).array().round().matrix();
+static const Matrix8d QCHigh = (QCMed * 0.90).array().round().matrix();
+
+static const Matrix8d QYDeltas = (QYMed * 0.80).array().round().matrix();
+static const Matrix8d QCDeltas = (QCMed * 1).array().round().matrix();
+static const Matrix8d QuantY[4] = {
+   QYLow, QYMed, QYHigh, QYDeltas
+};
+static const Matrix8d QuantC[4] = {
+   QCLow, QCMed, QCHigh, QCDeltas
+};
 
 enum BlockType {
    YBLOCK, CBLOCK
@@ -45,37 +61,30 @@ static void dct_inverse(Matrix8dRef D) {
    D = C.transpose() * D * C;
 }
 
-template <const Matrix8d &QMatrix>
-static void quantize_forward(Quality q, Matrix8dRef D) {
-   D = D.cwiseQuotient((QMatrix * qual_val[q]).array().round().matrix());
+static void quantize_forward(const Matrix8d &Q, Matrix8dRef D) {
+   D = D.cwiseQuotient(Q);
 }
 
-template <const Matrix8d &QMatrix>
-static void quantize_inverse(Quality q, Matrix8dRef T) {
-   T = T.cwiseProduct((QMatrix * qual_val[q]).array().round().matrix());
+static void quantize_inverse(const Matrix8d &Q, Matrix8dRef T) {
+   T = T.cwiseProduct(Q);
 }
-template <const Matrix8d &QMatrix>
-static void transform_and_quantize(Quality q, Matrix8dRef block) {
-   // center data around -127 and 128
-   block = block.array() - 128;
+static void transform_and_quantize(const Matrix8d &Q, Matrix8dRef block) {
+   //block.array() -= 128;
    dct_forward(block);
    // choose the correct quantization matrix for
    // Y / (Cb | Cr) blocks
-   quantize_forward<QMatrix>(q, block);
-   block = block.array().round().cwiseMax(-127).cwiseMin(128);
+   quantize_forward(Q, block);
+   //block  = block.array().round().cwiseMax(-127).cwiseMin(128);
 }
 
-template <const Matrix8d &QMatrix>
-static void reconstruct_block(Quality q, Matrix8dRef block) {
+static void reconstruct_block(const Matrix8d &Q, Matrix8dRef block) {
    // choose the correct quantization matrix for
    // Y / (Cb | Cr) blocks
-   quantize_inverse<QMatrix>(q, block);
+   quantize_inverse(Q, block);
    dct_inverse(block);
    block = block.array().round();
    // restore the offset peformed in the forward() operation
-   block = block.array() + 128;
-   // clamp values between 0 and 255 
-   block = block.cwiseMax(0).cwiseMin(255);
+   
 }
 
 
@@ -121,3 +130,69 @@ class FrameBuffer {
       }
 };
 
+static void iframe_forward(Quality qual, Macroblock &mb) {
+   // center data around -127 and 128
+   mb.Y.array() -= 128;
+   mb.Cb.array() -= 128;
+   mb.Cr.array() -= 128;
+   transform_and_quantize(QuantY[qual], mb.Y.block<8, 8>(0, 0)); // Top-Left
+   transform_and_quantize(QuantY[qual], mb.Y.block<8, 8>(0, 8)); // Top-Right
+   transform_and_quantize(QuantY[qual], mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   transform_and_quantize(QuantY[qual], mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+                                                      
+   transform_and_quantize(QuantC[qual], mb.Cb);
+   transform_and_quantize(QuantC[qual], mb.Cr);
+   mb.Y  = mb.Y.array().round().cwiseMax(-127).cwiseMin(128);
+   mb.Cr = mb.Cr.array().round().cwiseMax(-127).cwiseMin(128);
+   mb.Cb = mb.Cb.array().round().cwiseMax(-127).cwiseMin(128);
+
+}
+static void iframe_inverse(Quality qual, Macroblock &mb) {
+   reconstruct_block(QuantY[qual], mb.Y.block<8, 8>(0, 0)); // Top-Left
+   reconstruct_block(QuantY[qual], mb.Y.block<8, 8>(0, 8)); // Top-Right
+   reconstruct_block(QuantY[qual], mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   reconstruct_block(QuantY[qual], mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+                                                              
+   reconstruct_block(QuantC[qual], mb.Cb);
+   reconstruct_block(QuantC[qual], mb.Cr);
+
+   mb.Y.array()  += 128;
+   mb.Cb.array() += 128;
+   mb.Cr.array() += 128;
+   // clamp values between 0 and 255 
+   mb.Y =  mb.Y.cwiseMax(0).cwiseMin(255);
+   mb.Cb = mb.Cb.cwiseMax(0).cwiseMin(255);
+   mb.Cr = mb.Cr.cwiseMax(0).cwiseMin(255);
+
+}
+
+static void predicted_forward(Macroblock &mb, Macroblock &decompressed_mb) {
+   mb.Y  -=  decompressed_mb.Y;
+   mb.Cb -= decompressed_mb.Cb;
+   mb.Cr -= decompressed_mb.Cr;
+   transform_and_quantize(QuantY[Quality::DELTA], mb.Y.block<8, 8>(0, 0)); // Top-Left
+   transform_and_quantize(QuantY[Quality::DELTA], mb.Y.block<8, 8>(0, 8)); // Top-Right
+   transform_and_quantize(QuantY[Quality::DELTA], mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   transform_and_quantize(QuantY[Quality::DELTA], mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+                                                      
+   transform_and_quantize(QuantC[Quality::DELTA], mb.Cb);
+   transform_and_quantize(QuantC[Quality::DELTA], mb.Cr);
+   mb.Y  = mb.Y.array().round().cwiseMax(-128).cwiseMin(127);
+   mb.Cr = mb.Cr.array().round().cwiseMax(-128).cwiseMin(127);
+   mb.Cb = mb.Cb.array().round().cwiseMax(-128).cwiseMin(127);
+}
+static void predicted_inverse(Macroblock &mb, Macroblock &decompressed_mb) {
+   reconstruct_block(QuantY[Quality::DELTA], mb.Y.block<8, 8>(0, 0)); // Top-Left
+   reconstruct_block(QuantY[Quality::DELTA], mb.Y.block<8, 8>(0, 8)); // Top-Right
+   reconstruct_block(QuantY[Quality::DELTA], mb.Y.block<8, 8>(8, 0)); // Bottom-Left
+   reconstruct_block(QuantY[Quality::DELTA], mb.Y.block<8, 8>(8, 8)); // Bottom-Right
+                                                              
+   reconstruct_block(QuantC[Quality::DELTA], mb.Cb);
+   reconstruct_block(QuantC[Quality::DELTA], mb.Cr);
+   mb.Y  +=  decompressed_mb.Y;
+   mb.Cb += decompressed_mb.Cb;
+   mb.Cr += decompressed_mb.Cr;
+   mb.Y =  mb.Y.cwiseMax(0).cwiseMin(255);
+   mb.Cb = mb.Cb.cwiseMax(0).cwiseMin(255);
+   mb.Cr = mb.Cr.cwiseMax(0).cwiseMin(255);
+}

@@ -49,19 +49,13 @@ void write_mb(YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
          frame.Cr(x0/2 + x, y0/2 + y) = mb.Cr(x, y);
 }
 auto reconstruct_mb(InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
-                                                      
-   reconstruct_block<QCbBlock>(qual, mb.Cb);
-   reconstruct_block<QCbBlock>(qual, mb.Cr);
-   //frame_buffer->push_mb(mb); // store decompressed I-frame
-   if(!printed){
-      printed = true;
-      std::cerr << "decompressor reconstructed Y" << std::endl;
-      std::cerr << mb.Y;
-   }
+   iframe_inverse(qual, mb); 
+   frame_buffer->push_mb(mb); // store decompressed I-frame
+   //if(!printed){
+   //   printed = true;
+   //   std::cerr << "decompressor reconstructed Y" << std::endl;
+   //   std::cerr << mb.Y;
+   //}
 
    write_mb(frame, mb, x0, y0); 
 }
@@ -75,15 +69,8 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, auto x, auto y) {
    
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    // add dequantize and add delta
-   mb.Y  *= 2;
-   mb.Cr *= 2;
-   mb.Cb *= 2;
-
-   mb.Y  +=  decompressed_mb.Y;
-   mb.Cr += decompressed_mb.Cr;
-   mb.Cb += decompressed_mb.Cb;
-
-
+  //inverse(Quality::DELTA, mb); 
+   predicted_inverse(mb, decompressed_mb); 
    write_mb(frame, mb, x, y); 
    if(count == 105 && !printed) {
       printed = true;
@@ -137,13 +124,15 @@ int main(int argc, char** argv){
                for(auto x = 0; x < 8; x++)
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
-            if(false || frame_buffer->frame_count() == 0)
+            if(frame_buffer->frame_count() == 0)
                reconstruct_mb(input_stream, frame, mb, x0, y0);
             else 
                reconstruct_vector(frame, mb, x0, y0);
          }
          
       }
+      
+      assert(frame_buffer->frame_count() == 1);
    }
    return 0;
 }

@@ -50,43 +50,22 @@ auto write_mb(OutputBitStream &stream, Macroblock &mb) {
       for(auto x = 0; x < 8; x++)
          stream.push_byte(mb.Cr(x, y));
 }
+
 auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb) {
-   if(!printed) {
-      std::cerr << "original Y" << std::endl;
-      std::cerr << mb.Y;
-   }
-   
-   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
-   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
-   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-   transform_and_quantize<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
-                                                      
-   transform_and_quantize<QCbBlock>(qual, mb.Cb);
-   transform_and_quantize<QCbBlock>(qual, mb.Cr);
-   
+   iframe_forward(qual, mb); 
    write_mb(stream, mb);
-
-   if(!printed) {
-      printed = true;
-      std::cerr << "compressor transformed Y" << std::endl;
-      std::cerr << mb.Y;
-      std::cerr << "compressor reconstructed Y" << std::endl;
-      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
-      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
-      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-      reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
-      std::cerr << mb.Y;
-   }
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 0)); // Top-Left
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(0, 8)); // Top-Right
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 0)); // Bottom-Left
-   reconstruct_block<QYBlock>(qual, mb.Y.block<8, 8>(8, 8)); // Bottom-Right
-                                                      
-   reconstruct_block<QCbBlock>(qual, mb.Cb);
-   reconstruct_block<QCbBlock>(qual, mb.Cr);
-
+   //if(!printed) {
+   //   std::cerr << "compressor transformed Y" << std::endl;
+   //   std::cerr << mb.Y;
+   //} 
+   iframe_inverse(qual, mb); 
+   //if(!printed){
+   //   printed = true; 
+   //   std::cerr << "compressor reconstructed Y" << std::endl;
+   //   std::cerr << mb.Y;
+   //}
    // copy decompressed macro block to buffer
-   //frame_buffer->push_mb(mb);
+   frame_buffer->push_mb(mb);
 }
 int count = 0;
 void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
@@ -97,22 +76,18 @@ void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, aut
    
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    // compute delta and quantize
-   mb.Y -=  decompressed_mb.Y;
-   mb.Cr -= decompressed_mb.Cr;
-   mb.Cb -= decompressed_mb.Cb;
-   mb.Y  = (mb.Y / 2).array().round();
-   mb.Cr = (mb.Cr / 2).array().round();
-   mb.Cb = (mb.Cb / 2).array().round();
+   predicted_forward(mb, decompressed_mb); 
    write_mb(stream, mb);
+
    if(count == 105 && !printed) {
       printed = true;
       //std::cerr << "CACHED: decompressed Y" << std::endl;
       //std::cerr << decompressed_mb.Y << std::endl;
-      std::cerr << "COMPRESSOR DELTA: Y" << std::endl;
+      std::cerr << "COMPRESSOR QUANTIZED: Y" << std::endl;
       std::cerr << mb.Y << std::endl;
+
+      predicted_inverse(mb, decompressed_mb);
       std::cerr << "RECONSTRUCTED: Y" << std::endl;
-      mb.Y *= 2;
-      mb.Y += decompressed_mb.Y;
       std::cerr << mb.Y << std::endl;
    }
 }
@@ -156,6 +131,7 @@ int main(int argc, char** argv){
    const int macroblocks_per_frame = ceil(((double)width * height)/384); 
    frame_buffer = FrameBuffer{ width, height };
    while (reader.read_next_frame()){
+      count++;
       // push flag to indicate there's a next frame
       output_stream.push_byte(1);
       YUVFrame420& frame = reader.frame();
@@ -174,7 +150,7 @@ int main(int argc, char** argv){
                }
             }
             /* create an I-Frame every 64 frames */
-            if(false || frame_buffer->frame_count() == 0) {
+            if(frame_buffer->frame_count() == 0) {
                encode_and_write_mb(output_stream, mb);
             } else { 
                encode_and_write_vector_search(output_stream, mb, x0, y0);
@@ -182,7 +158,7 @@ int main(int argc, char** argv){
          }
 
       }
-      //assert(frame_buffer->frame_count() == 1);
+      assert(frame_buffer->frame_count() == 1);
    }
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
