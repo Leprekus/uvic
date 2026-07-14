@@ -51,45 +51,27 @@ auto write_mb(OutputBitStream &stream, Macroblock &mb) {
          stream.push_byte(mb.Cr(x, y));
 }
 
+void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector) {
+   auto [x, y] = mb_vector;
+   stream.push_byte(x);
+   stream.push_byte(y);
+}
 auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb) {
    iframe_forward(qual, mb); 
+   write_intra_vector(stream, std::pair(-1, -1));
    write_mb(stream, mb);
-   //if(!printed) {
-   //   std::cerr << "compressor transformed Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //} 
    iframe_inverse(qual, mb); 
-   //if(!printed){
-   //   printed = true; 
-   //   std::cerr << "compressor reconstructed Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //}
-   // copy decompressed macro block to buffer
    frame_buffer->push_mb(mb);
 }
 int count = 0;
 void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
-   if(count ==105 &&!printed) {
-      std::cerr << "COMPRESSOR: original Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
    
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    // compute delta and quantize
+   write_intra_vector(stream, std::pair(-1, -1));
    predicted_forward(mb, decompressed_mb); 
    write_mb(stream, mb);
-
-   if(count == 105 && !printed) {
-      printed = true;
-      //std::cerr << "CACHED: decompressed Y" << std::endl;
-      //std::cerr << decompressed_mb.Y << std::endl;
-      std::cerr << "COMPRESSOR QUANTIZED: Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-
-      predicted_inverse(mb, decompressed_mb);
-      std::cerr << "RECONSTRUCTED: Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
+   
 }
 int main(int argc, char** argv){
 
