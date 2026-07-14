@@ -80,6 +80,14 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, auto x, auto y) {
       std::cerr << mb.Y << std::endl;
    }
 }
+std::pair<char, char> read_vector(InputBitStream &stream) {
+   char x = static_cast<char>(stream.read_byte()); 
+   if(x == -1)
+      return std::pair(-1, -1);
+   char y = static_cast<char>(stream.read_byte()); 
+   return std::pair(x, y); 
+}
+
 int main(int argc, char** argv){
 
    //Note: This program must not take any command line arguments. (Anything
@@ -112,10 +120,7 @@ int main(int argc, char** argv){
       writer.write_frame();
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
-            std::pair<char, char> vector = std::pair(
-                  input_stream.read_byte(),
-                  input_stream.read_byte()
-                  );
+            std::pair<char, char> vector = read_vector(input_stream);
             /* fill Y */
             for(auto y = 0; y < 16; y++)
                for(auto x = 0; x < 16; x++)

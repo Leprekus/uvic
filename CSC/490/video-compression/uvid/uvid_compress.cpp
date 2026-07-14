@@ -53,12 +53,55 @@ auto write_mb(OutputBitStream &stream, Macroblock &mb) {
 
 void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector) {
    auto [x, y] = mb_vector;
+   if(x == -1 && y == -1)
+      return stream.push_byte(x);
    stream.push_byte(x);
    stream.push_byte(y);
 }
-auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb) {
-   iframe_forward(qual, mb); 
-   write_intra_vector(stream, std::pair(-1, -1));
+Macroblock tmp{
+   .Y  = Matrix16d::Zero(16, 16), 
+   .Cb = Matrix8d::Zero(8, 8), 
+   .Cr = Matrix8d::Zero(8, 8)
+};
+int get_aad(Macroblock &want, Macroblock &have){
+      return (
+         ((want.Y  - have.Y).array().abs().sum() +
+          (want.Cb - have.Cb).array().abs().sum() +
+          (want.Cr - have.Cr).array().abs().sum()) 
+         / 384
+         );
+      
+}
+std::pair<char, char> intra_prediction(Macroblock &mb, auto x, auto y) {
+   
+   tmp = mb;
+   if(x >= 16) {
+      Macroblock &left = frame_buffer->get_mb(x - 16, y); 
+      if(get_aad(tmp, left) <= 5) {
+         predicted_forward(mb, left);
+         return std::pair(-16, 0);
+      }
+   }
+   if(y >= 16) {
+      Macroblock &above = frame_buffer->get_mb(x, y - 16); 
+      if(get_aad(tmp, above) <= 5) {
+         predicted_forward(mb, above);
+         return std::pair(0, - 16);
+      }
+   }
+   if(x >= 16 && y >= 16) {
+      Macroblock &topleft = frame_buffer->get_mb(x - 16, y - 16);
+      if(get_aad(tmp, topleft) <= 5) {
+         predicted_forward(mb, topleft);
+         return std::pair(- 16, - 16);
+      }
+   }
+   iframe_forward(qual, mb);
+   return std::pair(-1, -1);
+}
+auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
+   auto vect = intra_prediction(mb, x, y); 
+   write_intra_vector(stream, vect);
    write_mb(stream, mb);
    iframe_inverse(qual, mb); 
    frame_buffer->push_mb(mb);
@@ -133,7 +176,7 @@ int main(int argc, char** argv){
             }
             /* create an I-Frame every 64 frames */
             if(frame_buffer->frame_count() == 0) {
-               encode_and_write_mb(output_stream, mb);
+               encode_and_write_mb(output_stream, mb, x0, y0);
             } else { 
                encode_and_write_vector_search(output_stream, mb, x0, y0);
             }
