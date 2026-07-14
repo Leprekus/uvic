@@ -92,13 +92,13 @@ static void reconstruct_block(const Matrix8d &Q, Matrix8dRef block) {
 class FrameBuffer {
    private:
       u32 width, height, capacity;
-      std::vector<Macroblock> buffer;
    public:
+      std::vector<Macroblock> buffer;
       FrameBuffer(u32 w, u32 h) {
          width = w / 16;
          height = h / 16;
          const int macroblocks_per_frame = ceil(((double)width * height)/384); 
-         capacity = macroblocks_per_frame;
+         capacity = macroblocks_per_frame * 17;
          buffer.reserve(capacity);
       }
       Macroblock &get_mb(int x, int y) {
@@ -114,12 +114,11 @@ class FrameBuffer {
          int frame_offset = std::max((int)frame_count() * (int)width * (int)height - 1, 0);
          return buffer.at(frame_offset + width * y + x);
       }
-      void push_mb(Macroblock &mb) {
-         buffer.push_back({
-               .Y = mb.Y,
-               .Cb = mb.Cb,
-               .Cr = mb.Cr
-               });
+      void push_mb(const Macroblock &mb) {
+         buffer.push_back(mb);
+      }
+      int mb_in_frame() {
+         return width * height;
       }
       void clear() {
          buffer.clear();

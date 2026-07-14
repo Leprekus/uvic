@@ -50,7 +50,7 @@ void write_mb(YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
 }
 void reconstruct_mb(
       InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb,
-      auto x0, auto y0, auto offset) {
+      auto x0, auto y0, std::pair<char, char> offset) {
    intra_reconstruct(frame_buffer, qual, mb, x0, y0, offset);
    frame_buffer->push_mb(mb); // store decompressed I-frame
    write_mb(frame, mb, x0, y0); 
@@ -58,6 +58,7 @@ void reconstruct_mb(
 
 int count = 0;
 void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int x, int y) {
+   //std::cerr << "PFRAME\n";
    assert(x >= 0 && y >=0); 
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    predicted_inverse(mb, decompressed_mb); 
@@ -98,7 +99,6 @@ int main(int argc, char** argv){
    mb.Cb.setZero();
    mb.Cr.setZero();
    frame_buffer = FrameBuffer{ width, height };
-
    while (input_stream.read_byte()){
       count++;
       YUVFrame420& frame = writer.frame();
@@ -128,11 +128,11 @@ int main(int argc, char** argv){
             else if (is_between_first_and_last_frame) {
                reconstruct_vector(frame, mb, x0, y0);
             }
-            bool frame_buffer_is_full = frame_buffer->frame_count() == 17;
-            if(frame_buffer_is_full) frame_buffer->clear();
-
          }
-         
+      }
+      bool frame_buffer_is_full = frame_buffer->frame_count() == 17;
+      if(frame_buffer_is_full) {
+         frame_buffer->clear();
       }
    }
    return 0;

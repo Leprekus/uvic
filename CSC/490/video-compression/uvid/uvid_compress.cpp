@@ -38,7 +38,17 @@ bool printed = false;
 std::optional<FrameBuffer> buf_compressed;
 std::optional<FrameBuffer> buf_decompressed;
 Quality qual = Quality::MED;
-auto write_mb(OutputBitStream &stream, Macroblock &mb) {
+void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector) {
+   auto [x, y] = mb_vector;
+   if(x == -1 && y == -1)
+      return stream.push_byte(x);
+   stream.push_byte(x);
+   stream.push_byte(y);
+}
+auto write_mb(OutputBitStream &stream, Macroblock &mb, std::pair<char, char> vect) {
+
+   write_intra_vector(stream, vect);
+
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
          stream.push_byte(mb.Y(x, y));
@@ -52,13 +62,7 @@ auto write_mb(OutputBitStream &stream, Macroblock &mb) {
          stream.push_byte(mb.Cr(x, y));
 }
 
-void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector) {
-   auto [x, y] = mb_vector;
-   if(x == -1 && y == -1)
-      return stream.push_byte(x);
-   stream.push_byte(x);
-   stream.push_byte(y);
-}
+
 Macroblock tmp{
    .Y  = Matrix16d::Zero(16, 16), 
    .Cb = Matrix8d::Zero(8, 8), 
@@ -102,23 +106,41 @@ std::pair<char, char> intra_prediction(Macroblock &mb, auto x, auto y) {
 }
 auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
    auto vect = intra_prediction(mb, x, y); 
-   write_intra_vector(stream, vect);
-   write_mb(stream, mb);
+   //write_mb(stream, mb, vect);
+   mb.vect = vect;
+   buf_compressed->push_mb(mb);
    intra_reconstruct(buf_decompressed, qual, mb, x, y, vect);  
    buf_decompressed->push_mb(mb);
 }
+
 int count = 0;
 void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, int x, int y) {
    assert(x >= 0 && y >=0); 
    Macroblock &decompressed_mb = buf_decompressed->get_mb(x, y);  
    // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
-   write_intra_vector(stream, std::pair(-1, -1));
-   write_mb(stream, mb);
-   
-   //NEW
+   //write_mb(stream, mb, std::pair(-1, -1));
+   mb.vect = std::pair(-1, -1);
+   buf_compressed->push_mb(mb);
    predicted_inverse(mb, decompressed_mb);
    buf_decompressed->push_mb(mb);
+}
+static const int traversal_order[17] = {
+   0, 4, 1, 2, 3,
+   8, 5, 6, 7,
+   12, 9, 10, 11,
+   16, 13, 14, 15
+};
+void flush_buf(OutputBitStream &stream) {
+   int mb_written = 0;
+   int cap = buf_compressed->mb_in_frame();
+   assert(buf_compressed->mb_in_frame() == 396);
+   for(auto &mb: buf_compressed->buffer) {
+      // push a byte flag on new frames
+      if(mb_written == 0) stream.push_byte(1);
+      mb_written = (mb_written + 1) % cap;
+      write_mb(stream, mb, mb.vect);
+   }
 }
 int main(int argc, char** argv){
 
@@ -157,13 +179,13 @@ int main(int argc, char** argv){
    mb.Y.setZero();
    mb.Cb.setZero();
    mb.Cr.setZero();
-   const int macroblocks_per_frame = ceil(((double)width * height)/384); 
    buf_decompressed = FrameBuffer{ width, height };
    buf_compressed   = FrameBuffer{ width, height };
    while (reader.read_next_frame()){
       count++;
+
+      //output_stream.push_byte(1); // TODO: uncomment this when NOT using buffered output
       // push flag to indicate there's a next frame
-      output_stream.push_byte(1);
       YUVFrame420& frame = reader.frame();
       for(int y0 = 0; y0 < height; y0 += 16) {
          for(int x0 = 0; x0 < width; x0 += 16) {
@@ -190,11 +212,14 @@ int main(int argc, char** argv){
             }
             bool frame_buffer_is_full = buf_decompressed->frame_count() == 17;
             if(frame_buffer_is_full) {
+               flush_buf(output_stream);
+               buf_compressed->clear();
                buf_decompressed->clear();
             }
+            
          }
-
       }
+      
    }
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
