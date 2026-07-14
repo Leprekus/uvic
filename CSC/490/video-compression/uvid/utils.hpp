@@ -196,3 +196,10 @@ static void predicted_inverse(Macroblock &mb, Macroblock &decompressed_mb) {
    mb.Cb = mb.Cb.cwiseMax(0).cwiseMin(255);
    mb.Cr = mb.Cr.cwiseMax(0).cwiseMin(255);
 }
+
+void intra_reconstruct(
+      std::optional<FrameBuffer> &buffer, Quality qual,
+      Macroblock &mb, 
+      int x0, int y0,
+      std::pair<char, char> offset);
+void print(Macroblock &mb, std::string tag);

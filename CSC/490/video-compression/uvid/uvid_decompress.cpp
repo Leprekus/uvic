@@ -48,15 +48,11 @@ void write_mb(YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
       for(auto x = 0; x < 8; x++)
          frame.Cr(x0/2 + x, y0/2 + y) = mb.Cr(x, y);
 }
-auto reconstruct_mb(InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
-   iframe_inverse(qual, mb); 
+void reconstruct_mb(
+      InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb,
+      auto x0, auto y0, auto offset) {
+   intra_reconstruct(frame_buffer, qual, mb, x0, y0, offset);
    frame_buffer->push_mb(mb); // store decompressed I-frame
-   //if(!printed){
-   //   printed = true;
-   //   std::cerr << "decompressor reconstructed Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //}
-
    write_mb(frame, mb, x0, y0); 
 }
 
@@ -120,7 +116,7 @@ int main(int argc, char** argv){
       writer.write_frame();
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
-            std::pair<char, char> vector = read_vector(input_stream);
+            std::pair<char, char> vect = read_vector(input_stream);
             /* fill Y */
             for(auto y = 0; y < 16; y++)
                for(auto x = 0; x < 16; x++)
@@ -135,7 +131,7 @@ int main(int argc, char** argv){
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
             if(frame_buffer->frame_count() == 0)
-               reconstruct_mb(input_stream, frame, mb, x0, y0);
+               reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
             else 
                reconstruct_vector(frame, mb, x0, y0);
          }

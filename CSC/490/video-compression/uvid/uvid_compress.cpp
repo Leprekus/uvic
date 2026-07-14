@@ -103,7 +103,7 @@ auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y
    auto vect = intra_prediction(mb, x, y); 
    write_intra_vector(stream, vect);
    write_mb(stream, mb);
-   iframe_inverse(qual, mb); 
+   intra_reconstruct(frame_buffer, qual, mb, x, y, vect);  
    frame_buffer->push_mb(mb);
 }
 int count = 0;
@@ -111,8 +111,8 @@ void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, aut
    
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    // compute delta and quantize
-   write_intra_vector(stream, std::pair(-1, -1));
    predicted_forward(mb, decompressed_mb); 
+   write_intra_vector(stream, std::pair(-1, -1));
    write_mb(stream, mb);
    
 }
