@@ -1,7 +1,8 @@
 #include "types.hpp"
 #include <Eigen/Dense>
-#include <algorithm>
 #include <iostream>
+#include <algorithm>
+#include <span>
 
 static const Matrix8d C {
    {0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,},
@@ -117,13 +118,19 @@ class FrameBuffer {
       void push_mb(const Macroblock &mb) {
          buffer.push_back(mb);
       }
+      std::span<const Macroblock> get_frame(int i) {
+         int start = width * height * i;
+         int step = (width * height);
+         assert(start + step <= size());
+         return std::span<const Macroblock>(&buffer[start], step);
+      }
       int mb_in_frame() {
          return width * height;
       }
       void clear() {
          buffer.clear();
       }
-      auto size() {
+      size_t size() {
          return buffer.size();
       }
       u32 frame_count() { 

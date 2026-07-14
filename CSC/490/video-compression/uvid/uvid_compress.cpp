@@ -45,7 +45,7 @@ void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector
    stream.push_byte(x);
    stream.push_byte(y);
 }
-auto write_mb(OutputBitStream &stream, Macroblock &mb, std::pair<char, char> vect) {
+auto write_mb(OutputBitStream &stream, const Macroblock &mb, std::pair<char, char> vect) {
 
    write_intra_vector(stream, vect);
 
@@ -135,11 +135,14 @@ void flush_buf(OutputBitStream &stream) {
    int mb_written = 0;
    int cap = buf_compressed->mb_in_frame();
    assert(buf_compressed->mb_in_frame() == 396);
-   for(auto &mb: buf_compressed->buffer) {
-      // push a byte flag on new frames
-      if(mb_written == 0) stream.push_byte(1);
-      mb_written = (mb_written + 1) % cap;
-      write_mb(stream, mb, mb.vect);
+   //for(auto &mb: buf_compressed->buffer) {
+   for(int i = 0; i < 17; i++){
+      for(const Macroblock &mb: buf_compressed->get_frame(i)){
+         // push a byte flag on new frames
+         if(mb_written == 0) stream.push_byte(1);
+         mb_written = (mb_written + 1) % cap;
+         write_mb(stream, mb, mb.vect);
+      }
    }
 }
 int main(int argc, char** argv){
