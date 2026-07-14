@@ -125,18 +125,13 @@ void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, int
    predicted_inverse(mb, decompressed_mb);
    buf_decompressed->push_mb(mb);
 }
-static const int traversal_order[17] = {
-   0, 4, 1, 2, 3,
-   8, 5, 6, 7,
-   12, 9, 10, 11,
-   16, 13, 14, 15
-};
+
 void flush_buf(OutputBitStream &stream) {
    int mb_written = 0;
    int cap = buf_compressed->mb_in_frame();
    assert(buf_compressed->mb_in_frame() == 396);
    //for(auto &mb: buf_compressed->buffer) {
-   for(int i = 0; i < 17; i++){
+   for(int i: frame_traversal_order){
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
          // push a byte flag on new frames
          if(mb_written == 0) stream.push_byte(1);

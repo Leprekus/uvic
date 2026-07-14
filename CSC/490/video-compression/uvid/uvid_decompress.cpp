@@ -123,11 +123,12 @@ int main(int argc, char** argv){
             int frame_count = frame_buffer->frame_count();
             bool is_p_or_iframe = frame_count % 4 == 0;
             bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
-            if(is_p_or_iframe)
-               reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
-            else if (is_between_first_and_last_frame) {
-               reconstruct_vector(frame, mb, x0, y0);
-            }
+            //if(is_p_or_iframe)
+            //   reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
+            //else if (is_between_first_and_last_frame) {
+            //   reconstruct_vector(frame, mb, x0, y0);
+            //}
+
          }
       }
       bool frame_buffer_is_full = frame_buffer->frame_count() == 17;
