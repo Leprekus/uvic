@@ -115,6 +115,9 @@ void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, aut
    write_intra_vector(stream, std::pair(-1, -1));
    write_mb(stream, mb);
    
+   //NEW
+   predicted_inverse(mb, decompressed_mb);
+   frame_buffer->push_mb(mb);
 }
 int main(int argc, char** argv){
 
@@ -175,15 +178,19 @@ int main(int argc, char** argv){
                }
             }
             /* create an I-Frame every 64 frames */
-            if(frame_buffer->frame_count() == 0) {
+            int frame_count = frame_buffer->frame_count();
+            bool is_first_or_last_frame = frame_count == 0 || frame_count == 15;
+            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 15;
+            if(is_first_or_last_frame) {
                encode_and_write_mb(output_stream, mb, x0, y0);
-            } else { 
+            } else if(is_between_first_and_last_frame){ 
                encode_and_write_vector_search(output_stream, mb, x0, y0);
             }
+            bool frame_buffer_is_full = frame_buffer->frame_count() == 16;
+            if(frame_buffer_is_full) frame_buffer->clear();
          }
 
       }
-      assert(frame_buffer->frame_count() == 1);
    }
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();

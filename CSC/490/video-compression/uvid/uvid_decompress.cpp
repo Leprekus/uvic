@@ -58,23 +58,12 @@ void reconstruct_mb(
 
 int count = 0;
 void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, auto x, auto y) {
-      if(count == 105 && !printed) {
-      std::cerr << "DECOMPRESSOR: delta Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
-   
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
-   // add dequantize and add delta
-  //inverse(Quality::DELTA, mb); 
    predicted_inverse(mb, decompressed_mb); 
    write_mb(frame, mb, x, y); 
-   if(count == 105 && !printed) {
-      printed = true;
-      //std::cerr << "CACHED: decompressed Y" << std::endl;
-      //std::cerr << decompressed_mb.Y << std::endl;
-      std::cerr << "RECONSTRUCTED:  Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
+   //NEW
+   frame_buffer->push_mb(mb);
+   
 }
 std::pair<char, char> read_vector(InputBitStream &stream) {
    char x = static_cast<char>(stream.read_byte()); 
@@ -130,15 +119,19 @@ int main(int argc, char** argv){
                for(auto x = 0; x < 8; x++)
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
-            if(frame_buffer->frame_count() == 0)
+            int frame_count = frame_buffer->frame_count();
+            bool is_first_or_last_frame = frame_count == 0 || frame_count == 15;
+            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 15;
+            if(is_first_or_last_frame)
                reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
-            else 
+            else if (is_between_first_and_last_frame)
                reconstruct_vector(frame, mb, x0, y0);
+            bool frame_buffer_is_full = frame_buffer->frame_count() == 16;
+            if(frame_buffer_is_full) frame_buffer->clear();
+
          }
          
       }
-      
-      assert(frame_buffer->frame_count() == 1);
    }
    return 0;
 }
