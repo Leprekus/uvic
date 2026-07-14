@@ -35,7 +35,8 @@
 #include "yuv_pipeline.hpp"
 
 bool printed = false;
-std::optional<FrameBuffer> frame_buffer;
+std::optional<FrameBuffer> buf_compressed;
+std::optional<FrameBuffer> buf_decompressed;
 Quality qual = Quality::MED;
 auto write_mb(OutputBitStream &stream, Macroblock &mb) {
    for(auto y = 0; y < 16; y++)
@@ -76,21 +77,21 @@ std::pair<char, char> intra_prediction(Macroblock &mb, auto x, auto y) {
    
    tmp = mb;
    if(x >= 16) {
-      Macroblock &left = frame_buffer->get_mb(x - 16, y); 
+      Macroblock &left = buf_decompressed->get_mb(x - 16, y); 
       if(get_aad(tmp, left) <= 5) {
          predicted_forward(mb, left);
          return std::pair(-16, 0);
       }
    }
    if(y >= 16) {
-      Macroblock &above = frame_buffer->get_mb(x, y - 16); 
+      Macroblock &above = buf_decompressed->get_mb(x, y - 16); 
       if(get_aad(tmp, above) <= 5) {
          predicted_forward(mb, above);
          return std::pair(0, - 16);
       }
    }
    if(x >= 16 && y >= 16) {
-      Macroblock &topleft = frame_buffer->get_mb(x - 16, y - 16);
+      Macroblock &topleft = buf_decompressed->get_mb(x - 16, y - 16);
       if(get_aad(tmp, topleft) <= 5) {
          predicted_forward(mb, topleft);
          return std::pair(- 16, - 16);
@@ -103,13 +104,13 @@ auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y
    auto vect = intra_prediction(mb, x, y); 
    write_intra_vector(stream, vect);
    write_mb(stream, mb);
-   intra_reconstruct(frame_buffer, qual, mb, x, y, vect);  
-   frame_buffer->push_mb(mb);
+   intra_reconstruct(buf_decompressed, qual, mb, x, y, vect);  
+   buf_decompressed->push_mb(mb);
 }
 int count = 0;
 void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
    
-   Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
+   Macroblock &decompressed_mb = buf_decompressed->get_mb(x, y);  
    // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
    write_intra_vector(stream, std::pair(-1, -1));
@@ -117,7 +118,7 @@ void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, aut
    
    //NEW
    predicted_inverse(mb, decompressed_mb);
-   frame_buffer->push_mb(mb);
+   buf_decompressed->push_mb(mb);
 }
 int main(int argc, char** argv){
 
@@ -157,7 +158,8 @@ int main(int argc, char** argv){
    mb.Cb.setZero();
    mb.Cr.setZero();
    const int macroblocks_per_frame = ceil(((double)width * height)/384); 
-   frame_buffer = FrameBuffer{ width, height };
+   buf_decompressed = FrameBuffer{ width, height };
+   buf_compressed   = FrameBuffer{ width, height };
    while (reader.read_next_frame()){
       count++;
       // push flag to indicate there's a next frame
@@ -178,16 +180,16 @@ int main(int argc, char** argv){
                }
             }
             /* create an I-Frame every 64 frames */
-            int frame_count = frame_buffer->frame_count();
-            bool is_first_or_last_frame = frame_count == 0 || frame_count == 15;
-            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 15;
-            if(is_first_or_last_frame) {
+            int frame_count = buf_decompressed->frame_count();
+            bool is_p_or_iframe = frame_count == 0 || frame_count == 16;
+            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
+            if(is_p_or_iframe) {
                encode_and_write_mb(output_stream, mb, x0, y0);
             } else if(is_between_first_and_last_frame){ 
                encode_and_write_vector_search(output_stream, mb, x0, y0);
             }
-            bool frame_buffer_is_full = frame_buffer->frame_count() == 16;
-            if(frame_buffer_is_full) frame_buffer->clear();
+            bool frame_buffer_is_full = buf_decompressed->frame_count() == 17;
+            if(frame_buffer_is_full) buf_decompressed->clear();
          }
 
       }

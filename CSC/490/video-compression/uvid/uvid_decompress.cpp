@@ -120,13 +120,13 @@ int main(int argc, char** argv){
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
             int frame_count = frame_buffer->frame_count();
-            bool is_first_or_last_frame = frame_count == 0 || frame_count == 15;
-            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 15;
+            bool is_first_or_last_frame = frame_count == 0 || frame_count == 16;
+            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
             if(is_first_or_last_frame)
                reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
             else if (is_between_first_and_last_frame)
                reconstruct_vector(frame, mb, x0, y0);
-            bool frame_buffer_is_full = frame_buffer->frame_count() == 16;
+            bool frame_buffer_is_full = frame_buffer->frame_count() == 17;
             if(frame_buffer_is_full) frame_buffer->clear();
 
          }

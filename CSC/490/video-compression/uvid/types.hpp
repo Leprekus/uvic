@@ -14,6 +14,7 @@ typedef struct {
    Matrix16d Y;
    Matrix8d Cb;
    Matrix8d Cr;
+   std::pair<char, char> vect;
 } Macroblock;
 enum FrameType {
    IFRAME,
