@@ -57,7 +57,8 @@ void reconstruct_mb(
 }
 
 int count = 0;
-void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, auto x, auto y) {
+void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int x, int y) {
+   assert(x >= 0 && y >=0); 
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    predicted_inverse(mb, decompressed_mb); 
    write_mb(frame, mb, x, y); 
@@ -107,25 +108,26 @@ int main(int argc, char** argv){
          for(auto x0 = 0; x0 < width; x0 += 16) {
             std::pair<char, char> vect = read_vector(input_stream);
             /* fill Y */
-            for(auto y = 0; y < 16; y++)
-               for(auto x = 0; x < 16; x++)
+            for(int y = 0; y < 16; y++)
+               for(int x = 0; x < 16; x++)
                   mb.Y(x, y) = static_cast<char>(input_stream.read_byte());
             /* fill Cb */
-            for(auto y = 0; y < 8; y++)
-               for(auto x = 0; x < 8; x++)
+            for(int y = 0; y < 8; y++)
+               for(int x = 0; x < 8; x++)
                    mb.Cb(x, y) = static_cast<char>(input_stream.read_byte());
             /* fill Cr */
-            for(auto y = 0; y < 8; y++)
-               for(auto x = 0; x < 8; x++)
+            for(int y = 0; y < 8; y++)
+               for(int x = 0; x < 8; x++)
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
             int frame_count = frame_buffer->frame_count();
-            bool is_first_or_last_frame = frame_count == 0 || frame_count == 16;
+            bool is_p_or_iframe = frame_count % 4 == 0;
             bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
-            if(is_first_or_last_frame)
+            if(is_p_or_iframe)
                reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
-            else if (is_between_first_and_last_frame)
+            else if (is_between_first_and_last_frame) {
                reconstruct_vector(frame, mb, x0, y0);
+            }
             bool frame_buffer_is_full = frame_buffer->frame_count() == 17;
             if(frame_buffer_is_full) frame_buffer->clear();
 

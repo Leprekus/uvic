@@ -108,8 +108,8 @@ auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y
    buf_decompressed->push_mb(mb);
 }
 int count = 0;
-void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
-   
+void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, int x, int y) {
+   assert(x >= 0 && y >=0); 
    Macroblock &decompressed_mb = buf_decompressed->get_mb(x, y);  
    // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
@@ -165,11 +165,11 @@ int main(int argc, char** argv){
       // push flag to indicate there's a next frame
       output_stream.push_byte(1);
       YUVFrame420& frame = reader.frame();
-      for(auto y0 = 0; y0 < height; y0 += 16) {
-         for(auto x0 = 0; x0 < width; x0 += 16) {
+      for(int y0 = 0; y0 < height; y0 += 16) {
+         for(int x0 = 0; x0 < width; x0 += 16) {
             /* fill blocks */
-            for(auto y = 0; y < 16; y++) {
-               for(auto x = 0; x < 16; x++) {
+            for(int y = 0; y < 16; y++) {
+               for(int x = 0; x < 16; x++) {
                   /* fill Y block */
                   mb.Y(x, y) = frame.Y(x0 + x, y0 + y);
                   /* fill Cb, Cr blocks */
@@ -181,7 +181,7 @@ int main(int argc, char** argv){
             }
             /* create an I-Frame every 64 frames */
             int frame_count = buf_decompressed->frame_count();
-            bool is_p_or_iframe = frame_count == 0 || frame_count == 16;
+            bool is_p_or_iframe = frame_count % 4 == 0;
             bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
             if(is_p_or_iframe) {
                encode_and_write_mb(output_stream, mb, x0, y0);
@@ -189,7 +189,9 @@ int main(int argc, char** argv){
                encode_and_write_vector_search(output_stream, mb, x0, y0);
             }
             bool frame_buffer_is_full = buf_decompressed->frame_count() == 17;
-            if(frame_buffer_is_full) buf_decompressed->clear();
+            if(frame_buffer_is_full) {
+               buf_decompressed->clear();
+            }
          }
 
       }

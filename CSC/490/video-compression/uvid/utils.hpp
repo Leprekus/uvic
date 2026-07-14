@@ -1,5 +1,6 @@
 #include "types.hpp"
 #include <Eigen/Dense>
+#include <algorithm>
 #include <iostream>
 
 static const Matrix8d C {
@@ -100,7 +101,7 @@ class FrameBuffer {
          capacity = macroblocks_per_frame;
          buffer.reserve(capacity);
       }
-      Macroblock &get_mb(auto x, auto y) {
+      Macroblock &get_mb(int x, int y) {
          /*
           * calculate index as:
           * 1. round to neareast block (multiple of 16): x = x + (-x mod 16)
@@ -109,7 +110,9 @@ class FrameBuffer {
           * */
          x = (x + (-x & 15)) >> 4;
          y = (y + (-y & 15)) >> 4;
-         return buffer.at(width * y + x);
+
+         int frame_offset = std::max((int)frame_count() * (int)width * (int)height - 1, 0);
+         return buffer.at(frame_offset + width * y + x);
       }
       void push_mb(Macroblock &mb) {
          buffer.push_back({
