@@ -35,9 +35,25 @@
 #include "yuv_pipeline.hpp"
 
 bool printed = false;
+int count = 0;
 std::optional<FrameBuffer> frame_buffer;
 Quality qual = Quality::MED;
-auto write_mb(OutputBitStream &stream, Macroblock &mb) {
+
+
+
+/* encode +- 16 offset in a single byte as:
+ * -1 = -16, 1 = 16 */
+void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector) {
+   auto [x, y] = mb_vector;
+   stream.push_byte(x);
+   stream.push_byte(y);
+}
+int c = 0;
+void write_mb(OutputBitStream &stream, Macroblock &mb) {
+   if(count == 200) {
+      std::cerr << "writing" << std::endl;
+      std::cerr << mb.Y << std::endl;
+   }
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
          stream.push_byte(mb.Y(x, y));
@@ -51,45 +67,76 @@ auto write_mb(OutputBitStream &stream, Macroblock &mb) {
          stream.push_byte(mb.Cr(x, y));
 }
 
-auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb) {
-   iframe_forward(qual, mb); 
-   write_mb(stream, mb);
-   //if(!printed) {
-   //   std::cerr << "compressor transformed Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //} 
-   iframe_inverse(qual, mb); 
-   //if(!printed){
-   //   printed = true; 
-   //   std::cerr << "compressor reconstructed Y" << std::endl;
-   //   std::cerr << mb.Y;
-   //}
-   // copy decompressed macro block to buffer
-   frame_buffer->push_mb(mb);
+// TODO: add thread_local
+Macroblock tmp{
+   .Y  = Matrix16d::Zero(16, 16), 
+   .Cb = Matrix8d::Zero(8, 8), 
+   .Cr = Matrix8d::Zero(8, 8)
+};
+int get_aad(Macroblock &want, Macroblock &have){
+      return (
+         ((want.Y  - have.Y).array().abs().sum() +
+          (want.Cb - have.Cb).array().abs().sum() +
+          (want.Cr - have.Cr).array().abs().sum()) 
+         / 384
+         );
+      
 }
-int count = 0;
-void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
-   if(count ==105 &&!printed) {
-      std::cerr << "COMPRESSOR: original Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
+/*
+ * find an intra prediction frame,
+ * quantize and transform 
+ * */
+std::pair<char, char> intra_prediction(Macroblock &mb, auto x, auto y) {
    
+   tmp = mb;
+   if(x >= 16) {
+      Macroblock &left = frame_buffer->get_mb(x - 16, y); 
+      if(get_aad(tmp, left) <= 5) {
+         predicted_forward(mb, left);
+         return std::pair(-16, 0);
+      }
+   }
+   if(y >= 16) {
+      Macroblock &above = frame_buffer->get_mb(x, y - 16); 
+      if(get_aad(tmp, above) <= 5) {
+         predicted_forward(mb, above);
+         return std::pair(0, - 16);
+      }
+   }
+   if(x >= 16 && y >= 16) {
+      Macroblock &topleft = frame_buffer->get_mb(x - 16, y - 16);
+      if(get_aad(tmp, topleft) <= 5) {
+         predicted_forward(mb, topleft);
+         return std::pair(- 16, - 16);
+      }
+   }
+   iframe_forward(qual, mb);
+   return std::pair(-1, -1);
+}
+
+int iFrameCount = 0;
+int predictedCount = 0;
+auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, int x, int y) {
+   iFrameCount++;
+   /* find a prediction frame and write an mb_vector & delta 
+    * or a raw mb
+    * */
+
+   std::pair mb_vector = intra_prediction(mb, x, y);
+   write_intra_vector(stream, mb_vector);
+   write_mb(stream, mb); // TODO: implement intra_pred stream write
+   intra_reconstruct(frame_buffer, qual, mb, x, y, mb_vector);
+   frame_buffer->push_mb(mb);
+       
+}
+void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
+   predictedCount++;
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
+   write_intra_vector(stream, std::pair(-1, -1));
    write_mb(stream, mb);
-
-   if(count == 105 && !printed) {
-      printed = true;
-      //std::cerr << "CACHED: decompressed Y" << std::endl;
-      //std::cerr << decompressed_mb.Y << std::endl;
-      std::cerr << "COMPRESSOR QUANTIZED: Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-
-      predicted_inverse(mb, decompressed_mb);
-      std::cerr << "RECONSTRUCTED: Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
+   
 }
 int main(int argc, char** argv){
 
@@ -151,7 +198,7 @@ int main(int argc, char** argv){
             }
             /* create an I-Frame every 64 frames */
             if(frame_buffer->frame_count() == 0) {
-               encode_and_write_mb(output_stream, mb);
+               encode_and_write_mb(output_stream, mb, x0, y0);
             } else { 
                encode_and_write_vector_search(output_stream, mb, x0, y0);
             }
@@ -162,5 +209,7 @@ int main(int argc, char** argv){
    }
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
+   std::cerr << "IFrameCount " << iFrameCount << std::endl;
+   std::cerr << "PredictedCount " << predictedCount << std::endl;
    return 0;
 }

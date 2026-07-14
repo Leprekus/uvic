@@ -142,9 +142,9 @@ static void iframe_forward(Quality qual, Macroblock &mb) {
                                                       
    transform_and_quantize(QuantC[qual], mb.Cb);
    transform_and_quantize(QuantC[qual], mb.Cr);
-   mb.Y  = mb.Y.array().round().cwiseMax(-127).cwiseMin(128);
-   mb.Cr = mb.Cr.array().round().cwiseMax(-127).cwiseMin(128);
-   mb.Cb = mb.Cb.array().round().cwiseMax(-127).cwiseMin(128);
+   mb.Y  = mb.Y.array().round().cwiseMax(-128).cwiseMin(127);
+   mb.Cr = mb.Cr.array().round().cwiseMax(-128).cwiseMin(127);
+   mb.Cb = mb.Cb.array().round().cwiseMax(-128).cwiseMin(127);
 
 }
 static void iframe_inverse(Quality qual, Macroblock &mb) {
@@ -196,3 +196,11 @@ static void predicted_inverse(Macroblock &mb, Macroblock &decompressed_mb) {
    mb.Cb = mb.Cb.cwiseMax(0).cwiseMin(255);
    mb.Cr = mb.Cr.cwiseMax(0).cwiseMin(255);
 }
+
+void intra_reconstruct(
+      std::optional<FrameBuffer> &buffer, Quality qual,
+      Macroblock &mb, 
+      int x0, int y0,
+      std::pair<int, int> offset);
+void print(Macroblock &mb, std::string tag);
+

@@ -5,10 +5,10 @@ CXXFLAGS+= -I$(EIGEN_PATH)
 
 all: uvid_compress uvid_decompress
 
-uvid_compress: uvid_compress.o
+uvid_compress: uvid_compress.o utils.o
 	g++ -o $@ $^
 
-uvid_decompress: uvid_decompress.o
+uvid_decompress: uvid_decompress.o utils.o
 	g++ -o $@ $^
 
 sandbox: sandbox.o

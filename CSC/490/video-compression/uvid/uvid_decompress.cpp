@@ -33,6 +33,7 @@
 #include "utils.hpp"
 
 bool printed = false;
+int count = 0;
 std::optional<FrameBuffer> frame_buffer;
 Quality qual = Quality::MED;
 void write_mb(YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
@@ -48,38 +49,43 @@ void write_mb(YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
       for(auto x = 0; x < 8; x++)
          frame.Cr(x0/2 + x, y0/2 + y) = mb.Cr(x, y);
 }
-auto reconstruct_mb(InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb, auto x0, auto y0) {
-   iframe_inverse(qual, mb); 
+int iFrameCount = 0;
+int predictedCount = 0;
+auto reconstruct_mb(
+      InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb, 
+      auto x0, auto y0, std::pair<char, char> offset) {
+   iFrameCount++;
+   //iframe_inverse(qual, mb); 
+   intra_reconstruct(frame_buffer, qual, mb, x0, y0, offset);
    frame_buffer->push_mb(mb); // store decompressed I-frame
+   
+   write_mb(frame, mb, x0, y0); 
    //if(!printed){
    //   printed = true;
    //   std::cerr << "decompressor reconstructed Y" << std::endl;
    //   std::cerr << mb.Y;
    //}
 
-   write_mb(frame, mb, x0, y0); 
 }
 
-int count = 0;
-void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, auto x, auto y) {
-      if(count == 105 && !printed) {
-      std::cerr << "DECOMPRESSOR: delta Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
-   
+void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, 
+      auto x, auto y, std::pair<char, char> offset) {
+   predictedCount++;
    Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
    // add dequantize and add delta
   //inverse(Quality::DELTA, mb); 
    predicted_inverse(mb, decompressed_mb); 
    write_mb(frame, mb, x, y); 
-   if(count == 105 && !printed) {
-      printed = true;
-      //std::cerr << "CACHED: decompressed Y" << std::endl;
-      //std::cerr << decompressed_mb.Y << std::endl;
-      std::cerr << "RECONSTRUCTED:  Y" << std::endl;
-      std::cerr << mb.Y << std::endl;
-   }
 }
+
+std::pair<char, char> read_vector(InputBitStream &stream) {
+   char x = static_cast<char>(stream.read_byte()); 
+   if(x == -1)
+      return std::pair(-1, -1);
+   char y = static_cast<char>(stream.read_byte()); 
+   return std::pair(x, y); 
+}
+
 int main(int argc, char** argv){
 
    //Note: This program must not take any command line arguments. (Anything
@@ -107,8 +113,8 @@ int main(int argc, char** argv){
 
    while (input_stream.read_byte()){
       count++;
+      std::pair<char, char> offset = read_vector(input_stream);
       YUVFrame420& frame = writer.frame();
-      writer.write_frame();
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
             /* fill Y */
@@ -124,15 +130,25 @@ int main(int argc, char** argv){
                for(auto x = 0; x < 8; x++)
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
-            if(frame_buffer->frame_count() == 0)
-               reconstruct_mb(input_stream, frame, mb, x0, y0);
-            else 
-               reconstruct_vector(frame, mb, x0, y0);
+            if(!printed && count == 200) {
+               print(mb, "read");
+            }
+            if(frame_buffer->frame_count() == 0) {
+               reconstruct_mb(input_stream, frame, mb, x0, y0, offset);
+            } else 
+               reconstruct_vector(frame, mb, x0, y0, offset);
          }
          
       }
       
       assert(frame_buffer->frame_count() == 1);
+   }
+   std::cerr << "iFrameCount " << iFrameCount << std::endl;
+   std::cerr << "predictedCount " << predictedCount << std::endl;
+   int i = 0;
+   while(i < 100) {
+      std::cerr << static_cast<int>(input_stream.read_byte()) << std::endl;
+      i++;
    }
    return 0;
 }
