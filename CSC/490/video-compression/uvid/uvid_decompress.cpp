@@ -52,19 +52,23 @@ void reconstruct_mb(
       InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb,
       auto x0, auto y0, std::pair<char, char> offset) {
    intra_reconstruct(frame_buffer, qual, mb, x0, y0, offset);
+
    frame_buffer->push_mb(mb); // store decompressed I-frame
    write_mb(frame, mb, x0, y0); 
 }
 
 int count = 0;
-void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int x, int y) {
-   //std::cerr << "PFRAME\n";
+/* pass pixel coordinates */
+void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int i, int x, int y) {
    assert(x >= 0 && y >=0); 
-   Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
+   //TODO: pick specific frame to reconstruct from based on the current B-frame's index
+   //Macroblock &decompressed_mb = frame_buffer->get_mb(x, y);  
+
+   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(i, x, y);  
    predicted_inverse(mb, decompressed_mb); 
    write_mb(frame, mb, x, y); 
    //NEW
-   frame_buffer->push_mb(mb);
+   //frame_buffer->push_mb(mb);
    
 }
 std::pair<char, char> read_vector(InputBitStream &stream) {
@@ -75,6 +79,32 @@ std::pair<char, char> read_vector(InputBitStream &stream) {
    return std::pair(x, y); 
 }
 
+void collect_mb(std::optional<FrameBuffer> &buf_compressed, Macroblock &mb, int x0, int y0) {
+    //if(is_p_or_iframe)
+    //   reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
+    //else if (is_between_first_and_last_frame) {
+    //   reconstruct_vector(frame, mb, x0, y0);
+    //}
+    frame_buffer->push_mb(mb);
+
+}
+// TODO: create all frames off of the first one in the buffer to make sure it is working
+void reconstruct_buffered(YUVFrame420 &frame, int width) {
+   for(int i: frame_decoding_order) {
+      int x0 = 0;
+      int y0 = 0;
+      for(Macroblock &mb: frame_buffer->get_frame(i)) {
+         // reconstruct everything from the first frame for now..
+         reconstruct_vector(frame, mb, 0, x0, y0);
+         x0  += 16;
+         if(x0 >= width) {
+            x0  = 0;
+            y0 += 16;
+         }
+
+      }
+   }
+}
 int main(int argc, char** argv){
 
    //Note: This program must not take any command line arguments. (Anything
@@ -119,20 +149,23 @@ int main(int argc, char** argv){
             for(int y = 0; y < 8; y++)
                for(int x = 0; x < 8; x++)
                   mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
-            /* create an I-Frame every 64 frames */
             int frame_count = frame_buffer->frame_count();
-            bool is_p_or_iframe = frame_count % 4 == 0;
-            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
-            //if(is_p_or_iframe)
-            //   reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
-            //else if (is_between_first_and_last_frame) {
-            //   reconstruct_vector(frame, mb, x0, y0);
-            //}
+            bool is_p_or_iframe = frame_buffering_order[frame_count];
+            bool is_not_full = 0 < frame_count && frame_count <= 16;
+            if(is_p_or_iframe) {
+               //std::cerr << "I/P frame " << frame_count << " " << "\n";
+               reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
+            } else if (is_not_full) {
 
+               //std::cerr << "B frame " << frame_count << " " << "\n";
+               //reconstruct_vector(frame, mb, x0, y0);
+               collect_mb(frame_buffer, mb, x0, y0);
+            }
          }
       }
       bool frame_buffer_is_full = frame_buffer->frame_count() == 17;
       if(frame_buffer_is_full) {
+         reconstruct_buffered(frame, width);
          frame_buffer->clear();
       }
    }

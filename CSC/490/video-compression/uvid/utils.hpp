@@ -4,12 +4,37 @@
 #include <algorithm>
 #include <span>
 
-static const int frame_traversal_order[17] = {
+/* defines order for frames to be encoded */
+static const int frame_encoding_order[17] = {
    0, 4, 1, 2, 3,
    8, 5, 6, 7,
    12, 9, 10, 11,
    16, 13, 14, 15
 };
+
+
+/* defines whether a frame is I/P or B
+ * if true it should be immediately decoded
+ * if false it should be buffered */
+static const bool frame_buffering_order[17] = {
+   true, true, false, false,false,
+   true, false, false, false, 
+   true, false, false, false, 
+   true, false, false, false
+};
+
+/* defines order for frames to be decoded
+ * at this stage we have decoded 
+ * all I/P frames so we only want 
+ * the B-frame indexes
+ * */
+static const int frame_decoding_order[12] = {
+   2,3,4,
+   6,7,8,
+   10,11,12,
+   14,15,16
+};
+
 
 static const Matrix8d C {
    {0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,},
@@ -59,9 +84,7 @@ static const Matrix8d QuantC[4] = {
    QCLow, QCMed, QCHigh, QCDeltas
 };
 
-enum BlockType {
-   YBLOCK, CBLOCK
-};
+enum BlockType { YBLOCK, _CBLOCK };
 using Matrix8dRef = Eigen::Ref<Matrix8d, 0, Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic>>;
 static void dct_forward(Matrix8dRef A) {
    A =  C * A * C.transpose();
@@ -109,6 +132,7 @@ class FrameBuffer {
          capacity = macroblocks_per_frame * 17;
          buffer.reserve(capacity);
       }
+      /* get the ith frame in the current block */
       Macroblock &get_mb(int x, int y) {
          /*
           * calculate index as:
@@ -119,17 +143,35 @@ class FrameBuffer {
          x = (x + (-x & 15)) >> 4;
          y = (y + (-y & 15)) >> 4;
 
-         int frame_offset = std::max((int)frame_count() * (int)width * (int)height - 1, 0);
-         return buffer.at(frame_offset + width * y + x);
+         //TODO: double check this
+         int frame_offset = frame_idx() * width * height;
+         int mb_idx = frame_offset + width * y + x;
+         return buffer.at(mb_idx);
+      }
+      /* return the jth block in the ith frame */ 
+      Macroblock &get_frame_mb(int i, int x, int y) {
+         /* map pixel to block coordinates
+          * calculate index as:
+          * 1. round to neareast block (multiple of 16): x = x + (-x mod 16)
+          * 2. divide over 16 (>>4) to map a pixel to a block index
+          * 3. multiply width * y + x to get the idx for the ith macroblock
+          * */
+         x = (x + (-x & 15)) >> 4;
+         y = (y + (-y & 15)) >> 4;
+
+         int frame_idx = i * width * height;
+         int mb_idx = frame_idx + width * y + x;
+
+         return buffer.at(mb_idx);
       }
       void push_mb(const Macroblock &mb) {
          buffer.push_back(mb);
       }
-      std::span<const Macroblock> get_frame(int i) {
+      std::span<Macroblock> get_frame(int i) {
          int start = width * height * i;
          int step = (width * height);
          assert(start + step <= size());
-         return std::span<const Macroblock>(&buffer[start], step);
+         return std::span<Macroblock>(&buffer[start], step);
       }
       int mb_in_frame() {
          return width * height;
@@ -139,6 +181,10 @@ class FrameBuffer {
       }
       size_t size() {
          return buffer.size();
+      }
+      u32 frame_idx() {
+         if(frame_count() == 0) return 0;
+         return frame_count() - 1;
       }
       u32 frame_count() { 
          u32 count = buffer.size() / (width * height);

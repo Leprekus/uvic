@@ -129,9 +129,11 @@ void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, int
 void flush_buf(OutputBitStream &stream) {
    int mb_written = 0;
    int cap = buf_compressed->mb_in_frame();
+	//TODO: remove assert
    assert(buf_compressed->mb_in_frame() == 396);
    //for(auto &mb: buf_compressed->buffer) {
-   for(int i: frame_traversal_order){
+   for(int i: frame_encoding_order){
+      // decode all blocks in a frame
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
          // push a byte flag on new frames
          if(mb_written == 0) stream.push_byte(1);
@@ -145,7 +147,7 @@ int main(int argc, char** argv){
    if (argc < 4){
       terminate:
       std::cout << "Usage: " << argv[0] << " <width> <height> <low/medium/high>" << std::endl;
-      return 1;
+      exit(1);
    }
    // convert arguments to uints
    u32 width = std::stoi(argv[1]);
@@ -204,8 +206,11 @@ int main(int argc, char** argv){
             bool is_p_or_iframe = frame_count % 4 == 0;
             bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
             if(is_p_or_iframe) {
+               
+               std::cerr << "I/P frame " << frame_count << " " << "\n";
                encode_and_write_mb(output_stream, mb, x0, y0);
             } else if(is_between_first_and_last_frame){ 
+               std::cerr << "B frame " << frame_count << " " << "\n";
                encode_and_write_vector_search(output_stream, mb, x0, y0);
             }
             bool frame_buffer_is_full = buf_decompressed->frame_count() == 17;
