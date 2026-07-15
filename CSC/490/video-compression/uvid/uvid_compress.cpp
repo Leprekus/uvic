@@ -38,28 +38,28 @@ bool printed = false;
 std::optional<FrameBuffer> buf_compressed;
 std::optional<FrameBuffer> buf_decompressed;
 Quality qual = Quality::MED;
-void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector) {
+void write_intra_vector(OutputBitStream &stream, std::pair<i8, i8> mb_vector) {
    auto [x, y] = mb_vector;
    if(x == -1 && y == -1)
       return stream.push_byte(x);
    stream.push_byte(x);
    stream.push_byte(y);
 }
-auto write_mb(OutputBitStream &stream, const Macroblock &mb, std::pair<char, char> vect) {
+auto write_mb(OutputBitStream &stream, const Macroblock &mb, std::pair<i8, i8> vect) {
 
    write_intra_vector(stream, vect);
 
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
-         stream.push_byte(mb.Y(x, y));
+         stream.push_byte(static_cast<i8>(mb.Y(x, y)));
 
    for(auto y = 0; y < 8; y++)
       for(auto x = 0; x < 8; x++)
-         stream.push_byte(mb.Cb(x, y));
+         stream.push_byte(static_cast<i8>(mb.Cb(x, y)));
 
    for(auto y = 0; y < 8; y++)
       for(auto x = 0; x < 8; x++)
-         stream.push_byte(mb.Cr(x, y));
+         stream.push_byte(static_cast<i8>(mb.Cr(x, y)));
 }
 
 
@@ -77,7 +77,7 @@ int get_aad(Macroblock &want, Macroblock &have){
          );
       
 }
-std::pair<char, char> intra_prediction(Macroblock &mb, auto x, auto y) {
+std::pair<i8, i8> intra_prediction(Macroblock &mb, auto x, auto y) {
    
    tmp = mb;
    if(x >= 16) {
@@ -116,14 +116,23 @@ auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y
 int count = 0;
 void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, int x, int y) {
    assert(x >= 0 && y >=0); 
-   Macroblock &decompressed_mb = buf_decompressed->get_mb(x, y);  
-   // compute delta and quantize
+   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, x, y);  
+   
+      // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
+   if(!printed)
+		    print(mb, "compressor first bframe out");
+
    //write_mb(stream, mb, std::pair(-1, -1));
    mb.vect = std::pair(-1, -1);
    buf_compressed->push_mb(mb);
    predicted_inverse(mb, decompressed_mb);
    buf_decompressed->push_mb(mb);
+   if(!printed) {
+		    print(mb, "compressor first bframe reconstructed");
+
+		    printed = true;
+		   }
 }
 
 void flush_buf(OutputBitStream &stream) {
@@ -134,11 +143,16 @@ void flush_buf(OutputBitStream &stream) {
    //for(auto &mb: buf_compressed->buffer) {
    for(int i: frame_encoding_order){
       // decode all blocks in a frame
+      std::cerr << "encoding " << i << "\n";
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
          // push a byte flag on new frames
          if(mb_written == 0) stream.push_byte(1);
          mb_written = (mb_written + 1) % cap;
          write_mb(stream, mb, mb.vect);
+         
+      	
+
+         
       }
    }
 }
@@ -181,6 +195,7 @@ int main(int argc, char** argv){
    mb.Cr.setZero();
    buf_decompressed = FrameBuffer{ width, height };
    buf_compressed   = FrameBuffer{ width, height };
+
    while (reader.read_next_frame()){
       count++;
 
@@ -202,28 +217,29 @@ int main(int argc, char** argv){
                }
             }
             /* create an I-Frame every 64 frames */
-            int frame_count = buf_decompressed->frame_count();
+            int frame_count = buf_decompressed->frame_idx();
             bool is_p_or_iframe = frame_count % 4 == 0;
-            bool is_between_first_and_last_frame = 0 < frame_count && frame_count <= 16;
+            bool is_between_first_and_last_frame = 0 < frame_count && frame_count < 16;
             if(is_p_or_iframe) {
                
-               std::cerr << "I/P frame " << frame_count << " " << "\n";
                encode_and_write_mb(output_stream, mb, x0, y0);
             } else if(is_between_first_and_last_frame){ 
-               std::cerr << "B frame " << frame_count << " " << "\n";
                encode_and_write_vector_search(output_stream, mb, x0, y0);
             }
-            bool frame_buffer_is_full = buf_decompressed->frame_count() == 17;
-            if(frame_buffer_is_full) {
-               flush_buf(output_stream);
-               buf_compressed->clear();
-               buf_decompressed->clear();
-            }
+            
             
          }
       }
-      
+      bool frame_buffer_is_full = buf_decompressed->frame_count() - 1 == 17;
+      if(frame_buffer_is_full) {
+         
+         flush_buf(output_stream);
+         buf_compressed->clear();
+         buf_decompressed->clear();
+         //exit(0);
+      }
    }
+   //if(buf_compressed->size()) flush_buf(output_stream);
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
    return 0;
