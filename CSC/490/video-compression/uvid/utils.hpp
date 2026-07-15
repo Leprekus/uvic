@@ -4,6 +4,19 @@
 #include <algorithm>
 #include <span>
 
+/*
+ * Encoding:
+ * I/P frames processed in the order:
+ * [0, 4, 8, 12, 16]
+ * emitted in the order:
+ * [0, 1, 5, 9, 13]
+ *
+ * Decoding:
+ * buffers 17 frames:
+ * dec_frames = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+ * The indexes of each frame in dec_frames corresponds to the following index in the encoder:
+ * */
+
 /* defines order for frames to be encoded */
 static const int frame_encoding_order[17] = {
    0, 4, 1, 2, 3,
@@ -33,6 +46,16 @@ static const int frame_decoding_order[12] = {
    6,7,8,
    10,11,12,
    14,15,16
+};
+
+/* maps the values of frame_encoding into a sorted
+ * ascending order traversal */
+static const int frame_play_order[17] = {
+   0, 2, 3, 4, 1,
+   6, 7, 8, 5,
+   10, 11, 12, 9,
+   14, 15, 16, 13
+
 };
 
 
@@ -126,10 +149,9 @@ class FrameBuffer {
    public:
       std::vector<Macroblock> buffer;
       FrameBuffer(u32 w, u32 h) {
-         width = w / 16;
-         height = h / 16;
-         const int macroblocks_per_frame = ceil(((double)width * height)/384); 
-         capacity = macroblocks_per_frame * 17;
+         width = (w + 15) / 16;
+         height = (h + 15) / 16;
+         capacity = width * height * 17;
          buffer.reserve(capacity);
       }
       /* get the ith frame in the current block */
@@ -167,6 +189,7 @@ class FrameBuffer {
       void push_mb(const Macroblock &mb) {
          buffer.push_back(mb);
       }
+      /* returns a span containing all macroblocks in the ith frame */
       std::span<Macroblock> get_frame(int i) {
          int start = width * height * i;
          int step = (width * height);
@@ -183,12 +206,12 @@ class FrameBuffer {
          return buffer.size();
       }
       u32 frame_idx() {
-         if(frame_count() == 0) return 0;
+         if(frame_count() == 0) assert(false);
          return frame_count() - 1;
       }
       u32 frame_count() { 
-         u32 count = buffer.size() / (width * height);
-         return count;
+         u32 blocks = buffer.size() + (width * height);
+         return blocks / (width * height);
       }
 };
 
@@ -263,5 +286,5 @@ void intra_reconstruct(
       std::optional<FrameBuffer> &buffer, Quality qual,
       Macroblock &mb, 
       int x0, int y0,
-      std::pair<char, char> offset);
-void print(Macroblock &mb, std::string tag);
+      std::pair<i8, i8> offset);
+void print(const Macroblock &mb, std::string tag);
