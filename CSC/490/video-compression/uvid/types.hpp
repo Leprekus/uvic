@@ -2,9 +2,12 @@
 #define TYPES_HPP
 #include <cstdint>
 #include <Eigen/Dense>
+#include "types.hpp"
 
 /* These definitions are more reliable for fixed width types than using "int" and assuming its width */
 using u8 = std::uint8_t;
+using i8 = std::int8_t;
+using i9 = std::int8_t;
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;
 using u64 = std::uint64_t;
@@ -14,7 +17,7 @@ typedef struct {
    Matrix16d Y;
    Matrix8d Cb;
    Matrix8d Cr;
-   std::pair<char, char> vect;
+   std::pair<i8, i8> vect;
 } Macroblock;
 enum FrameType {
    IFRAME,
