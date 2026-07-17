@@ -48,21 +48,14 @@ void write_mb(YUVFrame420 &frame, const Macroblock &mb, auto x0, auto y0) {
       for(auto x = 0; x < 8; x++)
          frame.Cr(x0/2 + x, y0/2 + y) = mb.Cr(x, y);
 }
-int M[256] = {0};
-void reconstruct_mb(
-      InputBitStream &stream, YUVFrame420 &frame, Macroblock &mb,
+void reconstruct_mb( YUVFrame420 &frame, Macroblock &mb,
       auto x0, auto y0, std::pair<i8, i8> offset) {
 
-   if(!M[frame_buffer->frame_count()]){
-    M[frame_buffer->frame_count()] = 1;
-   std::cerr << "decoding P/I " << frame_buffer->frame_idx() << "\n";
-	}
-   intra_reconstruct(frame_buffer, qual, mb, x0, y0, offset);
+   intra_reconstruct(frame_buffer, qual, mb, 0, 0, 0, offset);
 
    frame_buffer->push_mb(mb); // store decompressed I-frame
 }
 
-int count = 0;
 /* pass pixel coordinates */
 void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int i, int x, int y) {
    assert(x >= 0 && y >=0); 
@@ -71,7 +64,6 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int i, int x, int y)
    //if(!printed) {
    //   print(mb, "compressor bframe 1 in");
    //   printed = true;
-   //   exit(1);
    //}
 
    
@@ -89,20 +81,16 @@ std::pair<i8, i8> read_vector(InputBitStream &stream) {
    return std::pair(x, y); 
 }
 
-int B[256] = {0};
 void collect_mb(std::optional<FrameBuffer> &buf_compressed, Macroblock &mb, int x0, int y0) {
     //if(is_p_or_iframe)
     //   reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
     //else if (is_between_first_and_last_frame) {
     //   reconstruct_vector(frame, mb, x0, y0);
     //}
-    if(!B[frame_buffer->frame_count()]){
-    B[frame_buffer->frame_count()] = 1;
-   std::cerr << "collecting B " << frame_buffer->frame_idx() << "\n";
-	}
     frame_buffer->push_mb(mb);
 
 }
+
 // TODO: create all frames off of the first one in the buffer to make sure it is working
 void reconstruct_buffered(YUVFrame420 &frame, int width) {
    for(int i: frame_decoding_order) {
@@ -112,7 +100,7 @@ void reconstruct_buffered(YUVFrame420 &frame, int width) {
       int y0 = 0;
       for(Macroblock &mb: frame_buffer->get_frame(i)) {
          // reconstruct everything from the first frame for now..
-         reconstruct_vector(frame, mb, 0, x0, y0);
+         reconstruct_vector(frame, mb, 0, 0, 0);
          x0  += 16;
          if(x0 >= width) {
             x0  = 0;
@@ -122,22 +110,39 @@ void reconstruct_buffered(YUVFrame420 &frame, int width) {
       }
    }
 }
+int count = 0;
+int bread = 0;
+int cframe = 0; 
 void play_buffer(YUVFrame420 &frame, int width) {
-    for(int i: frame_play_order) {
-	int x0 = 0;
-        int y0 = 0;
+   for(int i: frame_play_order) {
+      int x0 = 0;
+      int y0 = 0;
 
-	int idx = frame_encoding_order[i];
-        std::cerr << "playing frame " << idx << "\n";
-        for(const Macroblock &mb: frame_buffer->get_frame(idx)){
-	    write_mb(frame, mb, x0, y0);
-            x0  += 16;
-            if(x0 >= width) {
-                x0  = 0;
-                y0 += 16;
-            }
-	}
-    }
+      //uncomment to see decoding ordder
+      //std::cerr << "playing frame " << idx << "\n";
+      cframe++;
+      for(const Macroblock &mb: frame_buffer->get_frame(i)){
+         bread++;
+         write_mb(frame, mb, x0, y0);
+         x0  += 16;
+         if(x0 >= width) {
+            x0  = 0;
+            y0 += 16;
+         }
+         count++;
+         int idx = frame_encoding_order[i];
+
+         if(cframe - 1 == 10 && count == 200) { 
+            auto _mb = mb;
+            std::cerr <<"frame # " << cframe - 1 << " idx " << i << "\n";
+            print(mb, "decompressor\n"); 
+            //exit(1); 
+
+         }
+        
+      }
+      count = 0;
+   }
 }
 int main(int argc, char** argv){
 
@@ -164,14 +169,13 @@ int main(int argc, char** argv){
    mb.Cr.setZero();
    frame_buffer = FrameBuffer{ width, height };
    while (input_stream.read_byte()){
-      count++;
       YUVFrame420& frame = writer.frame();
       
-      writer.write_frame();
+      writer.write_frame(); 
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
             std::pair<i8, i8> vect = read_vector(input_stream);
-	    mb.vect = vect;
+	         mb.vect = vect;
             /* fill Y */
             for(int y = 0; y < 16; y++)
                for(int x = 0; x < 16; x++)
@@ -185,10 +189,10 @@ int main(int argc, char** argv){
                for(int x = 0; x < 8; x++)
                   mb.Cr(x, y) = static_cast<i8>(input_stream.read_byte());
             int frame_count = frame_buffer->frame_idx();
-            bool is_p_or_iframe = frame_buffering_order[frame_count];
+            bool is_p_or_iframe = is_ip_frame[frame_count];
             bool is_not_full = 0 < frame_count && frame_count < 16;
             if(is_p_or_iframe) {
-               reconstruct_mb(input_stream, frame, mb, x0, y0, vect);
+               reconstruct_mb(frame, mb, x0, y0, vect);
             } else if (!is_p_or_iframe) {
 		assert(frame_buffer->size() >= 396 * 2);
                //reconstruct_vector(frame, mb, x0, y0);
@@ -196,16 +200,15 @@ int main(int argc, char** argv){
             }
          }
       }
+      
       bool frame_buffer_is_full = frame_buffer->frame_count() - 1 == 17;
       if(frame_buffer_is_full) {
-	 std::memset(M, 0, sizeof(M));	
-	 std::memset(B, 0, sizeof(M));	
          reconstruct_buffered(frame, width);
          play_buffer(frame, width);
          frame_buffer->clear();
-	  //exit(1);
       }
    }
+   std::cerr << " read " << bread << "\n";
 
    //print(frame_buffer->get_frame_mb(0, 0, 0), "decompressor frame 0, block 0");
    return 0;
