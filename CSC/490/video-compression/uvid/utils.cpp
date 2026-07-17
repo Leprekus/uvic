@@ -2,14 +2,14 @@
 void intra_reconstruct(
       std::optional<FrameBuffer> &buffer, Quality qual,
       Macroblock &mb, 
-      int x0, int y0,
+      int i, int x0, int y0,
       std::pair<i8, i8> offset) {
    auto [x, y] = offset;
    if(x == y && y == -1) {
       iframe_inverse(qual, mb);
       return;
    };
-   Macroblock &decompressed = buffer->get_mb(x0 + x, y0 + y);
+   Macroblock &decompressed = buffer->get_frame_mb(i, x0 + x, y0 + y);
    predicted_inverse(mb, decompressed);
 
 }
