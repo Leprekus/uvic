@@ -156,6 +156,7 @@ class FrameBuffer {
       }
       /* get the ith frame in the current block */
       Macroblock &get_mb(int x, int y) {
+         assert(frame_count() > 0);
          /*
           * calculate index as:
           * 1. round to neareast block (multiple of 16): x = x + (-x mod 16)
@@ -166,7 +167,7 @@ class FrameBuffer {
          y = (y + (-y & 15)) >> 4;
 
          //TODO: double check this
-         int frame_offset = frame_idx() * width * height;
+         int frame_offset = (frame_count() - 1) * width * height;
          int mb_idx = frame_offset + width * y + x;
          return buffer.at(mb_idx);
       }
@@ -205,13 +206,9 @@ class FrameBuffer {
       size_t size() {
          return buffer.size();
       }
-      u32 frame_idx() {
-         if(frame_count() == 0) assert(false);
-         return frame_count() - 1;
-      }
+      
       u32 frame_count() { 
-         u32 blocks = buffer.size() + (width * height);
-         return blocks / (width * height);
+         return buffer.size() / (width * height);
       }
 };
 
