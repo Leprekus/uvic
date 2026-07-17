@@ -79,7 +79,6 @@ int get_aad(Macroblock &want, Macroblock &have){
       
 }
 std::pair<i8, i8> intra_prediction(Macroblock &mb, auto i, auto x, auto y) {
-   
    tmp = mb;
    if(x >= 16) {
       Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y); 
@@ -109,9 +108,8 @@ std::pair<i8, i8> intra_prediction(Macroblock &mb, auto i, auto x, auto y) {
 void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int i, int x, int y) {
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, 0, 0);  
    
-      // compute delta and quantize
+   // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
-   //write_mb(stream, mb, std::pair(-1, -1));
    mb.vect = std::pair(-1, -1);
    buf_compressed->push_mb(mb);
    predicted_inverse(mb, decompressed_mb);
@@ -121,9 +119,10 @@ auto encode_and_buffer_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto 
    
    bool is_first_frame = buf_compressed->frame_count() < 1;
    if(is_first_frame) { // encode I-frame
-      mb.vect = intra_prediction(mb, 0, 0, 0); // TODO: change 0 for the ith frame 
+      int frame_idx = buf_compressed->frame_count(); // Store index at this point, because it may change after pushing mb to buf_compressed
+      mb.vect = intra_prediction(mb, frame_idx, x, y); 
       buf_compressed->push_mb(mb);
-      intra_reconstruct(buf_decompressed, qual, mb, 0, 0, 0, mb.vect);  
+      intra_reconstruct(buf_decompressed, qual, mb, frame_idx, x, y, mb.vect);  
       buf_decompressed->push_mb(mb);
    } else { // encode P-frame
 
