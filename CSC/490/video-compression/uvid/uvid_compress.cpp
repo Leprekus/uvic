@@ -41,9 +41,9 @@ Quality qual = Quality::MED;
 void write_intra_vector(OutputBitStream &stream, std::pair<i8, i8> mb_vector) {
    auto [x, y] = mb_vector;
    if(x == -1 && y == -1)
-      return stream.push_byte(x);
-   stream.push_byte(x);
-   stream.push_byte(y);
+      return stream.push_byte(static_cast<i8>(x));
+   stream.push_byte(static_cast<i8>(x));
+   stream.push_byte(static_cast<i8>(y));
 }
 auto write_mb(OutputBitStream &stream, const Macroblock &mb, std::pair<i8, i8> vect) {
 
@@ -77,25 +77,25 @@ int get_aad(Macroblock &want, Macroblock &have){
          );
       
 }
-std::pair<i8, i8> intra_prediction(Macroblock &mb, auto x, auto y) {
+std::pair<i8, i8> intra_prediction(Macroblock &mb, auto i, auto x, auto y) {
    
    tmp = mb;
    if(x >= 16) {
-      Macroblock &left = buf_decompressed->get_mb(x - 16, y); 
+      Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y); 
       if(get_aad(tmp, left) <= 5) {
          predicted_forward(mb, left);
          return std::pair(-16, 0);
       }
    }
    if(y >= 16) {
-      Macroblock &above = buf_decompressed->get_mb(x, y - 16); 
+      Macroblock &above = buf_decompressed->get_frame_mb(i, x, y - 16); 
       if(get_aad(tmp, above) <= 5) {
          predicted_forward(mb, above);
          return std::pair(0, - 16);
       }
    }
    if(x >= 16 && y >= 16) {
-      Macroblock &topleft = buf_decompressed->get_mb(x - 16, y - 16);
+      Macroblock &topleft = buf_decompressed->get_frame_mb(i, x - 16, y - 16);
       if(get_aad(tmp, topleft) <= 5) {
          predicted_forward(mb, topleft);
          return std::pair(- 16, - 16);
@@ -105,55 +105,68 @@ std::pair<i8, i8> intra_prediction(Macroblock &mb, auto x, auto y) {
    return std::pair(-1, -1);
 }
 auto encode_and_write_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
-   auto vect = intra_prediction(mb, x, y); 
+   auto vect = intra_prediction(mb, 0, 0, 0); // TODO: change 0 for the ith frame 
    //write_mb(stream, mb, vect);
    mb.vect = vect;
    buf_compressed->push_mb(mb);
-   intra_reconstruct(buf_decompressed, qual, mb, x, y, vect);  
+   intra_reconstruct(buf_decompressed, qual, mb, 0, 0, 0, vect);  
    buf_decompressed->push_mb(mb);
 }
 
-int count = 0;
 void encode_and_write_vector_search(OutputBitStream &stream, Macroblock &mb, int x, int y) {
    assert(x >= 0 && y >=0); 
-   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, x, y);  
+   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, 0, 0);  
    
       // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
-   if(!printed)
-		    print(mb, "compressor first bframe out");
-
    //write_mb(stream, mb, std::pair(-1, -1));
    mb.vect = std::pair(-1, -1);
    buf_compressed->push_mb(mb);
    predicted_inverse(mb, decompressed_mb);
    buf_decompressed->push_mb(mb);
-   if(!printed) {
-		    print(mb, "compressor first bframe reconstructed");
-
-		    printed = true;
-		   }
 }
 
+int count = 0;
+int ingested = 0;
+int out = 0;
 void flush_buf(OutputBitStream &stream) {
    int mb_written = 0;
+   int cframe = 0;
    int cap = buf_compressed->mb_in_frame();
-	//TODO: remove assert
+   //TODO: remove assert
    assert(buf_compressed->mb_in_frame() == 396);
    //for(auto &mb: buf_compressed->buffer) {
    for(int i: frame_encoding_order){
       // decode all blocks in a frame
-      std::cerr << "encoding " << i << "\n";
+      // uncommment to log encoding order
+      //std::cerr << "encoding " << i << "\n";
+      stream.push_byte(1);
+      int x0 = 0; 
+      int y0 = 0;
+      cframe++;
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
+         out++;
          // push a byte flag on new frames
-         if(mb_written == 0) stream.push_byte(1);
+         //if(mb_written == 0) stream.push_byte(1);
          mb_written = (mb_written + 1) % cap;
          write_mb(stream, mb, mb.vect);
-         
-      	
-
-         
+         count++;
+         if(!printed && cframe - 1 == 11 && count == 200) {
+            Macroblock _mb = mb;
+            std::cerr<<"frame # " << cframe - 1 << " frame idx " << i << "\n";
+            print(_mb, "compressor: raw");
+            predicted_inverse(_mb, buf_decompressed->get_frame_mb(0, 0, 0));  
+            //intra_reconstruct(buf_decompressed, qual, _mb, 0, 0, 0, _mb.vect); 
+            print(_mb, "compressor: reconstructed");
+            printed = true;  
+         }
+         x0 += 16;
+         if(x0 >= 352) {
+            x0 = 0;
+            y0 += 16;
+         }
       }
+      count = 0;
    }
 }
 int main(int argc, char** argv){
@@ -197,7 +210,6 @@ int main(int argc, char** argv){
    buf_compressed   = FrameBuffer{ width, height };
 
    while (reader.read_next_frame()){
-      count++;
 
       //output_stream.push_byte(1); // TODO: uncomment this when NOT using buffered output
       // push flag to indicate there's a next frame
@@ -220,6 +232,7 @@ int main(int argc, char** argv){
             int frame_count = buf_decompressed->frame_idx();
             bool is_p_or_iframe = frame_count % 4 == 0;
             bool is_between_first_and_last_frame = 0 < frame_count && frame_count < 16;
+	    ingested++;
             if(is_p_or_iframe) {
                
                encode_and_write_mb(output_stream, mb, x0, y0);
@@ -229,16 +242,16 @@ int main(int argc, char** argv){
             
             
          }
-      }
+      } 
       bool frame_buffer_is_full = buf_decompressed->frame_count() - 1 == 17;
       if(frame_buffer_is_full) {
-         
          flush_buf(output_stream);
          buf_compressed->clear();
          buf_decompressed->clear();
          //exit(0);
       }
    }
+   std::cerr << "ingested " << ingested << " written " << out << "\n";
    //if(buf_compressed->size()) flush_buf(output_stream);
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
