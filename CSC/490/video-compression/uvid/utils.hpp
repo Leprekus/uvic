@@ -29,7 +29,7 @@ static const int frame_encoding_order[17] = {
 /* defines whether a frame is I/P or B
  * if true it should be immediately decoded
  * if false it should be buffered */
-static const bool frame_buffering_order[17] = {
+static const bool is_ip_frame[17] = {
    true, true, false, false,false,
    true, false, false, false, 
    true, false, false, false, 
@@ -285,6 +285,6 @@ static void predicted_inverse(Macroblock &mb, Macroblock &decompressed_mb) {
 void intra_reconstruct(
       std::optional<FrameBuffer> &buffer, Quality qual,
       Macroblock &mb, 
-      int x0, int y0,
+      int i, int x0, int y0,
       std::pair<i8, i8> offset);
 void print(const Macroblock &mb, std::string tag);
