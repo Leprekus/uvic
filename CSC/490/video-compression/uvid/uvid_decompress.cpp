@@ -67,7 +67,7 @@ void decode_mb(YUVFrame420 &frame, Macroblock &mb,
    bool is_first_frame = frame_buffer->frame_count() < 1;
    // decode an I-frame
    if(is_first_frame) {
-      intra_reconstruct(frame_buffer, qual, mb, 0, 0, 0, mb.vect);
+      intra_reconstruct(frame_buffer, qual, mb, frame_buffer->frame_count(), x0, y0, mb.vect);
       frame_buffer->push_mb(mb); // store decompressed I-frame
    } else { // decode a P-frame
       
@@ -183,9 +183,7 @@ int main(int argc, char** argv){
       bool buffer_is_full = frame_buffer->frame_count() >= 4;
       if(buffer_is_full)  {
          write_frames_to_stream(writer, width);
-         //writer.write_frame(); 
          frame_buffer->clear();
-         //exit(1);
       }
       
    }
