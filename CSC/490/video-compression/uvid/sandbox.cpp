@@ -25,7 +25,7 @@ auto test_pipeline(Matrix8d &block) {
    Matrix8d D;
    for (auto i = 0 ; i < block.rows(); i++) {
       for(auto j = 0; j < block.cols(); j++) {
-         D(i, j) = static_cast<char>(stream.at(i * 8 + j));
+         D(i, j) = static_cast<i8>(stream.at(i * 8 + j));
       }
    }
 

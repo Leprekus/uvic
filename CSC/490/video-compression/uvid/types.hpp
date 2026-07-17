@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 
 /* These definitions are more reliable for fixed width types than using "int" and assuming its width */
+using i8 = std::int8_t;
 using u8 = std::uint8_t;
 using u16 = std::uint16_t;
 using u32 = std::uint32_t;

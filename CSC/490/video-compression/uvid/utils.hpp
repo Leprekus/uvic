@@ -201,5 +201,5 @@ void intra_reconstruct(
       std::optional<FrameBuffer> &buffer, Quality qual,
       Macroblock &mb, 
       int x0, int y0,
-      std::pair<char, char> offset);
+      std::pair<i8, i8> offset);
 void print(Macroblock &mb, std::string tag);

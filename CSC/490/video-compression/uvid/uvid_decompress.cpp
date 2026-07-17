@@ -76,11 +76,11 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, auto x, auto y) {
       std::cerr << mb.Y << std::endl;
    }
 }
-std::pair<char, char> read_vector(InputBitStream &stream) {
-   char x = static_cast<char>(stream.read_byte()); 
+std::pair<i8, i8> read_vector(InputBitStream &stream) {
+   char x = static_cast<i8>(stream.read_byte()); 
    if(x == -1)
       return std::pair(-1, -1);
-   char y = static_cast<char>(stream.read_byte()); 
+   char y = static_cast<i8>(stream.read_byte()); 
    return std::pair(x, y); 
 }
 
@@ -116,19 +116,19 @@ int main(int argc, char** argv){
       writer.write_frame();
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
-            std::pair<char, char> vect = read_vector(input_stream);
+            std::pair<i8, i8> vect = read_vector(input_stream);
             /* fill Y */
             for(auto y = 0; y < 16; y++)
                for(auto x = 0; x < 16; x++)
-                  mb.Y(x, y) = static_cast<char>(input_stream.read_byte());
+                  mb.Y(x, y) = static_cast<i8>(input_stream.read_byte());
             /* fill Cb */
             for(auto y = 0; y < 8; y++)
                for(auto x = 0; x < 8; x++)
-                   mb.Cb(x, y) = static_cast<char>(input_stream.read_byte());
+                   mb.Cb(x, y) = static_cast<i8>(input_stream.read_byte());
             /* fill Cr */
             for(auto y = 0; y < 8; y++)
                for(auto x = 0; x < 8; x++)
-                  mb.Cr(x, y) = static_cast<char>(input_stream.read_byte());
+                  mb.Cr(x, y) = static_cast<i8>(input_stream.read_byte());
             /* create an I-Frame every 64 frames */
             if(frame_buffer->frame_count() == 0)
                reconstruct_mb(input_stream, frame, mb, x0, y0, vect);

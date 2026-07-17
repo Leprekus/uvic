@@ -3,7 +3,7 @@ void intra_reconstruct(
       std::optional<FrameBuffer> &buffer, Quality qual,
       Macroblock &mb, 
       int x0, int y0,
-      std::pair<char, char> offset) {
+      std::pair<i8, i8> offset) {
    auto [x, y] = offset;
    if(x == y && y == -1) {
       iframe_inverse(qual, mb);

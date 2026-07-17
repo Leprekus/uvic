@@ -51,7 +51,7 @@ auto write_mb(OutputBitStream &stream, Macroblock &mb) {
          stream.push_byte(mb.Cr(x, y));
 }
 
-void write_intra_vector(OutputBitStream &stream, std::pair<char, char> mb_vector) {
+void write_intra_vector(OutputBitStream &stream, std::pair<i8, i8> mb_vector) {
    auto [x, y] = mb_vector;
    if(x == -1 && y == -1)
       return stream.push_byte(x);
@@ -72,7 +72,7 @@ int get_aad(Macroblock &want, Macroblock &have){
          );
       
 }
-std::pair<char, char> intra_prediction(Macroblock &mb, auto x, auto y) {
+std::pair<i8, i8> intra_prediction(Macroblock &mb, auto x, auto y) {
    
    tmp = mb;
    if(x >= 16) {
