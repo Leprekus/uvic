@@ -190,8 +190,6 @@ int main(int argc, char** argv){
       
    }
    if(frame_buffer->size()) write_frames_to_stream(writer, width);
-   //exit(1);
    std::cerr << "read " << bread << "\n";
-   //print(frame_buffer->get_frame_mb(0, 0, 0), "decompressor frame 0, block 0");
    return 0;
 }
