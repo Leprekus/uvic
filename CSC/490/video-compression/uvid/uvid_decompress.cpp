@@ -55,10 +55,18 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
    //TODO: pick specific frame to reconstruct from based on the current B-frame's index
    
    auto [x, y, idx] = mb.vect;
-   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
-   //Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
-   predicted_inverse(mb, decompressed_mb); 
-   frame_buffer->push_mb(mb);
+   if(!(idx & 0xF0)){ // parse as is
+      Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
+      //Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
+      predicted_inverse(mb, decompressed_mb); 
+      frame_buffer->push_mb(mb);
+   } else { // receive with flag
+      idx &= 0x0F; // remove flag 
+      Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
+      //Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
+      predicted_inverse(mb, decompressed_mb); 
+      frame_buffer->push_mb(mb);
+   }
    
 }
 void decode_mb(YUVFrame420 &frame, Macroblock &mb,

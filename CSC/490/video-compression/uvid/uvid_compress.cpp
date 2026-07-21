@@ -238,6 +238,7 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
          if(curr_sad <= tolerance) return it;
       }
    }
+   it.idx |= 0xF0;
    return it;
    
 }
@@ -249,11 +250,19 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
    assert(idx <= buf_decompressed->frame_count() - 1);
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
    // compute delta and quantize
-   predicted_forward(mb, decompressed_mb); 
-   mb.vect = BlockVect(x, y, idx);
-   buf_compressed->push_mb(mb);
-   predicted_inverse(mb, decompressed_mb);
-   buf_decompressed->push_mb(mb);
+   if(!(idx & 0xF0)) { // if no flag
+      predicted_forward(mb, decompressed_mb); 
+      mb.vect = BlockVect(x, y, idx);
+      buf_compressed->push_mb(mb);
+      predicted_inverse(mb, decompressed_mb);
+      buf_decompressed->push_mb(mb);
+   } else { // send the flag
+      predicted_forward(mb, decompressed_mb); 
+      mb.vect = BlockVect(x, y, idx);
+      buf_compressed->push_mb(mb);
+      predicted_inverse(mb, decompressed_mb);
+      buf_decompressed->push_mb(mb);
+   }
 
    
 
