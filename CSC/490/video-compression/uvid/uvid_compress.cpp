@@ -246,13 +246,7 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
    // compute delta and quantize
    if(is_copy) { // send copied p-frame
-      //predicted_forward(mb, decompressed_mb); 
-      //mb.vect = BlockVect(x, y, idx);
-      //buf_compressed->push_mb(mb);
-      //predicted_inverse(mb, decompressed_mb);
-      //buf_decompressed->push_mb(mb);
-      
-      // copy the block, and update the flag
+      // copy the block, update the flag
       Macroblock copy_com = buf_compressed->get_frame_mb(idx, x, y);
       Macroblock copy_dec = buf_decompressed->get_frame_mb(idx, x, y);
       copy_com.is_copy = true;
