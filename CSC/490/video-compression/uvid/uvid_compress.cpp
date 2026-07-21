@@ -286,7 +286,7 @@ void encode_iframe(Macroblock &mb, auto x, auto y) {
       mb.vect = intra_prediction(mb, frame_idx, x, y); 
       buf_compressed->push_mb(mb);
       intra_reconstruct(buf_decompressed, qual, mb, frame_idx, x, y, mb.vect);
-
+      buf_decompressed->push_mb(mb);
       // Create a fingerprint for the Macroblock using the compressed data
                  
 }
@@ -295,7 +295,6 @@ auto encode_and_buffer_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto 
    bool is_first_frame = buf_compressed->frame_count() < 1;
    if(is_first_frame) { // encode I-frame
       encode_iframe(mb, x, y);  
-      buf_decompressed->push_mb(mb);
    } else { // encode P-frame
       encode_and_buffer_vector_search(stream, mb, x, y);
       
