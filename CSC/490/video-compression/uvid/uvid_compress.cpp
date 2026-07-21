@@ -123,9 +123,10 @@ auto sad = [](const Macroblock &want, const Macroblock &have) {
    ) / 384;
 };
 // TODO: cache results
-typedef struct {
+typedef struct Item {
    int idx, x, y;
    int best_sad;
+   bool is_copy = false;
 } Item;
 
 int matches = 0;
@@ -157,9 +158,9 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
     * */
    constexpr auto cached = [](auto i, auto x, auto y)-> const Macroblock &{  return buf_decompressed->get_frame_mb(i, x, y); };
    //auto [i, x, y] = it;
-   const Macroblock *match = nullptr;
 
-   auto [idx, x, y, best_sad] = it; 
+   auto [idx, x, y, best_sad, is_copy] = it; 
+   is_copy = true;
    if(best_sad <= tolerance) {
       matches++;
       return it; // premature exit
@@ -176,7 +177,6 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
       // compare with second Macroblock top
       int curr_sad = sad(mb, cached(j, x, (y - lookahead_long) % global_height));
       if(curr_sad < best_sad){
-         match = &cached(j, x, (y - lookahead_long) % global_height);
          y = ((y - lookahead_long) % global_height);
          idx = j;
          best_sad = curr_sad;
@@ -186,7 +186,6 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
       // compare with second Macroblock top-left
       curr_sad = sad(mb, cached(j, (x - lookahead_long) % global_width, (y - lookahead_short) % global_height));
       if(curr_sad < best_sad){
-         match = &cached(j, (x - lookahead_long) % global_width, (y - lookahead_short) % global_height);
          x = (x - lookahead_long) % global_width;
          y = (y - lookahead_short) % global_height;
          idx = j;
@@ -197,7 +196,6 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
       // compare with second Macroblock bottom-left
       curr_sad = sad(mb, cached(j, (x - lookahead_long) % global_width, (y + lookahead_short) % global_height));
       if(curr_sad < best_sad){
-         match = &cached(j, (x - lookahead_long) % global_width, (y + lookahead_short) % global_height);
          x = (x - lookahead_long) % global_width; 
          y = (y + lookahead_short) % global_height;
          idx = j;
@@ -208,7 +206,6 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
       // compare with second Macroblock top-right 
       curr_sad = sad(mb, cached(j, (x + lookahead_long) % global_width, (y - lookahead_short) % global_height));
       if(curr_sad < best_sad){
-         match = &cached(j, (x + lookahead_long) % global_width, (y - lookahead_short) % global_height);
          x = (x + lookahead_long) % global_width;
          y = (y - lookahead_short) % global_height;
          idx = j;
@@ -219,7 +216,6 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
       // compare with second Macroblock bottom-right
       curr_sad = sad(mb, cached(j, (x + lookahead_long) % global_width, (y + lookahead_short) % global_height));
       if(curr_sad < best_sad){
-         match = &cached(j, (x + lookahead_long) % global_width, (y + lookahead_short) % global_height);
          x = (x + lookahead_long) % global_width;
          y = (y + lookahead_short) % global_height;
          idx = j;
@@ -230,7 +226,6 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
       // compare with second Macroblock bottom
       curr_sad = sad(mb, cached(j, x , (y + lookahead_long) % global_height));
       if(curr_sad < best_sad){
-         match = &cached(j, x , (y + lookahead_long) % global_height);
          y = (y + lookahead_long) % global_height;
          idx = j;
          best_sad = curr_sad;
@@ -238,30 +233,43 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
          if(curr_sad <= tolerance) return it;
       }
    }
-   it.idx |= 0xF0;
+   is_copy = false;
    return it;
    
 }
 
 void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x0, int y0) {
 
-   auto [idx, x, y, best_sad] = inter_block_search(mb, x0, y0); 
+   auto [idx, x, y, best_sad, is_copy] = inter_block_search(mb, x0, y0); 
    assert(buf_decompressed->frame_count() == buf_compressed->frame_count());
    assert(idx <= buf_decompressed->frame_count() - 1);
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
    // compute delta and quantize
-   if(!(idx & 0xF0)) { // if no flag
+   if(is_copy) { // send copied p-frame
+      //predicted_forward(mb, decompressed_mb); 
+      //mb.vect = BlockVect(x, y, idx);
+      //buf_compressed->push_mb(mb);
+      //predicted_inverse(mb, decompressed_mb);
+      //buf_decompressed->push_mb(mb);
+      
+      // copy the block, and update the flag
+      Macroblock copy_com = buf_compressed->get_frame_mb(idx, x, y);
+      Macroblock copy_dec = buf_decompressed->get_frame_mb(idx, x, y);
+      copy_com.is_copy = true;
+      copy_dec.is_copy = true;
+      // push blocks into the stream
+      buf_compressed->push_mb(copy_com);
+      buf_decompressed->push_mb(copy_dec);
+
+
+      
+   } else { // send delta p-frame
       predicted_forward(mb, decompressed_mb); 
       mb.vect = BlockVect(x, y, idx);
       buf_compressed->push_mb(mb);
       predicted_inverse(mb, decompressed_mb);
       buf_decompressed->push_mb(mb);
-   } else { // send the flag
-      predicted_forward(mb, decompressed_mb); 
-      mb.vect = BlockVect(x, y, idx);
-      buf_compressed->push_mb(mb);
-      predicted_inverse(mb, decompressed_mb);
-      buf_decompressed->push_mb(mb);
+
    }
 
    

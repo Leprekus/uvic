@@ -55,13 +55,20 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
    //TODO: pick specific frame to reconstruct from based on the current B-frame's index
    
    auto [x, y, idx] = mb.vect;
-   if(!(idx & 0xF0)){ // parse as is
-      Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
-      //Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
-      predicted_inverse(mb, decompressed_mb); 
-      frame_buffer->push_mb(mb);
-   } else { // receive with flag
-      idx &= 0x0F; // remove flag 
+   assert(idx <= 3);
+   if(mb.is_copy){ // process copied p-frame
+      //Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
+      ////Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
+      //predicted_inverse(mb, decompressed_mb); 
+      //frame_buffer->push_mb(mb);
+
+      Macroblock copy_dec = frame_buffer->get_frame_mb(idx, x, y);
+      copy_dec.is_copy = true;
+      // push blocks into the stream
+      frame_buffer->push_mb(copy_dec);
+
+
+   } else { // process delta p-frame
       Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
       //Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
       predicted_inverse(mb, decompressed_mb); 

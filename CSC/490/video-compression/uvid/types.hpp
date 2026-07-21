@@ -14,11 +14,12 @@ using u64 = std::uint64_t;
 using Matrix8d = Eigen::Matrix<double, 8, 8>;
 using Matrix16d = Eigen::Matrix<double, 16, 16>;
 using BlockVect = std::tuple<i16, i16, i8>;
-typedef struct {
+typedef struct Macroblock {
    Matrix16d Y;
    Matrix8d Cb;
    Matrix8d Cr;
    BlockVect vect;
+   bool is_copy = false;
 } Macroblock;
 enum FrameType {
    IFRAME,
