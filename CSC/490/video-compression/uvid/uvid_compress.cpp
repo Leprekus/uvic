@@ -245,10 +245,12 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
 void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x0, int y0) {
 
    auto [idx, x, y, best_sad] = inter_block_search(mb, x0, y0); 
-   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, 0, 0);  
+   assert(buf_decompressed->frame_count() == buf_compressed->frame_count());
+   assert(idx <= buf_decompressed->frame_count() - 1);
+   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
    // compute delta and quantize
    predicted_forward(mb, decompressed_mb); 
-   mb.vect = BlockVect(0, 0, 0);
+   mb.vect = BlockVect(x, y, idx);
    buf_compressed->push_mb(mb);
    predicted_inverse(mb, decompressed_mb);
    buf_decompressed->push_mb(mb);

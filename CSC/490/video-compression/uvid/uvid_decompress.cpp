@@ -54,13 +54,8 @@ void write_mb(YUVFrame420 &frame, const Macroblock &mb, auto x0, auto y0) {
 void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
    //TODO: pick specific frame to reconstruct from based on the current B-frame's index
    
-   auto [x, y, z] = mb.vect;
-   try {
-   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
-   } catch(...){ std::cerr << " idx " << static_cast<int>(z) << " x " << static_cast<int>(x) << " y " << static_cast<int>(y) << "\n"; exit(1); }
-
-
-   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
+   auto [x, y, idx] = mb.vect;
+   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
    predicted_inverse(mb, decompressed_mb); 
    frame_buffer->push_mb(mb);
    
