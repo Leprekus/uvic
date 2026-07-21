@@ -322,7 +322,7 @@ static void predicted_forward(Macroblock &mb, const Macroblock &decompressed_mb)
    mb.Cr = mb.Cr.array().round().cwiseMax(-128).cwiseMin(127);
    mb.Cb = mb.Cb.array().round().cwiseMax(-128).cwiseMin(127);
 }
-static void predicted_inverse(Macroblock &mb, Macroblock &decompressed_mb) {
+static void predicted_inverse(Macroblock &mb, const Macroblock &decompressed_mb) {
    reconstruct_block(QuantY[Quality::DELTA], mb.Y.block<8, 8>(0, 0)); // Top-Left
    reconstruct_block(QuantY[Quality::DELTA], mb.Y.block<8, 8>(0, 8)); // Top-Right
    reconstruct_block(QuantY[Quality::DELTA], mb.Y.block<8, 8>(8, 0)); // Bottom-Left
