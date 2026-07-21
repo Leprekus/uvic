@@ -56,6 +56,7 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
    
    auto [x, y, idx] = mb.vect;
    Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
+   //Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
    predicted_inverse(mb, decompressed_mb); 
    frame_buffer->push_mb(mb);
    
