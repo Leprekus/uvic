@@ -1,9 +1,12 @@
 #include "types.hpp"
+#include "input_stream.hpp"
+#include "output_stream.hpp"
 #include <Eigen/Dense>
 #include <iostream>
 #include <algorithm>
 #include <span>
 
+// ENCODINGS
 /*
  * Encoding:
  * I/P frames processed in the order:
@@ -58,6 +61,59 @@ static const int frame_play_order[17] = {
 
 };
 
+// ROW SCANS
+template <size_t N>
+constexpr std::array<std::pair<int, int>, N * N> generate_col_scan_nxn() {
+   std::array<std::pair<int, int>, N * N> A = {}; 
+   int i = 0;
+   for(int col = 0; col < N; col++)
+      for(int row = 0; row < N; row++)
+         A[i++] = {row, col};
+   return A;
+}
+template <size_t N>
+constexpr std::array<std::pair<int, int>, N * N> generate_row_scan_nxn() {
+   std::array<std::pair<int, int>, N * N> A = {}; 
+   int i = 0;
+   for(int row = 0; row < N; row++)
+      for(int col = 0; col < N; col++)
+         A[i++] = {row, col};
+   return A;
+}
+template <size_t N>
+constexpr std::array<std::pair<int, int>, N * N> generate_zigzag_scan_nxn() {
+   std::array<std::pair<int, int>, N * N> A = {}; 
+   int idx = 0;
+   bool rev = true;
+   for(int i = 0; i < N; i+= N-1) {
+      for(int j = i; j < N; j++) {
+         for(int k = 0; k < j; k++) {
+            int x = 0;
+            int y = 0;
+            if(rev) {
+               y = k;
+               x = j - k;
+            } else {
+               y = j - k;
+               x = k;
+               
+            }
+            A[idx++] = {x, y};
+         }
+         rev = !rev;
+      }
+      
+   }
+   return A;
+}
+constexpr auto col_scan_16x16 = generate_col_scan_nxn<16>(); 
+constexpr auto col_scan_8x8 = generate_col_scan_nxn<8>(); 
+
+constexpr auto row_scan_16x16 = generate_row_scan_nxn<16>();
+constexpr auto row_scan_8x8 = generate_row_scan_nxn<8>(); 
+
+constexpr auto zigzag_scan_16x16 = generate_zigzag_scan_nxn<16>();
+constexpr auto zigzag_scan_8x8 = generate_zigzag_scan_nxn<8>();
 
 static const Matrix8d C {
    {0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,0.3535533905932738,},
@@ -210,6 +266,9 @@ class FrameBuffer {
       u32 frame_count() { 
          return buffer.size() / (width * height);
       }
+      const Macroblock &peek() {
+         return buffer.at(buffer.size() - 1);
+      }
 };
 
 static void iframe_forward(Quality qual, Macroblock &mb) {
@@ -224,9 +283,9 @@ static void iframe_forward(Quality qual, Macroblock &mb) {
                                                       
    transform_and_quantize(QuantC[qual], mb.Cb);
    transform_and_quantize(QuantC[qual], mb.Cr);
-   mb.Y  = mb.Y.array().round().cwiseMax(-127).cwiseMin(128);
-   mb.Cr = mb.Cr.array().round().cwiseMax(-127).cwiseMin(128);
-   mb.Cb = mb.Cb.array().round().cwiseMax(-127).cwiseMin(128);
+   mb.Y  = mb.Y.array().round().cwiseMax(-128).cwiseMin(127);
+   mb.Cr = mb.Cr.array().round().cwiseMax(-128).cwiseMin(127);
+   mb.Cb = mb.Cb.array().round().cwiseMax(-128).cwiseMin(127);
 
 }
 static void iframe_inverse(Quality qual, Macroblock &mb) {
@@ -248,7 +307,7 @@ static void iframe_inverse(Quality qual, Macroblock &mb) {
 
 }
 
-static void predicted_forward(Macroblock &mb, Macroblock &decompressed_mb) {
+static void predicted_forward(Macroblock &mb, const Macroblock &decompressed_mb) {
    mb.Y  -=  decompressed_mb.Y;
    mb.Cb -= decompressed_mb.Cb;
    mb.Cr -= decompressed_mb.Cr;
@@ -285,3 +344,11 @@ void intra_reconstruct(
       int i, int x0, int y0,
       std::pair<i8, i8> offset);
 void print(const Macroblock &mb, std::string tag);
+
+void write_zero(const int run, OutputBitStream &stream);
+void write_bitsream(const double value, u32 run, OutputBitStream &stream);
+void compress_mb(const Macroblock &mb, OutputBitStream &stream);
+
+void read_zeroes(InputBitStream &stream);
+void read_bitstream(InputBitStream &stream);
+void decompress_mb(const Macroblock &mb, InputBitStream &stream);

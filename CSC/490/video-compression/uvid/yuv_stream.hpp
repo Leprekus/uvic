@@ -45,17 +45,17 @@ class YUVFrame{
       }
       //Note that the coordinate systems for Cb and Cr are distinct from Y (e.g. in 4:2:0, the chroma values for Y pixel (10,10) are at Cb/Cr coordinates (5,5))
       unsigned char& Cb(unsigned int x, unsigned int y){
-         if (y >= height/chroma_ratio_y)
-            y = height/chroma_ratio_y-1;
-         if (x >= width/chroma_ratio_x)
-            x = width/chroma_ratio_x-1;
+         //if (y >= height/chroma_ratio_y)
+         //   y = height/chroma_ratio_y-1;
+         //if (x >= width/chroma_ratio_x)
+         //   x = width/chroma_ratio_x-1;
          return Cb_data.at(y*width/chroma_ratio_x + x);
       }
       unsigned char& Cr(unsigned int x, unsigned int y){
-         if (y >= height/chroma_ratio_y)
-            y = height/chroma_ratio_y-1;
-         if (x >= width/chroma_ratio_x)
-            x = width/chroma_ratio_x-1;
+         //if (y >= height/chroma_ratio_y)
+         //   y = height/chroma_ratio_y-1;
+         //if (x >= width/chroma_ratio_x)
+         //   x = width/chroma_ratio_x-1;
          return Cr_data.at(y*width/chroma_ratio_x + x);
       }
    private:

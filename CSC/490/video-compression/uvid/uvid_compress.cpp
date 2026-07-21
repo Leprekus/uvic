@@ -26,19 +26,22 @@
 #include <cstdint>
 #include <tuple>
 
-#include <ranges>
+#include <unordered_map>
 #include <Eigen/Dense>
 #include "utils.hpp"
 #include "output_stream.hpp"
 #include "yuv_stream.hpp"
+#include "input_stream.hpp"
 #include "dct.hpp"
 #include "quantize.hpp"
-#include "yuv_pipeline.hpp"
 
 bool printed = false;
 std::optional<FrameBuffer> buf_compressed;
 std::optional<FrameBuffer> buf_decompressed;
 Quality qual = Quality::MED;
+u32 global_width = 0;
+u32 global_height = 0;
+
 void write_intra_vector(OutputBitStream &stream, std::pair<i8, i8> mb_vector) {
    auto [x, y] = mb_vector;
    if(x == -1 && y == -1)
@@ -105,28 +108,173 @@ std::pair<i8, i8> intra_prediction(Macroblock &mb, auto i, auto x, auto y) {
    return std::pair(-1, -1);
 }
 
-void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int i, int x, int y) {
-   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, 0, 0);  
+// sum of absolute difference
+auto sad = [](const Macroblock &want, const Macroblock &have) {
+   return ( 
+      (want.Y - have.Y).array().abs().sum() + 
+      (want.Cb - have.Cb).array().abs().sum() +
+      (want.Cr - have.Cr).array().abs().sum()
+   ) / 384;
+};
+// TODO: cache results
+typedef struct {
+   int idx, x, y;
+   int best_sad;
+} Item;
+
+int matches = 0;
+Item inter_block_search(Macroblock &mb, int x0, int y0) {
+   // 1. get the ith block of the previous buffered frames
+   int frame_idx = buf_decompressed->frame_count() - 1; // exclude currrent frame
+   Item it = { .idx = frame_idx, .x = x0, .y = y0, .best_sad = INT32_MAX }; // initialize best item to same block on prev frame
+   for(int i = frame_idx; i >= 0; i--) {
+      const Macroblock &decompressed = buf_decompressed->get_frame_mb(i, x0, y0);
+      int curr_sad = sad(mb, decompressed);
+      // 2. pick the (frame, block) with the best SAD value
+      if(curr_sad < it.best_sad) {
+         it.best_sad = curr_sad;
+         it.idx = i;
+      }
+   }
+   /*
+    * perform a hexagon-search: 
+    * top - looks two blocks ahead
+    * bottom - looks two blocks ahead
+    * topL, bottomL, topR, bottomR, looks two blocks ahead over the 
+    * x-axis and one block ahead over the y-axis in an L shape.
+    * This maximizes the distance covered.
+    *
+    * Every two frames the lookahead distance in each direction is doubled,
+    * with the idea that the farther away the reference frame is, the farther
+    * away a possible match will be found.
+    * */
+   constexpr auto cached = [](auto i, auto x, auto y)-> const Macroblock &{  return buf_decompressed->get_frame_mb(i, x, y); };
+   //auto [i, x, y] = it;
+   constexpr int tolerance = 384;
+   const Macroblock *match = nullptr;
+
+   auto [idx, x, y, best_sad] = it; 
+   if(best_sad <= tolerance) {
+      matches++;
+      return it; // premature exit
+   }
+   for(int j = idx; j  >= 0; j--) {
+
+      int lookahead_long = 32;
+      int lookahead_short = 16;
+      // double the lookahead distance every 2 frames
+      //if(!(j & 1)) {
+      //   lookahead_long += 32;
+      //   lookahead_short += 16;
+      //}
+      // compare with second Macroblock top
+      int curr_sad = sad(mb, cached(j, x, (y - lookahead_long) % global_height));
+      if(curr_sad < best_sad){
+         match = &cached(j, x, (y - lookahead_long) % global_height);
+         y = ((y - lookahead_long) % global_height);
+         idx = j;
+         best_sad = curr_sad;
+         matches++;
+         if(curr_sad <= tolerance) return it;
+      }
+      // compare with second Macroblock top-left
+      curr_sad = sad(mb, cached(j, (x - lookahead_long) % global_width, (y - lookahead_short) % global_height));
+      if(curr_sad < best_sad){
+         match = &cached(j, (x - lookahead_long) % global_width, (y - lookahead_short) % global_height);
+         x = (x - lookahead_long) % global_width;
+         y = (y - lookahead_short) % global_height;
+         idx = j;
+         best_sad = curr_sad;
+         matches++; 
+         if(curr_sad <= tolerance) return it;
+      }
+      // compare with second Macroblock bottom-left
+      curr_sad = sad(mb, cached(j, (x - lookahead_long) % global_width, (y + lookahead_short) % global_height));
+      if(curr_sad < best_sad){
+         match = &cached(j, (x - lookahead_long) % global_width, (y + lookahead_short) % global_height);
+         x = (x - lookahead_long) % global_width; 
+         y = (y + lookahead_short) % global_height;
+         idx = j;
+         best_sad = curr_sad;
+         matches++;
+         if(curr_sad <= tolerance) return it;
+      }
+      // compare with second Macroblock top-right 
+      curr_sad = sad(mb, cached(j, (x + lookahead_long) % global_width, (y - lookahead_short) % global_height));
+      if(curr_sad < best_sad){
+         match = &cached(j, (x + lookahead_long) % global_width, (y - lookahead_short) % global_height);
+         x = (x + lookahead_long) % global_width;
+         y = (y - lookahead_short) % global_height;
+         idx = j;
+         best_sad = curr_sad;
+         matches++; 
+         if(curr_sad <= tolerance) return it;
+      }
+      // compare with second Macroblock bottom-right
+      curr_sad = sad(mb, cached(j, (x + lookahead_long) % global_width, (y + lookahead_short) % global_height));
+      if(curr_sad < best_sad){
+         match = &cached(j, (x + lookahead_long) % global_width, (y + lookahead_short) % global_height);
+         x = (x + lookahead_long) % global_width;
+         y = (y + lookahead_short) % global_height;
+         idx = j;
+         best_sad = curr_sad;
+         matches++; 
+         if(curr_sad <= tolerance) return it;
+      }
+      // compare with second Macroblock bottom
+      curr_sad = sad(mb, cached(j, x , (y + lookahead_long) % global_height));
+      if(curr_sad < best_sad){
+         match = &cached(j, x , (y + lookahead_long) % global_height);
+         y = (y + lookahead_long) % global_height;
+         idx = j;
+         best_sad = curr_sad;
+         matches++; 
+         if(curr_sad <= tolerance) return it;
+      }
+   }
+   return it;
    
-   // compute delta and quantize
-   predicted_forward(mb, decompressed_mb); 
-   mb.vect = std::pair(-1, -1);
-   buf_compressed->push_mb(mb);
-   predicted_inverse(mb, decompressed_mb);
-   buf_decompressed->push_mb(mb);
+}
+
+void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x, int y) {
+
+   Item predicted = inter_block_search(mb, x, y); 
+   if(true) {
+      Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, 0, 0);  
+      // compute delta and quantize
+      predicted_forward(mb, decompressed_mb); 
+      mb.vect = std::pair(-1, -1);
+      buf_compressed->push_mb(mb);
+      predicted_inverse(mb, decompressed_mb);
+      buf_decompressed->push_mb(mb);
+   }
+
+   
+
+
+      
+}
+
+int count = 0;
+void encode_iframe(Macroblock &mb, auto x, auto y) {
+      count++;
+      // Create a vector for intra-prediction if applicable 
+      int frame_idx = buf_compressed->frame_count(); 
+      mb.vect = intra_prediction(mb, frame_idx, x, y); 
+      buf_compressed->push_mb(mb);
+      intra_reconstruct(buf_decompressed, qual, mb, frame_idx, x, y, mb.vect);
+
+      // Create a fingerprint for the Macroblock using the compressed data
+                 
 }
 auto encode_and_buffer_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y) {
    
    bool is_first_frame = buf_compressed->frame_count() < 1;
    if(is_first_frame) { // encode I-frame
-      int frame_idx = buf_compressed->frame_count(); // Store index at this point, because it may change after pushing mb to buf_compressed
-      mb.vect = intra_prediction(mb, frame_idx, x, y); 
-      buf_compressed->push_mb(mb);
-      intra_reconstruct(buf_decompressed, qual, mb, frame_idx, x, y, mb.vect);  
+      encode_iframe(mb, x, y);  
       buf_decompressed->push_mb(mb);
    } else { // encode P-frame
-
-      encode_and_buffer_vector_search(stream, mb, 0, 0, 0);
+      encode_and_buffer_vector_search(stream, mb, x, y);
       
    }
 }
@@ -134,6 +282,15 @@ auto encode_and_buffer_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto 
 
 
 int written = 0;
+/*
+ * the functions push bits with the following meaning:
+ * 0 - no delta
+ * 0 - no repetitions
+ *
+ * */
+
+
+
 void write_frames_to_stream(OutputBitStream &stream) {
    //TODO: remove assert
    assert(buf_compressed->mb_in_frame() == 396);
@@ -143,12 +300,11 @@ void write_frames_to_stream(OutputBitStream &stream) {
    for(int i = 0; i <  buf_compressed->frame_count(); i++){
       int x0 = 0; 
       int y0 = 0;
-      //stream.push_byte(1);
+      stream.push_byte(1);
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
          written++;
          // push a byte flag on new frames
-         if(mb_written == 0) stream.push_byte(1);
-         mb_written = (mb_written + 1) % cap;
+         //compress_mb(mb, stream);
          write_mb(stream, mb, mb.vect);
       }
    }
@@ -167,6 +323,8 @@ int main(int argc, char** argv){
    // https://stackoverflow.com/questions/49903319/simple-way-to-calculate-padding-based-on-modulo-remainder
    width += (-width % 16);
    height += (-height % 16);
+   global_width = width;
+   global_height = height;
    std::string quality{argv[3]};
    if(quality == "low")
       qual = Quality::LOW;
@@ -192,7 +350,6 @@ int main(int argc, char** argv){
    mb.Cr.setZero();
    buf_decompressed = FrameBuffer{ width, height };
    buf_compressed   = FrameBuffer{ width, height };
-
    while (reader.read_next_frame()){
 
       //output_stream.push_byte(1); // TODO: uncomment this when NOT using buffered output
@@ -232,5 +389,6 @@ int main(int argc, char** argv){
    std::cerr << "written " << written << "\n";
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
+   std::cerr << "matches " << matches << "\n";
    return 0;
 }

@@ -29,7 +29,6 @@
 #include "yuv_stream.hpp"
 #include "dct.hpp"
 #include "quantize.hpp"
-#include "yuv_pipeline.hpp"
 #include "utils.hpp"
 
 bool printed = false;

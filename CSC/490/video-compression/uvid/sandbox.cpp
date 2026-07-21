@@ -2,37 +2,15 @@
 #include <Eigen/Dense>
 
 // Include your project headers
+#include "input_stream.hpp"
+#include "output_stream.hpp"
 #include "types.hpp"
+#include "utils.hpp"
 #include "dct.hpp"
 #include "quantize.hpp"
-#include "yuv_pipeline.hpp"
 
-auto Ypipeline = Codec::YUVPipeline<Codec::BlockType::YBlock>();
-auto test_pipeline(Matrix8d &block) {
-   std::cout << "original" << std::endl;
-   std::cout << block << std::endl;
+bool printed = false;
 
-   std::cout << "forward" << std::endl;
-   block = Ypipeline.DCTForward(block);
-   std::cout << block << std::endl;
-
-   std::vector<u8>stream;
-   for (auto i = 0 ; i < block.rows(); i++) {
-      for(auto j = 0; j < block.cols(); j++) {
-         stream.push_back(block(i, j));
-      }
-   }
-   Matrix8d D;
-   for (auto i = 0 ; i < block.rows(); i++) {
-      for(auto j = 0; j < block.cols(); j++) {
-         D(i, j) = static_cast<char>(stream.at(i * 8 + j));
-      }
-   }
-
-   D = Ypipeline.DCTInverse(D);
-   std::cout << "reconstructed" << std::endl;
-   std::cout << D << std::endl;
-}
 int main() {
    // 1. Define a hardcoded 8x8 pixel block (e.g., a simple gradient)
    Matrix8d block(8, 8);
@@ -64,9 +42,55 @@ int main() {
          67, 61,68,104,126,88,68,70,
          79, 65,60, 70,77,68,58,75,
          85, 71,64,59,55,61,65,83,
-         87, 79,69,68,65,76,78,94,
-   test_pipeline(block); 
+         87, 79,69,68,65,76,78,94;
+   //test_pipeline(block); 
    
-      0 % 16;
-      return 0;
+   Matrix8d C(8, 8);
+   C <<
+      1, 2, 3, 4, 5, -1, 127, 0,
+      1, 2, 3, 4, 5, -1, 127, 0,
+      1, 2, 3, 4, 5, -1, 127, 0,
+      1, 2, 3, 4, 5, -1, 127, 0,
+      1, 2, 3, 4, 5, -1, 127, 0,
+      1, 2, 3, 4, 5, -1, 127, 0,
+      1, 2, 3, 4, 5, -1, 127, 0,
+      1, 2, 3, 4, 5, -1, 127, 0;
+   Matrix16d Y(16, 16);
+   Y <<
+     1,    2,    6,    7,   15,   16,   28,   29,   45,   46,   66,   67,   91,   92,  120,  121,
+     3,    5,    8,   14,   17,   27,   30,   44,   47,   65,   68,   90,   93,  119,  122,  151,
+     4,    9,   13,   18,   26,   31,   43,   48,   64,   69,   89,   94,  118,  123,  150,  152,
+    10,   12,   19,   25,   32,   42,   49,   63,   70,   88,   95,  117,  124,  149,  153,  178,
+    11,   20,   24,   33,   41,   50,   62,   71,   87,   96,  116,  125,  148,  154,  177,  179,
+    21,   23,   34,   40,   51,   61,   72,   86,   97,  115,  126,  147,  155,  176,  180,  201,
+    22,   35,   39,   52,   60,   73,   85,   98,  114,  127,  146,  156,  175,  181,  200,  202,
+    36,   38,   53,   59,   74,   84,   99,  113,  128,  144,  157,  174,  182,  199,  203,  219,
+    37,   54,   58,   75,   83,  100,  112,  129,  144,  158,  173,  183,  198,  204,  218,  220,
+    55,   57,   76,   82,  101,  111,  130,  143,  159,  172,  184,  197,  205,  217,  221,  234,
+    56,   77,   81,  102,  110,  131,  142,  160,  171,  185,  196,  206,  216,  222,  233,  235,
+    78,   80,  103,  109,  132,  141,  161,  170,  186,  195,  207,  215,  223,  232,  236,  245,
+    79,  104,  108,  133,  140,  162,  169,  187,  194,  207,  214,  224,  231,  237,  246,  253,
+   105,  107,  134,  139,  163,  168,  188,  193,  208,  213,  225,  230,  238,  247,  252,  254,
+   106,  135,  138,  164,  167,  189,  192,  209,  212,  226,  229,  239,  248,  251,  255,  258,
+   136,  137,  165,  166,  190,  191,  210,  211,  227,  228,  240,  249,  250,  256,  257,  259;
+
+   const Macroblock mb = {
+      .Y = Y,
+      .Cb = C,
+      .Cr = C
+   };
+   //OutputBitStream out_stream{std::cout};
+   //InputBitStream in_stream{std::cin};
+   //Macroblock mb2;
+   //mb2.Y.setZero();
+   //mb2.Cb.setZero();
+   //mb2.Cr.setZero();
+   //compress_mb(mb, out_stream);
+   //std::cout << std::flush;
+   //decompress_mb(mb2, in_stream);
+
+   for(auto [x, y]: col_scan_16x16) {
+      std::cout<<mb.Y(x,y)<< " \n";
    }
+   return 0;
+}

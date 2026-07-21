@@ -12,7 +12,7 @@ uvid_compress: uvid_compress.o utils.o
 uvid_decompress: uvid_decompress.o utils.o
 	$(CXX) -o $@ $^
 
-sandbox: sandbox.o
+sandbox: sandbox.o utils.o
 	$(CXX) -o $@ $^
 
 
