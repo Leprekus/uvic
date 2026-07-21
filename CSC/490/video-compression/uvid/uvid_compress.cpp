@@ -42,14 +42,20 @@ Quality qual = Quality::MED;
 u32 global_width = 0;
 u32 global_height = 0;
 
-void write_intra_vector(OutputBitStream &stream, std::pair<i8, i8> mb_vector) {
-   auto [x, y] = mb_vector;
-   if(x == -1 && y == -1)
-      return stream.push_byte(static_cast<i8>(x));
-   stream.push_byte(static_cast<i8>(x));
-   stream.push_byte(static_cast<i8>(y));
+void write_intra_vector(OutputBitStream &stream, BlockVect mb_vector) {
+   auto [x, y, z] = mb_vector;
+   if(x == -1 && y == -1) {
+      stream.push_byte(static_cast<u8>(x>>8));
+      stream.push_byte(static_cast<u8>(x));
+      return;
+   }
+   stream.push_byte(static_cast<u8>(x>>8)); // push high byte
+   stream.push_byte(static_cast<u8>(x)); // push low byte
+   stream.push_byte(static_cast<u8>(y>>8));
+   stream.push_byte(static_cast<u8>(y));
+   stream.push_byte(static_cast<u8>(z));
 }
-auto write_mb(OutputBitStream &stream, const Macroblock &mb, std::pair<i8, i8> vect) {
+auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
 
    write_intra_vector(stream, vect);
 
@@ -81,31 +87,31 @@ int get_aad(Macroblock &want, Macroblock &have){
          );
       
 }
-std::pair<i8, i8> intra_prediction(Macroblock &mb, auto i, auto x, auto y) {
+BlockVect intra_prediction(Macroblock &mb, auto i, auto x, auto y) {
    tmp = mb;
    if(x >= 16) {
       Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y); 
       if(get_aad(tmp, left) <= 5) {
          predicted_forward(mb, left);
-         return std::pair(-16, 0);
+         return BlockVect(-16, 0, -1);
       }
    }
    if(y >= 16) {
       Macroblock &above = buf_decompressed->get_frame_mb(i, x, y - 16); 
       if(get_aad(tmp, above) <= 5) {
          predicted_forward(mb, above);
-         return std::pair(0, - 16);
+         return BlockVect(0, - 16, -1);
       }
    }
    if(x >= 16 && y >= 16) {
       Macroblock &topleft = buf_decompressed->get_frame_mb(i, x - 16, y - 16);
       if(get_aad(tmp, topleft) <= 5) {
          predicted_forward(mb, topleft);
-         return std::pair(- 16, - 16);
+         return BlockVect(- 16, - 16, -1);
       }
    }
    iframe_forward(qual, mb);
-   return std::pair(-1, -1);
+   return BlockVect(-1, -1, -1);
 }
 
 // sum of absolute difference
@@ -123,6 +129,7 @@ typedef struct {
 } Item;
 
 int matches = 0;
+constexpr int tolerance = 384;
 Item inter_block_search(Macroblock &mb, int x0, int y0) {
    // 1. get the ith block of the previous buffered frames
    int frame_idx = buf_decompressed->frame_count() - 1; // exclude currrent frame
@@ -150,7 +157,6 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
     * */
    constexpr auto cached = [](auto i, auto x, auto y)-> const Macroblock &{  return buf_decompressed->get_frame_mb(i, x, y); };
    //auto [i, x, y] = it;
-   constexpr int tolerance = 384;
    const Macroblock *match = nullptr;
 
    auto [idx, x, y, best_sad] = it; 
@@ -236,18 +242,16 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
    
 }
 
-void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x, int y) {
+void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x0, int y0) {
 
-   Item predicted = inter_block_search(mb, x, y); 
-   if(true) {
-      Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, 0, 0);  
-      // compute delta and quantize
-      predicted_forward(mb, decompressed_mb); 
-      mb.vect = std::pair(-1, -1);
-      buf_compressed->push_mb(mb);
-      predicted_inverse(mb, decompressed_mb);
-      buf_decompressed->push_mb(mb);
-   }
+   auto [idx, x, y, best_sad] = inter_block_search(mb, x0, y0); 
+   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(0, 0, 0);  
+   // compute delta and quantize
+   predicted_forward(mb, decompressed_mb); 
+   mb.vect = BlockVect(0, 0, 0);
+   buf_compressed->push_mb(mb);
+   predicted_inverse(mb, decompressed_mb);
+   buf_decompressed->push_mb(mb);
 
    
 

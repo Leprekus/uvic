@@ -342,7 +342,12 @@ void intra_reconstruct(
       std::optional<FrameBuffer> &buffer, Quality qual,
       Macroblock &mb, 
       int i, int x0, int y0,
-      std::pair<i8, i8> offset);
+      BlockVect offset);
+void inter_reconstruct(
+      std::optional<FrameBuffer> &buffer, Quality qual,
+      Macroblock &mb, 
+      int i, int x0, int y0,
+      BlockVect offset);
 void print(const Macroblock &mb, std::string tag);
 
 void write_zero(const int run, OutputBitStream &stream);

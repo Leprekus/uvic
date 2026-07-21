@@ -51,11 +51,16 @@ void write_mb(YUVFrame420 &frame, const Macroblock &mb, auto x0, auto y0) {
 }
 
 /* pass pixel coordinates */
-void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int i, int x, int y) {
-   assert(x >= 0 && y >=0); 
+void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
    //TODO: pick specific frame to reconstruct from based on the current B-frame's index
    
-   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(0, 0, 0);  
+   auto [x, y, z] = mb.vect;
+   try {
+   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
+   } catch(...){ std::cerr << " idx " << static_cast<int>(z) << " x " << static_cast<int>(x) << " y " << static_cast<int>(y) << "\n"; exit(1); }
+
+
+   Macroblock &decompressed_mb = frame_buffer->get_frame_mb(z, x, y);  
    predicted_inverse(mb, decompressed_mb); 
    frame_buffer->push_mb(mb);
    
@@ -70,19 +75,28 @@ void decode_mb(YUVFrame420 &frame, Macroblock &mb,
       frame_buffer->push_mb(mb); // store decompressed I-frame
    } else { // decode a P-frame
       
-      reconstruct_vector(frame, mb, 0, 0, 0);
+      reconstruct_vector(frame, mb);
    
    }
 
 }
 
 
-std::pair<i8, i8> read_vector(InputBitStream &stream) {
-   char x = static_cast<i8>(stream.read_byte()); 
+BlockVect read_vector(InputBitStream &stream) {
+   i16 x = static_cast<i16>(
+      static_cast<u8>(stream.read_byte())<<8 |
+      static_cast<u8>(stream.read_byte())
+   );
    if(x == -1)
-      return std::pair(-1, -1);
-   char y = static_cast<i8>(stream.read_byte()); 
-   return std::pair(x, y); 
+      return BlockVect(-1, -1, -1);
+
+   i16 y = static_cast<i16>(
+      static_cast<u8>(stream.read_byte())<<8 |
+      static_cast<u8>(stream.read_byte())
+   );
+
+   char z = static_cast<i8>(stream.read_byte()); 
+   return BlockVect(x, y, z); 
 }
 
 
@@ -156,7 +170,7 @@ int main(int argc, char** argv){
       //writer.write_frame(); 
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
-            std::pair<i8, i8> vect = read_vector(input_stream);
+            BlockVect vect = read_vector(input_stream);
             mb.vect = vect;
             /* fill Y */
             for(int y = 0; y < 16; y++)
