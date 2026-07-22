@@ -77,7 +77,7 @@ void decode_mb(YUVFrame420 &frame, Macroblock &mb,
    bool is_first_frame = frame_buffer->frame_count() < 1;
    // decode an I-frame
    if(is_first_frame) {
-      //assert(!mb.is_copy);
+      assert(!mb.is_copy);
       intra_reconstruct(frame_buffer, qual, mb, frame_buffer->frame_count(), x0, y0, mb.vect);
       frame_buffer->push_mb(mb); // store decompressed I-frame
    } else { // decode a P-frame
@@ -164,7 +164,7 @@ void write_frames_to_stream(YUVStreamWriter &writer, int width) {
 void read_into_mb(InputBitStream &input_stream, Macroblock &mb) {
    BlockVect vect = read_vector(input_stream, mb);
    mb.vect = vect;
-   //if(mb.is_copy) return;
+   if(mb.is_copy) return;
    /* fill Y */
    for(int y = 0; y < 16; y++)
       for(int x = 0; x < 16; x++)

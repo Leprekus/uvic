@@ -42,13 +42,19 @@ Quality qual = Quality::MED;
 u32 global_width = 0;
 u32 global_height = 0;
 
+
+int fcount = 0;
 void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
    auto [x, y, z] = mb.vect;
 
+   fcount++;
+   if(fcount % buf_compressed->mb_in_frame() == 0) {
+      std::cerr << " frame " << buf_compressed->frame_count() << " copy " << mb.is_copy << " x " << x << " y " << y << " z " << static_cast<int>(z) << "\n"; 
+   }
    if(mb.is_copy)
-      stream.push_byte(1U);
+      stream.push_byte(static_cast<u8>(1U));
    else
-      stream.push_byte(0);
+      stream.push_byte(static_cast<u8>(0U));
 
    stream.push_byte(static_cast<u8>(x>>8));
    stream.push_byte(static_cast<u8>(x)); // push high byte
@@ -61,7 +67,7 @@ void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
 auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
 
    write_intra_vector(stream, mb);
-   //if(mb.is_copy) return;
+   if(mb.is_copy) return;
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
          stream.push_byte(static_cast<i8>(mb.Y(x, y)));
@@ -246,6 +252,7 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
 void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x0, int y0) {
 
    auto [idx, x, y, best_sad, is_copy] = inter_block_search(mb, x0, y0); 
+   assert(buf_decompressed->frame_count() >= 1);
    assert(buf_decompressed->frame_count() == buf_compressed->frame_count());
    assert(idx <= buf_decompressed->frame_count() - 1);
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
@@ -299,6 +306,7 @@ auto encode_and_buffer_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto 
    bool is_first_frame = buf_compressed->frame_count() < 1;
    if(is_first_frame) { // encode I-frame
       encode_iframe(mb, x, y);  
+      assert(!mb.is_copy);
    } else { // encode P-frame
       encode_and_buffer_vector_search(stream, mb, x, y);
       
@@ -327,7 +335,12 @@ void write_frames_to_stream(OutputBitStream &stream) {
       int x0 = 0; 
       int y0 = 0;
       stream.push_byte(1);
+      bool printed = false;
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
+         if(!printed) {
+            printed = true;
+            //std::cerr << " frame " << i << " copy " << mb.is_copy << " x " << std::get<0>(mb.vect) << " y " << std::get<1>(mb.vect) << " z " << static_cast<int>(std::get<2>(mb.vect)) << "\n"; 
+         }
          written++;
          // push a byte flag on new frames
          //compress_mb(mb, stream);
