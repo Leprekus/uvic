@@ -48,16 +48,14 @@ void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
    if(mb.is_copy)
       stream.push_byte(1U);
    else
-      stream.push_byte(0);;
-   if(x == -1 && y == -1) {
-      stream.push_byte(static_cast<u8>(x>>8));
-      stream.push_byte(static_cast<u8>(x));
-      return;
-   }
-   stream.push_byte(static_cast<u8>(x>>8)); // push high byte
-   stream.push_byte(static_cast<u8>(x)); // push low byte
+      stream.push_byte(0);
+
+   stream.push_byte(static_cast<u8>(x>>8));
+   stream.push_byte(static_cast<u8>(x)); // push high byte
+
    stream.push_byte(static_cast<u8>(y>>8));
    stream.push_byte(static_cast<u8>(y));
+
    stream.push_byte(static_cast<u8>(z));
 }
 auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
@@ -250,15 +248,21 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
    assert(idx <= buf_decompressed->frame_count() - 1);
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
    // compute delta and quantize
-   if(false && is_copy) { // send copied p-frame
+   if(is_copy) { // send copied p-frame
       // copy the block, update the flag
       Macroblock copy_com = buf_compressed->get_frame_mb(idx, x, y);
       Macroblock copy_dec = buf_decompressed->get_frame_mb(idx, x, y);
       copy_com.is_copy = true;
+      copy_com.vect = std::tuple(x, y, idx);
+
       copy_dec.is_copy = true;
+      copy_dec.vect = std::tuple(x, y, idx);
       // push blocks into the stream
       buf_compressed->push_mb(copy_com);
       buf_decompressed->push_mb(copy_dec);
+
+      // try to get copy back
+      buf_decompressed->get_frame_mb(idx, x, y);
       
    } else { // send delta p-frame
       predicted_forward(mb, decompressed_mb); 

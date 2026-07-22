@@ -56,12 +56,14 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
    
    auto [x, y, idx] = mb.vect;
    assert(idx <= 3);
-   if(false && mb.is_copy){ // process copied p-frame
+   if(mb.is_copy){ // process copied p-frame
+      try{ 
       Macroblock copy_dec = frame_buffer->get_frame_mb(idx, x, y);
       copy_dec.is_copy = true;
       // push blocks into the stream
       frame_buffer->push_mb(copy_dec);
 
+      } catch(...){ std::cerr << " fetch copy" << static_cast<int>(x) << " " << static_cast<int>(y) << " " << static_cast<int>(idx) <<  " failed\n"; exit(1); }
 
    } else { // process delta p-frame
       Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
@@ -80,7 +82,6 @@ void decode_mb(YUVFrame420 &frame, Macroblock &mb,
       intra_reconstruct(frame_buffer, qual, mb, frame_buffer->frame_count(), x0, y0, mb.vect);
       frame_buffer->push_mb(mb); // store decompressed I-frame
    } else { // decode a P-frame
-      
       reconstruct_vector(frame, mb);
    
    }
@@ -92,12 +93,11 @@ BlockVect read_vector(InputBitStream &stream, Macroblock &mb) {
    u8 copy = static_cast<u8>(stream.read_byte());
    if(copy)
       mb.is_copy = true;
+
    i16 x = static_cast<i16>(
       static_cast<u8>(stream.read_byte())<<8 |
       static_cast<u8>(stream.read_byte())
    );
-   if(x == -1)
-      return BlockVect(-1, -1, -1);
 
    i16 y = static_cast<i16>(
       static_cast<u8>(stream.read_byte())<<8 |
