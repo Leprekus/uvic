@@ -51,19 +51,16 @@ void write_mb(YUVFrame420 &frame, const Macroblock &mb, auto x0, auto y0) {
 }
 
 /* pass pixel coordinates */
-void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
+void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int x0, int y0) {
    //TODO: pick specific frame to reconstruct from based on the current B-frame's index
    
    auto [x, y, idx] = mb.vect;
    assert(idx <= 3);
    if(mb.is_copy){ // process copied p-frame
-      try{ 
-      Macroblock copy_dec = frame_buffer->get_frame_mb(idx, x, y);
+      Macroblock copy_dec = frame_buffer->get_frame_mb(idx, x + x0, y + y0);
       copy_dec.is_copy = true;
       // push blocks into the stream
       frame_buffer->push_mb(copy_dec);
-
-      } catch(...){ std::cerr << " fetch copy" << static_cast<int>(x) << " " << static_cast<int>(y) << " " << static_cast<int>(idx) <<  " failed\n"; exit(1); }
 
    } else { // process delta p-frame
       Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
@@ -79,10 +76,11 @@ void decode_mb(YUVFrame420 &frame, Macroblock &mb,
    bool is_first_frame = frame_buffer->frame_count() < 1;
    // decode an I-frame
    if(is_first_frame) {
+      //assert(!mb.is_copy);
       intra_reconstruct(frame_buffer, qual, mb, frame_buffer->frame_count(), x0, y0, mb.vect);
       frame_buffer->push_mb(mb); // store decompressed I-frame
    } else { // decode a P-frame
-      reconstruct_vector(frame, mb);
+      reconstruct_vector(frame, mb, x0, y0);
    
    }
 
@@ -149,6 +147,19 @@ void write_frames_to_stream(YUVStreamWriter &writer, int width) {
    }
    
 }
+void read_into_mb(InputBitStream &input_stream, Macroblock &mb) {
+   for(int y = 0; y < 16; y++)
+      for(int x = 0; x < 16; x++)
+         mb.Y(x, y) = static_cast<i8>(input_stream.read_byte());
+   /* fill Cb */
+   for(int y = 0; y < 8; y++)
+      for(int x = 0; x < 8; x++)
+         mb.Cb(x, y) = static_cast<i8>(input_stream.read_byte());
+   /* fill Cr */
+   for(int y = 0; y < 8; y++)
+      for(int x = 0; x < 8; x++)
+         mb.Cr(x, y) = static_cast<i8>(input_stream.read_byte());
+}
 int main(int argc, char** argv){
 
    //Note: This program must not take any command line arguments. (Anything
@@ -182,22 +193,13 @@ int main(int argc, char** argv){
             BlockVect vect = read_vector(input_stream, mb);
             mb.vect = vect;
             /* fill Y */
-            for(int y = 0; y < 16; y++)
-               for(int x = 0; x < 16; x++)
-                  mb.Y(x, y) = static_cast<i8>(input_stream.read_byte());
-            /* fill Cb */
-            for(int y = 0; y < 8; y++)
-               for(int x = 0; x < 8; x++)
-                  mb.Cb(x, y) = static_cast<i8>(input_stream.read_byte());
-            /* fill Cr */
-            for(int y = 0; y < 8; y++)
-               for(int x = 0; x < 8; x++)
-                  mb.Cr(x, y) = static_cast<i8>(input_stream.read_byte());
+            //if(!mb.is_copy)
+               read_into_mb(input_stream, mb);
 
             bool buffer_is_full = frame_buffer->frame_count() >= 4;
-            if(!buffer_is_full) 
-               decode_mb(frame, mb, x0, y0);
-            else throw std::runtime_error("buf_compressed overflow");		
+            if(buffer_is_full) 
+               throw std::runtime_error("buf_compressed overflow");
+            decode_mb(frame, mb, x0, y0);
 
          }
       }
