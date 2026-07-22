@@ -42,8 +42,13 @@ Quality qual = Quality::MED;
 u32 global_width = 0;
 u32 global_height = 0;
 
-void write_intra_vector(OutputBitStream &stream, BlockVect mb_vector) {
-   auto [x, y, z] = mb_vector;
+void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
+   auto [x, y, z] = mb.vect;
+
+   if(mb.is_copy)
+      stream.push_byte(1U);
+   else
+      stream.push_byte(0);;
    if(x == -1 && y == -1) {
       stream.push_byte(static_cast<u8>(x>>8));
       stream.push_byte(static_cast<u8>(x));
@@ -57,7 +62,7 @@ void write_intra_vector(OutputBitStream &stream, BlockVect mb_vector) {
 }
 auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
 
-   write_intra_vector(stream, vect);
+   write_intra_vector(stream, mb);
 
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
@@ -245,7 +250,7 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
    assert(idx <= buf_decompressed->frame_count() - 1);
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
    // compute delta and quantize
-   if(is_copy) { // send copied p-frame
+   if(false && is_copy) { // send copied p-frame
       // copy the block, update the flag
       Macroblock copy_com = buf_compressed->get_frame_mb(idx, x, y);
       Macroblock copy_dec = buf_decompressed->get_frame_mb(idx, x, y);

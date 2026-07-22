@@ -56,11 +56,12 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb) {
    
    auto [x, y, idx] = mb.vect;
    assert(idx <= 3);
-   if(mb.is_copy){ // process copied p-frame
+   if(false && mb.is_copy){ // process copied p-frame
       Macroblock copy_dec = frame_buffer->get_frame_mb(idx, x, y);
       copy_dec.is_copy = true;
       // push blocks into the stream
       frame_buffer->push_mb(copy_dec);
+
 
    } else { // process delta p-frame
       Macroblock &decompressed_mb = frame_buffer->get_frame_mb(idx, x, y);  
@@ -87,7 +88,10 @@ void decode_mb(YUVFrame420 &frame, Macroblock &mb,
 }
 
 
-BlockVect read_vector(InputBitStream &stream) {
+BlockVect read_vector(InputBitStream &stream, Macroblock &mb) {
+   u8 copy = static_cast<u8>(stream.read_byte());
+   if(copy)
+      mb.is_copy = true;
    i16 x = static_cast<i16>(
       static_cast<u8>(stream.read_byte())<<8 |
       static_cast<u8>(stream.read_byte())
@@ -175,7 +179,7 @@ int main(int argc, char** argv){
       //writer.write_frame(); 
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
-            BlockVect vect = read_vector(input_stream);
+            BlockVect vect = read_vector(input_stream, mb);
             mb.vect = vect;
             /* fill Y */
             for(int y = 0; y < 16; y++)
