@@ -352,8 +352,8 @@ void print(const Macroblock &mb, std::string tag);
 
 void write_zero(const int run, OutputBitStream &stream);
 void write_bitsream(const double value, u32 run, OutputBitStream &stream);
-void compress_mb(const Macroblock &mb, OutputBitStream &stream);
+void compressed_mb_to_bistream(const Macroblock &mb, OutputBitStream &stream);
 
 void read_zeroes(InputBitStream &stream);
 void read_bitstream(InputBitStream &stream);
-void decompress_mb(const Macroblock &mb, InputBitStream &stream);
+void bitstream_to_compressed_mb(const Macroblock &mb, InputBitStream &stream);
