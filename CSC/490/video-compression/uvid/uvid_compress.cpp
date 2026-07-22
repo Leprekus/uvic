@@ -61,7 +61,7 @@ void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
 auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
 
    write_intra_vector(stream, mb);
-
+   //if(mb.is_copy) return;
    for(auto y = 0; y < 16; y++)
       for(auto x = 0; x < 16; x++)
          stream.push_byte(static_cast<i8>(mb.Y(x, y)));
@@ -168,6 +168,7 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
       matches++;
       return it; // premature exit
    }
+   /*
    for(int j = idx; j  >= 0; j--) {
 
       int lookahead_long = 32;
@@ -236,6 +237,7 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
          if(curr_sad <= tolerance) return it;
       }
    }
+   */
    is_copy = false;
    return it;
    
@@ -253,10 +255,11 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
       Macroblock copy_com = buf_compressed->get_frame_mb(idx, x, y);
       Macroblock copy_dec = buf_decompressed->get_frame_mb(idx, x, y);
       copy_com.is_copy = true;
-      copy_com.vect = std::tuple(x, y, idx);
+      // store the deltas from the block that we have
+      copy_com.vect = BlockVect(x - x0, y - y0, idx);
 
       copy_dec.is_copy = true;
-      copy_dec.vect = std::tuple(x, y, idx);
+      copy_dec.vect = BlockVect(x - x0, y - y0, idx);
       // push blocks into the stream
       buf_compressed->push_mb(copy_com);
       buf_decompressed->push_mb(copy_dec);
@@ -394,9 +397,10 @@ int main(int argc, char** argv){
             }
             /* create an I-Frame every 64 frames */
             bool buffer_is_full = buf_compressed->frame_count() >= 4;
-            if(!buffer_is_full) {
-               encode_and_buffer_mb(output_stream, mb, x0, y0);
-            } else throw std::runtime_error("buf_compressed overflow");
+            if(buffer_is_full) 
+               throw std::runtime_error("buf_compressed overflow");
+            
+            encode_and_buffer_mb(output_stream, mb, x0, y0);
             
          }
       } 
