@@ -85,24 +85,36 @@ constexpr std::array<std::pair<int, int>, N * N> generate_zigzag_scan_nxn() {
    std::array<std::pair<int, int>, N * N> A = {}; 
    int idx = 0;
    bool rev = true;
-   for(int i = 0; i < N; i+= N-1) {
-      for(int j = i; j < N; j++) {
-         for(int k = 0; k < j; k++) {
-            int x = 0;
-            int y = 0;
-            if(rev) {
-               y = k;
-               x = j - k;
-            } else {
-               y = j - k;
-               x = k;
-               
-            }
-            A[idx++] = {x, y};
+   int row = 0;
+   int col = 0;
+   int dir = 1;
+   constexpr int LEN = N * N;
+   while(idx < LEN) {
+      A[idx++] = {row, col};
+      if(dir) {
+         if(col == N - 1) {
+            row += 1;
+            dir = 0;
+         } else if(row == 0) {
+            col += 1;
+            dir = 0;
+         } else {
+            row -= 1;
+            col += 1;
          }
-         rev = !rev;
+      } else {
+         if(row == N - 1) {
+            col += 1;
+            dir = 1;
+         } else if(col == 0) {
+            row += 1;
+            dir = 1;
+         } else {
+            row += 1;
+            col -= 1;
+         }
+
       }
-      
    }
    return A;
 }
