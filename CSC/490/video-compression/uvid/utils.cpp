@@ -98,25 +98,61 @@ void read_bitstream(InputBitStream &stream){
 }
 
 template <typename EigenMatrix>
-void _decompress_block(const EigenMatrix &M, InputBitStream &stream) {
+void _bitstream_to_compressed_block(const EigenMatrix &M, InputBitStream &stream) {
 
 }
-void decompress_mb(const Macroblock &mb, InputBitStream &stream) {
-   _decompress_block(mb.Y,  stream);
-   _decompress_block(mb.Cb, stream);
-   _decompress_block(mb.Cr, stream);
+void bitstream_to_compressed_mb(const Macroblock &mb, InputBitStream &stream) {
+   _bitstream_to_compressed_block(mb.Y,  stream);
+   _bitstream_to_compressed_block(mb.Cb, stream);
+   _bitstream_to_compressed_block(mb.Cr, stream);
 }
 
+/* get run q*/
 template <typename EigenMatrix>
-void _compress_block(const EigenMatrix &M, OutputBitStream &stream) {
+void _compressed_block_to_bistream(OutputBitStream &stream, const EigenMatrix &M,  auto &traversal) {
    assert(M.cols() == M.rows());
+   assert(M.cols() * M.cols() == traversal.size());
    size_t len = M.size();
    size_t cols = M.cols();
 
+   auto curr = M(traversal.front().first, traversal.front().second);
+   int run = 0;
+   for(auto [x, y]: traversal) {
+      if(curr == M(x, y))
+         run++;
+      else {
+         std::cerr << "item: " << curr << " run: " << run << "\n";
+         run = 1;
+         curr = M(x, y);
+      }
+   }
+   if(run) {
+      std::cerr << "item: " << curr << " run: " << run << "\n";
+   }
+
    
 }
-void compress_mb(const Macroblock &mb, OutputBitStream &stream) {
-   _compress_block(mb.Y,  stream);
-   //_compress_block(mb.Cb, stream);
+void compressed_mb_to_bistream(const Macroblock &mb, OutputBitStream &stream) {
+   auto [x, y, idx] = mb.vect;
+   bool row_scan = x != 0 && y == 0;
+   bool col_scan = x == 0 && y != 0;
+   bool zig_scan = x != 0 && y != 0;
+
+   auto *ptr_8x8   = &row_scan_8x8;
+   auto *ptr_16x16 = &row_scan_16x16;
+   if(row_scan){} // default so ignore
+   if(col_scan) {
+      ptr_8x8   = &col_scan_8x8;
+      ptr_16x16 = &col_scan_16x16;
+   }
+   if(zig_scan) {
+      ptr_8x8 = &zigzag_scan_8x8;
+      ptr_16x16 = &zigzag_scan_16x16;
+   }
+   auto &ref_8x8 = *ptr_8x8;
+   auto &ref_16x16 = *ptr_16x16;
+   std::cerr << "col_scan: " << " row " << row_scan << " col " << col_scan << " zig " << zig_scan << "\n";
+   //_compressed_block_to_bistream(stream, mb.Y, ref_16x16);
+   _compressed_block_to_bistream(stream, mb.Cb, ref_8x8);
    //_compress_block(mb.Cr, stream);
 }
