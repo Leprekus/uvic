@@ -47,10 +47,10 @@ int fcount = 0;
 void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
    auto [x, y, z] = mb.vect;
 
-   fcount++;
-   if(fcount % buf_compressed->mb_in_frame() == 0) {
-      std::cerr << " frame " << buf_compressed->frame_count() << " copy " << mb.is_copy << " x " << x << " y " << y << " z " << static_cast<int>(z) << "\n"; 
-   }
+   //fcount++;
+   //if(fcount % buf_compressed->mb_in_frame() == 0) {
+   //   std::cerr << " frame " << buf_compressed->frame_count() << " copy " << mb.is_copy << " x " << x << " y " << y << " z " << static_cast<int>(z) << "\n"; 
+   //}
    if(mb.is_copy)
       stream.push_byte(static_cast<u8>(1U));
    else
@@ -129,7 +129,7 @@ auto sad = [](const Macroblock &want, const Macroblock &have) {
       (want.Y - have.Y).array().abs().sum() + 
       (want.Cb - have.Cb).array().abs().sum() +
       (want.Cr - have.Cr).array().abs().sum()
-   ) / 384;
+   );
 };
 // TODO: cache results
 typedef struct Item {
@@ -139,7 +139,7 @@ typedef struct Item {
 } Item;
 
 int matches = 0;
-constexpr int tolerance = 384;
+constexpr int tolerance = 512;
 Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
    // 1. get the ith block of the previous buffered frames
    int frame_idx = buf_decompressed->frame_count() - 1; // exclude currrent frame
@@ -153,6 +153,7 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
          it.idx = i;
       }
    }
+   //std::cerr << " sad " << it.best_sad << "\n" << "original " << mb.Y << "\n" << " copy \n" << buf_decompressed->get_frame_mb(it.idx, it.x, it.y).Y; exit(1);
    /*
     * perform a hexagon-search: 
     * top - looks two blocks ahead
@@ -166,7 +167,6 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
     * away a possible match will be found.
     * */
    constexpr auto cached = [](auto i, auto x, auto y)-> const Macroblock &{  return buf_decompressed->get_frame_mb(i, x, y); };
-   //auto [i, x, y] = it;
 
    auto &[idx, x, y, best_sad, is_copy] = it; 
    is_copy = true;
@@ -174,7 +174,7 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
       matches++;
       return it; // premature exit
    }
-   /*
+   
    for(int j = idx; j  >= 0; j--) {
 
       int lookahead_long = 32;
@@ -243,12 +243,14 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
          if(curr_sad <= tolerance) return it;
       }
    }
-   */
+   
    is_copy = false;
    return it;
    
 }
 
+int copies = 0;
+int deltas = 0;
 void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x0, int y0) {
 
    auto [idx, x, y, best_sad, is_copy] = inter_block_search(mb, x0, y0); 
@@ -258,6 +260,7 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
    Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
    // compute delta and quantize
    if(is_copy) { // send copied p-frame
+      copies++;
       // copy the block, update the flag
       Macroblock copy_com = buf_compressed->get_frame_mb(idx, x, y);
       Macroblock copy_dec = buf_decompressed->get_frame_mb(idx, x, y);
@@ -271,10 +274,9 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
       buf_compressed->push_mb(copy_com);
       buf_decompressed->push_mb(copy_dec);
 
-      // try to get copy back
-      buf_decompressed->get_frame_mb(idx, x, y);
       
    } else { // send delta p-frame
+      deltas++;
       predicted_forward(mb, decompressed_mb); 
       mb.vect = BlockVect(x, y, idx);
       buf_compressed->push_mb(mb);
@@ -430,5 +432,7 @@ int main(int argc, char** argv){
    output_stream.push_byte(0); //Flag to indicate end of data
    output_stream.flush_to_byte();
    std::cerr << "matches " << matches << "\n";
+   std::cerr << "copies " << copies << "\n";
+   std::cerr << "deltas " << deltas << "\n";
    return 0;
 }
