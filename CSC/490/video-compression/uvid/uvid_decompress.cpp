@@ -55,6 +55,7 @@ void reconstruct_vector(YUVFrame420 &frame, Macroblock &mb, int x0, int y0) {
    //TODO: pick specific frame to reconstruct from based on the current B-frame's index
    
    auto [x, y, idx] = mb.vect;
+   assert(frame_buffer->frame_count() >= 1);
    assert(idx <= 3);
    if(mb.is_copy){ // process copied p-frame
       Macroblock copy_dec = frame_buffer->get_frame_mb(idx, x + x0, y + y0);
@@ -86,12 +87,15 @@ void decode_mb(YUVFrame420 &frame, Macroblock &mb,
 
 }
 
-
+int M[4] = {0};
 BlockVect read_vector(InputBitStream &stream, Macroblock &mb) {
    u8 copy = static_cast<u8>(stream.read_byte());
-   if(copy)
+   if(copy == 1U)
       mb.is_copy = true;
+   else 
+      mb.is_copy = false;
 
+   
    i16 x = static_cast<i16>(
       static_cast<u8>(stream.read_byte())<<8 |
       static_cast<u8>(stream.read_byte())
@@ -103,6 +107,11 @@ BlockVect read_vector(InputBitStream &stream, Macroblock &mb) {
    );
 
    char z = static_cast<i8>(stream.read_byte()); 
+
+   if(!M[frame_buffer->frame_count()]) {
+      M[frame_buffer->frame_count()] = 1;
+      std::cerr << " frame " << frame_buffer->frame_count() << " copy " << mb.is_copy << " x " << x << " y " << y << " z " << static_cast<int>(z) << "\n"; 
+   }
    return BlockVect(x, y, z); 
 }
 
@@ -133,7 +142,12 @@ void write_frames_to_stream(YUVStreamWriter &writer, int width) {
    for(int i = 0; i < frame_buffer->frame_count(); i++) {
       int x0 = 0;
       int y0 = 0;
+      bool printed = false;
       for(const Macroblock &mb: frame_buffer->get_frame(i)){
+      if(!printed) {
+            printed = true;
+            //std::cerr << " frame " << i << " copied " << mb.is_copy << "\n";
+         }
          bread++;
          write_mb(frame, mb, x0, y0);
          x0  += 16;
@@ -148,6 +162,10 @@ void write_frames_to_stream(YUVStreamWriter &writer, int width) {
    
 }
 void read_into_mb(InputBitStream &input_stream, Macroblock &mb) {
+   BlockVect vect = read_vector(input_stream, mb);
+   mb.vect = vect;
+   //if(mb.is_copy) return;
+   /* fill Y */
    for(int y = 0; y < 16; y++)
       for(int x = 0; x < 16; x++)
          mb.Y(x, y) = static_cast<i8>(input_stream.read_byte());
@@ -190,11 +208,8 @@ int main(int argc, char** argv){
       //writer.write_frame(); 
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
-            BlockVect vect = read_vector(input_stream, mb);
-            mb.vect = vect;
-            /* fill Y */
-            //if(!mb.is_copy)
-               read_into_mb(input_stream, mb);
+            
+            read_into_mb(input_stream, mb);
 
             bool buffer_is_full = frame_buffer->frame_count() >= 4;
             if(buffer_is_full) 
@@ -208,6 +223,7 @@ int main(int argc, char** argv){
       if(buffer_is_full)  {
          write_frames_to_stream(writer, width);
          frame_buffer->clear();
+         std::memset(M, 0, sizeof(M));
       }
       
    }
