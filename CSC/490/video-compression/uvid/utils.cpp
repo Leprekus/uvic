@@ -151,7 +151,7 @@ void compressed_mb_to_bistream(const Macroblock &mb, OutputBitStream &stream) {
    }
    auto &ref_8x8 = *ptr_8x8;
    auto &ref_16x16 = *ptr_16x16;
-   std::cerr << "col_scan: " << " row " << row_scan << " col " << col_scan << " zig " << zig_scan << "\n";
+   std::cerr << "col_scan: " << col_scan  << " row " << row_scan << " col " << col_scan << " zig " << zig_scan << "\n";
    //_compressed_block_to_bistream(stream, mb.Y, ref_16x16);
    _compressed_block_to_bistream(stream, mb.Cb, ref_8x8);
    //_compress_block(mb.Cr, stream);
