@@ -131,7 +131,7 @@ typedef struct Item {
 
 int matches = 0;
 constexpr int tolerance = 384;
-Item inter_block_search(Macroblock &mb, int x0, int y0) {
+Item inter_block_search(const Macroblock &mb, const int x0, const int y0) {
    // 1. get the ith block of the previous buffered frames
    int frame_idx = buf_decompressed->frame_count() - 1; // exclude currrent frame
    Item it = { .idx = frame_idx, .x = x0, .y = y0, .best_sad = INT32_MAX }; // initialize best item to same block on prev frame
@@ -159,7 +159,7 @@ Item inter_block_search(Macroblock &mb, int x0, int y0) {
    constexpr auto cached = [](auto i, auto x, auto y)-> const Macroblock &{  return buf_decompressed->get_frame_mb(i, x, y); };
    //auto [i, x, y] = it;
 
-   auto [idx, x, y, best_sad, is_copy] = it; 
+   auto &[idx, x, y, best_sad, is_copy] = it; 
    is_copy = true;
    if(best_sad <= tolerance) {
       matches++;
@@ -254,8 +254,6 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
       // push blocks into the stream
       buf_compressed->push_mb(copy_com);
       buf_decompressed->push_mb(copy_dec);
-
-
       
    } else { // send delta p-frame
       predicted_forward(mb, decompressed_mb); 
