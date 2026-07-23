@@ -52,7 +52,7 @@ void print(const Macroblock &mb, std::string tag) {
  * 01 11110 000 - run of 8
  * RUN LENGTH   VALUE
  * */
-void write_zero( u32 run, OutputBitStream &stream){
+void write_zero(u32 run, OutputBitStream &stream){
    // push zero for no delta
    /*stream.push_bit(0);*/ std::cerr << "0";
    if(run) {
@@ -74,8 +74,8 @@ void write_zero( u32 run, OutputBitStream &stream){
          // output value except MSB  
          assert(size >= 2);
          for(int i = size - 2; i >= 0; i--) {
-            u32 bit = run & (1U << i);
-             /*stream.push_bit(bit);*/ std::cerr << (bit ? "1" : "0");
+            u32 bit = (run>>i) & 1U;
+             /*stream.push_bit(bit);*/ std::cerr << (bit == 1 ? "1" : "0");
          }
          
       }
@@ -85,17 +85,56 @@ void write_zero( u32 run, OutputBitStream &stream){
    std::cerr << "\n";
    
 }
-void write_coefficient(const double value, int run, OutputBitStream &stream){
-   std::cerr << "coefficient : " << value << " run " << run << "\n";
+/*
+ * 11         - there is a delta & 1+ reps
+ * 11 0        - (- delta)
+ * 11 1        - (+ delta) 
+ * 11 x xxx yyy - size and value of coefficient 
+ * 11 x xxx xxx ccc ddd - size and value of reps
+ * */
+void write_coefficient(int value, int run, OutputBitStream &stream){
+   assert(run && value != 0);
+   u32 abs_val = static_cast<u32>((value >= 0) ? value : -value);
+   // push 1 for delta
+   /*stream.push_bit(1);*/ std::cerr << "1";
+
+   // direction of delta
+   if(value >= 0) { // push one if value is positive
+   /*stream.push_bit(1);*/ std::cerr << "1";
+   } else {  // push zero if value is negative
+   /*stream.push_bit(0);*/ std::cerr << "0";
+   }
+   // value of coefficient
+   if(abs_val == 1) {
+      /*stream.push_bit(0);*/ std::cerr << "0";
+      /*stream.push_bit(0);*/ std::cerr << "0";
+   }  else if(abs_val == 2) {
+      /*stream.push_bit(0);*/ std::cerr << "1";
+      /*stream.push_bit(0);*/ std::cerr << "0";
+   } else {
+      // output length in unary
+      int size = std::bit_width(abs_val);
+      for(int i = 0; i < size; i++)
+         /*stream.push_bit(1);*/ std::cerr << "1"; 
+      /*stream.push_bit(0);*/ std::cerr << "0"; 
+
+      // output coefficient except for MSB
+      assert(size >= 2);
+      for(int i = size - 2; i >= 0; i--) {
+         u32 bit = (abs_val>>i) & 1U;
+         /*stream.push_bit(bit);*/ std::cerr << (bit == 1 ? "1" : "0");
+      }
+   }
+   std::cerr << "\n";
+   
 }
 void write_bitstream(const auto value, const u32 run, OutputBitStream &stream) {
    bool value_is_zero = value == 0;
-   
-   std::cerr << "value: " << value << " run : " << run << "\n";
+   std::cerr << "coefficient : " << value << " run " << run << "\n";
    if(value_is_zero) {
       write_zero(run, stream); 
    } else {
-      //write_coefficient(value, run, stream);
+      write_coefficient(value, run, stream);
    }
    std::cerr << "\n";
    
@@ -136,7 +175,7 @@ void bitstream_to_compressed_mb(const Macroblock &mb, InputBitStream &stream) {
 
 /* get run q*/
 template <typename EigenMatrix>
-void _compressed_block_to_bitstream(OutputBitStream &stream, const EigenMatrix &M,  auto &traversal) {
+void _compressed_block_to_bitstream(OutputBitStream &stream, const EigenMatrix &M,  const auto &traversal) {
    assert(M.cols() == M.rows());
    assert(M.cols() * M.cols() == traversal.size());
    size_t len = M.size();
@@ -145,12 +184,12 @@ void _compressed_block_to_bitstream(OutputBitStream &stream, const EigenMatrix &
    auto curr = M(traversal.front().first, traversal.front().second);
    u32 run = 0;
    for(auto [x, y]: traversal) {
-      if(curr == M(x, y))
+      if(curr == M(x,y)) {
          run++;
-      else {
+      } else {
          write_bitstream(curr, run, stream);
-         run = 1;
          curr = M(x, y);
+         run = 1;
       }
    }
    if(run) {
@@ -165,20 +204,8 @@ void compressed_mb_to_bitstream(const Macroblock &mb, OutputBitStream &stream) {
    bool col_scan = x == 0 && y != 0;
    bool zig_scan = x != 0 && y != 0;
 
-   auto *ptr_8x8   = &row_scan_8x8;
-   auto *ptr_16x16 = &row_scan_16x16;
-   if(row_scan){} // default so ignore
-   if(col_scan) {
-      ptr_8x8   = &col_scan_8x8;
-      ptr_16x16 = &col_scan_16x16;
-   }
-   if(zig_scan) {
-      ptr_8x8 = &zigzag_scan_8x8;
-      ptr_16x16 = &zigzag_scan_16x16;
-   }
-   auto &ref_8x8 = *ptr_8x8;
-   auto &ref_16x16 = *ptr_16x16;
-   //_compressed_block_to_bitstream(stream, mb.Y, ref_16x16);
-   _compressed_block_to_bitstream(stream, mb.Cb, ref_8x8);
-   //_compress_block(mb.Cr, stream);
+   
+   //_compressed_block_to_bitstream(stream, mb.Y, zigzag_scan_16x16);
+   _compressed_block_to_bitstream(stream, mb.Cb, zigzag_scan_8x8);
+   //_compress_block(mb.Cr, stream, zigzag_scan_8x8);
 }
