@@ -168,7 +168,6 @@ void read_into_mb(InputBitStream &input_stream, Macroblock &mb) {
    mb.vect = vect;
    if(mb.is_copy) return;
    bitstream_to_compressed_mb(mb, input_stream);
-   input_stream.flush_to_byte();
    //std::cerr << "CY\n" <<mb.Y<<"\n";
    //std::cerr << "Cb\n" <<mb.Cb<<"\n";
    //std::cerr << "Cr\n" <<mb.Cr<<"\n";
@@ -218,7 +217,7 @@ int main(int argc, char** argv){
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
             
-            read_into_mb(input_stream, mb);
+            read_into_mb(input_stream, mb); bread++;
 
             bool buffer_is_full = frame_buffer->frame_count() >= 4;
             if(buffer_is_full) 
@@ -227,7 +226,8 @@ int main(int argc, char** argv){
 
          }
       }
-      
+      input_stream.flush_to_byte();
+
       bool buffer_is_full = frame_buffer->frame_count() >= 4;
       if(buffer_is_full)  {
          write_frames_to_stream(writer, width);

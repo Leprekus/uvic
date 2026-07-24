@@ -71,7 +71,6 @@ auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
    if(mb.is_copy) return;
    // write the matrix if block is not a copy 
    compressed_mb_to_bitstream(mb, stream);
-   stream.flush_to_byte();
    //std::cerr << "CY\n" <<mb.Y<<"\n";
    //std::cerr << "Cb\n" <<mb.Cb<<"\n";
    //std::cerr << "Cr\n" <<mb.Cr<<"\n";
@@ -346,17 +345,13 @@ void write_frames_to_stream(OutputBitStream &stream) {
       int x0 = 0; 
       int y0 = 0;
       stream.push_byte(1);
-      bool printed = false;
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
-         if(!printed) {
-            printed = true;
-            //std::cerr << " frame " << i << " copy " << mb.is_copy << " x " << std::get<0>(mb.vect) << " y " << std::get<1>(mb.vect) << " z " << static_cast<int>(std::get<2>(mb.vect)) << "\n"; 
-         }
          written++;
          // push a byte flag on new frames
          //compress_mb(mb, stream);
          write_mb(stream, mb, mb.vect);
       }
+      stream.flush_to_byte();
    }
 }
 int main(int argc, char** argv){

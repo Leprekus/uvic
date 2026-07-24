@@ -208,6 +208,7 @@ void _bitstream_to_compressed_block(Eigen::MatrixBase<Derived> &M, InputBitStrea
       else throw std::runtime_error("expected a value between 1 and 3");
       curr = (stream.read_bit() << 1) | stream.read_bit();
    }
+
 }
 void bitstream_to_compressed_mb(Macroblock &mb, InputBitStream &stream) {
    _bitstream_to_compressed_block(mb.Y,  stream, zigzag_scan_16x16);
@@ -216,14 +217,16 @@ void bitstream_to_compressed_mb(Macroblock &mb, InputBitStream &stream) {
 }
 
 /* get run q*/
-template <typename EigenMatrix>
-void _compressed_block_to_bitstream(OutputBitStream &stream, const EigenMatrix &M,  const auto &traversal) {
+template <typename Derived>
+void _compressed_block_to_bitstream(OutputBitStream &stream, const Eigen::MatrixBase<Derived> &M,  const auto &traversal) {
    assert(M.cols() == M.rows());
    assert(M.cols() * M.cols() == traversal.size());
 
    auto curr = M(traversal.front().first, traversal.front().second);
    u32 run = 0;
+   int idx = 0;
    for(auto [x, y]: traversal) {
+      idx++;
       if(curr == M(x,y)) {
          run++;
       } else {
@@ -235,6 +238,7 @@ void _compressed_block_to_bitstream(OutputBitStream &stream, const EigenMatrix &
    if(run) {
       write_bitstream(curr, run, stream);
    }
+   
 
    // mark end of MB
    stream.push_bit(0);
