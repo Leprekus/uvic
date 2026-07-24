@@ -66,19 +66,25 @@ void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
 }
 auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
 
+   std::cerr << "Cb\n" <<mb.Cb<<"\n";
+   compressed_mb_to_bitstream(mb, stream);
+   stream.flush_to_byte();
+   exit(0);
+   ////
    write_intra_vector(stream, mb);
    if(mb.is_copy) return;
-   for(auto y = 0; y < 16; y++)
-      for(auto x = 0; x < 16; x++)
-         stream.push_byte(static_cast<i8>(mb.Y(x, y)));
 
-   for(auto y = 0; y < 8; y++)
-      for(auto x = 0; x < 8; x++)
-         stream.push_byte(static_cast<i8>(mb.Cb(x, y)));
+   //for(auto y = 0; y < 16; y++)
+   //   for(auto x = 0; x < 16; x++)
+   //      stream.push_byte(static_cast<i8>(mb.Y(x, y)));
 
-   for(auto y = 0; y < 8; y++)
-      for(auto x = 0; x < 8; x++)
-         stream.push_byte(static_cast<i8>(mb.Cr(x, y)));
+   //for(auto y = 0; y < 8; y++)
+   //   for(auto x = 0; x < 8; x++)
+   //      stream.push_byte(static_cast<i8>(mb.Cb(x, y)));
+
+   //for(auto y = 0; y < 8; y++)
+   //   for(auto x = 0; x < 8; x++)
+   //      stream.push_byte(static_cast<i8>(mb.Cr(x, y)));
 }
 
 
@@ -257,9 +263,8 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
    assert(buf_decompressed->frame_count() >= 1);
    assert(buf_decompressed->frame_count() == buf_compressed->frame_count());
    assert(idx <= buf_decompressed->frame_count() - 1);
-   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y);  
-   // compute delta and quantize
-   if(is_copy) { // send copied p-frame
+   Macroblock &decompressed_mb = buf_decompressed->get_frame_mb(idx, x, y); // get the best match from the inter_block search
+   if(is_copy) { // if match is good enough reuse the whole block
       copies++;
       // copy the block, update the flag
       Macroblock copy_com = buf_compressed->get_frame_mb(idx, x, y);
@@ -275,7 +280,7 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
       buf_decompressed->push_mb(copy_dec);
 
       
-   } else { // send delta p-frame
+   } else { // otherwise, the delta 
       deltas++;
       predicted_forward(mb, decompressed_mb); 
       mb.vect = BlockVect(x, y, idx);

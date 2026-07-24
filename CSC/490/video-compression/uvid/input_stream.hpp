@@ -77,6 +77,7 @@ public:
         return last_real_bit;
     }
 
+
     /* Flush the currently stored bits*/
     void flush_to_byte(){
         numbits = 8; //Force the next read to read a byte from the input file
@@ -94,6 +95,7 @@ private:
     }
     u32 bitvec;
     u32 numbits;
+    u32 bitsleft = 7;
     std::istream& infile;
     bool done;
     unsigned int last_real_bit;

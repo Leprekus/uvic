@@ -362,10 +362,6 @@ void inter_reconstruct(
       BlockVect offset);
 void print(const Macroblock &mb, std::string tag);
 
-void write_zero(const int run, OutputBitStream &stream);
-void write_bitstream(const auto curr, const u32 run, OutputBitStream &stream);
 void compressed_mb_to_bitstream(const Macroblock &mb, OutputBitStream &stream);
 
-void read_zeroes(InputBitStream &stream);
-void read_bitstream(InputBitStream &stream);
 void bitstream_to_compressed_mb(const Macroblock &mb, InputBitStream &stream);

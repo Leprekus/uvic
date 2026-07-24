@@ -18,6 +18,7 @@
 #include <iostream>
 #include <fstream>
 #include <array>
+#include <bitset>
 #include <string>
 #include <cassert>
 #include <cstdint>
@@ -108,10 +109,10 @@ BlockVect read_vector(InputBitStream &stream, Macroblock &mb) {
 
    char z = static_cast<i8>(stream.read_byte()); 
 
-   if(!M[frame_buffer->frame_count()]) {
-      M[frame_buffer->frame_count()] = 1;
-      std::cerr << " frame " << frame_buffer->frame_count() << " copy " << mb.is_copy << " x " << x << " y " << y << " z " << static_cast<int>(z) << "\n"; 
-   }
+   //if(!M[frame_buffer->frame_count()]) {
+   //   M[frame_buffer->frame_count()] = 1;
+   //   std::cerr << " frame " << frame_buffer->frame_count() << " copy " << mb.is_copy << " x " << x << " y " << y << " z " << static_cast<int>(z) << "\n"; 
+   //}
    return BlockVect(x, y, z); 
 }
 
@@ -162,21 +163,24 @@ void write_frames_to_stream(YUVStreamWriter &writer, int width) {
    
 }
 void read_into_mb(InputBitStream &input_stream, Macroblock &mb) {
+   bitstream_to_compressed_mb(mb, input_stream);
+   exit(1);
+   ///
    BlockVect vect = read_vector(input_stream, mb);
    mb.vect = vect;
    if(mb.is_copy) return;
    /* fill Y */
-   for(int y = 0; y < 16; y++)
-      for(int x = 0; x < 16; x++)
-         mb.Y(x, y) = static_cast<i8>(input_stream.read_byte());
-   /* fill Cb */
-   for(int y = 0; y < 8; y++)
-      for(int x = 0; x < 8; x++)
-         mb.Cb(x, y) = static_cast<i8>(input_stream.read_byte());
-   /* fill Cr */
-   for(int y = 0; y < 8; y++)
-      for(int x = 0; x < 8; x++)
-         mb.Cr(x, y) = static_cast<i8>(input_stream.read_byte());
+   //for(int y = 0; y < 16; y++)
+   //   for(int x = 0; x < 16; x++)
+   //      mb.Y(x, y) = static_cast<i8>(input_stream.read_byte());
+   ///* fill Cb */
+   //for(int y = 0; y < 8; y++)
+   //   for(int x = 0; x < 8; x++)
+   //      mb.Cb(x, y) = static_cast<i8>(input_stream.read_byte());
+   ///* fill Cr */
+   //for(int y = 0; y < 8; y++)
+   //   for(int x = 0; x < 8; x++)
+   //      mb.Cr(x, y) = static_cast<i8>(input_stream.read_byte());
 }
 int main(int argc, char** argv){
 
