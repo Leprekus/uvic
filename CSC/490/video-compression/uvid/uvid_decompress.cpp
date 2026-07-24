@@ -167,12 +167,12 @@ void read_into_mb(InputBitStream &input_stream, Macroblock &mb) {
    BlockVect vect = read_vector(input_stream, mb);
    mb.vect = vect;
    if(mb.is_copy) return;
-   // read the matrix if block is not a copy
    bitstream_to_compressed_mb(mb, input_stream);
-   std::cerr << "CY\n" <<mb.Y<<"\n";
-   std::cerr << "Cb\n" <<mb.Cb<<"\n";
-   std::cerr << "Cr\n" <<mb.Cr<<"\n";
-   exit(1);
+   input_stream.flush_to_byte();
+   //std::cerr << "CY\n" <<mb.Y<<"\n";
+   //std::cerr << "Cb\n" <<mb.Cb<<"\n";
+   //std::cerr << "Cr\n" <<mb.Cr<<"\n";
+   //exit(1);
    ///
    /* fill Y */
    //for(int y = 0; y < 16; y++)
