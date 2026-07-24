@@ -211,13 +211,17 @@ int main(int argc, char** argv){
    mb.Cr.setZero();
    frame_buffer = FrameBuffer{ width, height };
    YUVFrame420& frame = writer.frame();
+   int count = 0;
    while (input_stream.read_byte()){
       
       //writer.write_frame(); 
       for(auto y0 = 0; y0 < height; y0 += 16) {
          for(auto x0 = 0; x0 < width; x0 += 16) {
-            
-            read_into_mb(input_stream, mb); bread++;
+            count++; 
+            read_into_mb(input_stream, mb);
+            if(count == 396 || count == 3960) {
+               std::cerr << "Y\n"<<mb.Y << "\n"<<"Cb"<<mb.Cb<<"\n"<<"Cr"<<mb.Cr<<"\n";
+            }
 
             bool buffer_is_full = frame_buffer->frame_count() >= 4;
             if(buffer_is_full) 

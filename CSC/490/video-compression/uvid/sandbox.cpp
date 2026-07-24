@@ -1,5 +1,6 @@
 #include <iostream>
 #include <Eigen/Dense>
+#include <unistd.h>
 
 // Include your project headers
 #include "input_stream.hpp"
@@ -11,7 +12,7 @@
 
 bool printed = false;
 
-int main() {
+int main(const int argc, const char *argv[]) {
    // 1. Define a hardcoded 8x8 pixel block (e.g., a simple gradient)
    Matrix8d block(8, 8);
    block << 
@@ -74,23 +75,43 @@ int main() {
    106,  135,  138,  164,  167,  189,  192,  209,  212,  226,  229,  239,  248,  251,  255,  258,
    136,  137,  165,  166,  190,  191,  210,  211,  227,  228,  240,  249,  250,  256,  257,  259;
 
+   
+   C <<
+   5, -8,  4,  1, -3,  3, -2,  1,
+   0,  0, -0,  0,  0,  0,  0,  0,
+   0,  0, -0,  0,  0,  0,  0,  0,
+   0,  0,  2,  2,  0,  0,  0,  0,
+   0,  0,  0,  0,  0,  9,  0,  0,
+   0,  0,  0,  0,  0,  9,  0,  7,
+   0,  0, -0,  0,  0,  0,  7,  0,
+   0,  0, -0,  0,  1,  0,  0,  0;
    const Macroblock mb = {
       .Y = Y,
       .Cb = C,
-      .Cr = C
+      .Cr = C,
+      .vect = BlockVect(1, 0, 0)
    };
-   //OutputBitStream out_stream{std::cout};
-   //InputBitStream in_stream{std::cin};
-   //Macroblock mb2;
-   //mb2.Y.setZero();
-   //mb2.Cb.setZero();
-   //mb2.Cr.setZero();
-   //compress_mb(mb, out_stream);
-   //std::cout << std::flush;
-   //decompress_mb(mb2, in_stream);
 
-   for(auto [x, y]: col_scan_16x16) {
-      std::cout<<mb.Y(x,y)<< " \n";
+   std::cerr << C.array().round() << "\n";
+
+   OutputBitStream out_stream{std::cout};
+   InputBitStream in_stream{std::cin};
+
+   if(argc == 1) {
+      compressed_mb_to_bitstream(mb, out_stream);
+      char *args[] = {(char *)"./sandbox", (char*)"read", nullptr};
+      execvp(args[0], args);
    }
+   if(argc == 2) {
+
+      std::cerr << "decompressing";
+      //bitstream_to_compressed_mb(mb, in_stream);
+   }
+
+
+
+
+
+   
    return 0;
 }

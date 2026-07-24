@@ -29,3 +29,13 @@ yielded: 88,734 matches in 34.2s
 
 The hash map implementation with the hexagon search yielded
 80819 matches in 3.52s
+
+# Final Project
+
+I would like to implement arithmetic coding. GPU parallelization, and focus on performance.
+Current bottlenecks:
+
+- poor motion compensation: vector search is trivial
+- trivial delta compression: the coefficients are encoded relative to the previous block's values,
+compression can be improved by implementing a prediction scheme that further helps reduce delta's based
+on information from previous blocks.
