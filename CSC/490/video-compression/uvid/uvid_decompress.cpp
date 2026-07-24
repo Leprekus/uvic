@@ -163,12 +163,17 @@ void write_frames_to_stream(YUVStreamWriter &writer, int width) {
    
 }
 void read_into_mb(InputBitStream &input_stream, Macroblock &mb) {
-   bitstream_to_compressed_mb(mb, input_stream);
-   exit(1);
-   ///
+   
    BlockVect vect = read_vector(input_stream, mb);
    mb.vect = vect;
    if(mb.is_copy) return;
+   // read the matrix if block is not a copy
+   bitstream_to_compressed_mb(mb, input_stream);
+   std::cerr << "CY\n" <<mb.Y<<"\n";
+   std::cerr << "Cb\n" <<mb.Cb<<"\n";
+   std::cerr << "Cr\n" <<mb.Cr<<"\n";
+   exit(1);
+   ///
    /* fill Y */
    //for(int y = 0; y < 16; y++)
    //   for(int x = 0; x < 16; x++)

@@ -66,13 +66,18 @@ void write_intra_vector(OutputBitStream &stream, const Macroblock &mb) {
 }
 auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect) {
 
+   
+   write_intra_vector(stream, mb);
+   if(mb.is_copy) return;
+   
+   // write the matrix if block is not a copy 
+   std::cerr << "CY\n" <<mb.Y<<"\n";
    std::cerr << "Cb\n" <<mb.Cb<<"\n";
+   std::cerr << "Cr\n" <<mb.Cr<<"\n";
    compressed_mb_to_bitstream(mb, stream);
    stream.flush_to_byte();
    exit(0);
    ////
-   write_intra_vector(stream, mb);
-   if(mb.is_copy) return;
 
    //for(auto y = 0; y < 16; y++)
    //   for(auto x = 0; x < 16; x++)

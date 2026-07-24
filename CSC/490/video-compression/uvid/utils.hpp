@@ -364,4 +364,4 @@ void print(const Macroblock &mb, std::string tag);
 
 void compressed_mb_to_bitstream(const Macroblock &mb, OutputBitStream &stream);
 
-void bitstream_to_compressed_mb(const Macroblock &mb, InputBitStream &stream);
+void bitstream_to_compressed_mb(Macroblock &mb, InputBitStream &stream);
