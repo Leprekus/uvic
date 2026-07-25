@@ -337,7 +337,7 @@ int written = 0;
 
 void write_frames_to_stream(OutputBitStream &stream) {
    //TODO: remove assert
-   assert(buf_compressed->mb_in_frame() == 396);
+   //assert(buf_compressed->mb_in_frame() == 396);
    assert(buf_compressed->frame_count() <= 4);
    int mb_written = 0;
    int cap = buf_decompressed->mb_in_frame();
@@ -347,10 +347,10 @@ void write_frames_to_stream(OutputBitStream &stream) {
       stream.push_byte(1);
       for(const Macroblock &mb: buf_compressed->get_frame(i)){
          written++;
-         if(written == 396 || written == 3960)  {
-            std::cerr << "Y\n"<<mb.Y << "\n"<<"Cb"<<mb.Cb<<"\n"<<"Cr"<<mb.Cr<<"\n";
+         //if(written == 396 || written == 3960)  {
+         //   std::cerr << "Y\n"<<mb.Y << "\n"<<"Cb"<<mb.Cb<<"\n"<<"Cr"<<mb.Cr<<"\n";
 
-         }
+         //}
          // push a byte flag on new frames
          //compress_mb(mb, stream);
          write_mb(stream, mb, mb.vect);

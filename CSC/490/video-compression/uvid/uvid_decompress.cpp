@@ -219,9 +219,9 @@ int main(int argc, char** argv){
          for(auto x0 = 0; x0 < width; x0 += 16) {
             count++; 
             read_into_mb(input_stream, mb);
-            if(count == 396 || count == 3960) {
-               std::cerr << "Y\n"<<mb.Y << "\n"<<"Cb"<<mb.Cb<<"\n"<<"Cr"<<mb.Cr<<"\n";
-            }
+            //if(count == 396 || count == 3960) {
+            //   std::cerr << "Y\n"<<mb.Y << "\n"<<"Cb"<<mb.Cb<<"\n"<<"Cr"<<mb.Cr<<"\n";
+            //}
 
             bool buffer_is_full = frame_buffer->frame_count() >= 4;
             if(buffer_is_full) 

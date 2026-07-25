@@ -6,7 +6,8 @@ rawify() {
   do
     filename=$(basename $entry)
     filename="${filename%%.*}"
-    ffmpeg -i "$entry" -f rawvideo -pixel_format yuv420p - > "./tests/raw/$filename.raw"
+    #ffmpeg -i "$entry" -f rawvideo -pixel_format yuv420p - > "./tests/raw/$filename.raw"
+   ffmpeg -i "$entry" -s 720x4280 -f rawvideo -pixel_format yuv420p - > "./tests/raw/$filename.raw"
   done
 
 }
@@ -19,7 +20,7 @@ debug() {
   make
   # store compressed output
   echo "compressing $1"
-  ./uvid_compress 352 288 "high" < $1 > "./out/uvi/$filename.uvi"
+  ./uvid_compress 720 420 "high" < $1 > "./out/uvi/$filename.uvi"
   # decompress video
   dpath="./out/uvi/$filename.uvi"
   echo "decompressing $dpath"
