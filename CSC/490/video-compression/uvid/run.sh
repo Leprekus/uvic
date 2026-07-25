@@ -6,8 +6,8 @@ rawify() {
   do
     filename=$(basename $entry)
     filename="${filename%%.*}"
-    #ffmpeg -i "$entry" -f rawvideo -pixel_format yuv420p - > "./tests/raw/$filename.raw"
-   ffmpeg -i "$entry" -s 720x4280 -f rawvideo -pixel_format yuv420p - > "./tests/raw/$filename.raw"
+    ffmpeg -i "$entry" -f rawvideo -pixel_format yuv420p - > "./tests/raw/$filename.raw"
+   #ffmpeg -i "$entry" -s 720x480 -f rawvideo -pixel_format yuv420p - > "./tests/raw/$filename.raw"
   done
 
 }
@@ -20,11 +20,17 @@ debug() {
   make
   # store compressed output
   echo "compressing $1"
-  ./uvid_compress 720 420 "high" < $1 > "./out/uvi/$filename.uvi"
+  ./uvid_compress 352 288 "low" < $1 > "./out/uvi/$filename.uvi"
   # decompress video
   dpath="./out/uvi/$filename.uvi"
   echo "decompressing $dpath"
-  ./uvid_decompress < "$dpath" > "./out/raw/$filename.raw"
+  ./uvid_decompress < "$dpath" > tee "./out/raw/$filename.raw"
+  #./uvid_decompress < "$dpath" | tee "./out/raw/$filename.raw" | ffplay \
+  #-f rawvideo \
+  #-pixel_format yuv420p \
+  #-video_size 352x288 \
+  #-framerate 30 \
+  #-i pipe:0
 
   # store final output 
   fpath="./out/$filename.y4m"
@@ -32,6 +38,8 @@ debug() {
   echo "writing $fpath"
   ffmpeg -f rawvideo -pixel_format yuv420p -framerate 30 -video_size 352x288 -i - -f yuv4mpegpipe "$fpath" < "./out/raw/$filename.raw" 
 
+  echo "=== FILE PATH ==="
+  echo "$fpath"
   mpv "$fpath"
   echo "$filename.y4m size"
   du -B K "./tests/video_samples/$filename.y4m"
