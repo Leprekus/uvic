@@ -104,7 +104,7 @@ Macroblock tmp{
     .Y = Matrix16d::Zero(16, 16),
     .Cb = Matrix8d::Zero(8, 8),
     .Cr = Matrix8d::Zero(8, 8)};
-int get_aad(Macroblock &og, Macroblock &rec)
+int get_aad(const Macroblock &og, const Macroblock &rec)
 {
    return (
        ((og.Y - rec.Y).array().abs().sum() +
@@ -362,7 +362,7 @@ void encode_iframe(Macroblock &mb, auto x, auto y)
    count++;
    // Create a vector for intra-prediction if applicable
    int frame_idx = buf_compressed->frame_count();
-   #if 1 
+   #if 0 
       double min_rdcost = std::numeric_limits<double>::max();
       double min_dcost = std::numeric_limits<double>::max();
       double min_rate = std::numeric_limits<double>::max();
@@ -371,12 +371,12 @@ void encode_iframe(Macroblock &mb, auto x, auto y)
       };
 
    for(auto choice = 0; choice < 5; choice++)
-      mb.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
+      tmp.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
    #else
-   auto cost_fn = [](Macroblock &og, Macroblock &rec) {
+   auto cost_fn = [](const Macroblock &og, const Macroblock &rec) {
       return get_aad(og, rec) <= 5;
    };
-   mb.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
+   tmp.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
    #endif
    mb = tmp;
    buf_compressed->push_mb(mb);
