@@ -113,14 +113,13 @@ int get_aad(const Macroblock &og, const Macroblock &rec)
        384);
 }
 BlockVect intra_prediction(
-      std::function<bool (const Macroblock &og, const Macroblock &rec)> cost_fn,
       const Macroblock &mb, auto i, auto x, auto y)
 {
    tmp = mb;
    if (x >= 16)
    {
       const Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y);
-      if (cost_fn(tmp, left))
+      if (get_aad(tmp, left) <= 5)
       {
          predicted_forward(tmp, left);
          return BlockVect(-16, 0, -1);
@@ -129,7 +128,7 @@ BlockVect intra_prediction(
    if (y >= 16)
    {
       const Macroblock &above = buf_decompressed->get_frame_mb(i, x, y - 16);
-      if (cost_fn(tmp, above))
+      if (get_aad(tmp, above) <= 5)
       {
          predicted_forward(tmp, above);
          return BlockVect(0, -16, -1);
@@ -138,7 +137,7 @@ BlockVect intra_prediction(
    if (x >= 16 && y >= 16)
    {
       const Macroblock &topleft = buf_decompressed->get_frame_mb(i, x - 16, y - 16);
-      if (cost_fn(tmp, topleft))
+      if (get_aad(tmp, topleft) <= 5)
       {
          predicted_forward(tmp, topleft);
          return BlockVect(-16, -16, -1);
@@ -147,7 +146,79 @@ BlockVect intra_prediction(
    iframe_forward(qual, tmp);
    return BlockVect(-1, -1, -1);
 }
+/*
+ * min rcost, dcost is initialized once per MB
+ * */
+auto sse = [] (const Macroblock &og, const Macroblock &rec) {
+   auto y =  (og.Y - rec.Y).cwiseSquare().sum();
+   auto cb = (og.Cb - rec.Cb).cwiseSquare().sum();
+   auto cr = (og.Cr - rec.Cr).cwiseSquare().sum();
+   return  (y + cb + cr);
+};
+bool RDO_cost_for_mb(
+      const Macroblock &og,
+      const Macroblock &rec,
+      double &min_rdcost, double &min_dcost, double &min_rate) {
+   std::ostringstream mock_stream;
+   OutputBitStream mock_output(mock_stream); 
+   /* usually we have lambdas for Motion Estimation M.E & 
+    * Decision Mode D.M (4x4, 8x8, etc macroblock size), since we only have 
+    * M.E it simplifies to one lambda*/
+   double lambda = 5.854046; // retrieved from JM 15.1
+   write_mb(mock_output, og, og.vect);
+   double rate = mock_output.written;
+   double distortion = sse(og, rec);
+   double rdcost = (double)distortion + lambda * std::max(0.5, (double)rate);
+   if(rdcost >= min_rdcost) return false; 
 
+   std::cerr << "RDO rdcost " << rdcost << " distortion " << distortion  << " rate " << rate <<"\n";
+   min_rdcost = rdcost;
+   min_dcost = distortion;
+   min_rate = lambda * rate;
+   return true;
+}
+BlockVect rdo_intra_prediction(
+      const Macroblock &mb, auto i, auto x, auto y)
+{
+   double min_rdcost = std::numeric_limits<double>::max();
+   double min_dcost = std::numeric_limits<double>::max();
+   double min_rate = std::numeric_limits<double>::max();
+   auto cost = [&](const Macroblock &pred) {
+      Macroblock og = mb; // original
+      Macroblock com = mb; // compressed
+      Macroblock rec = mb; // reconstructed
+      predicted_forward(tmp, pred);
+      return RDO_cost_for_mb(tmp, pred, min_rdcost, min_dcost, min_rate);
+   };
+   if (x >= 16)
+   {
+      const Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y);
+      if (cost(left))
+      {
+         return BlockVect(-16, 0, -1);
+      }
+   }
+   if (y >= 16)
+   {
+      const Macroblock &above = buf_decompressed->get_frame_mb(i, x, y - 16);
+      if (get_aad(tmp, above) <= 5)
+      {
+         predicted_forward(tmp, above);
+         return BlockVect(0, -16, -1);
+      }
+   }
+   if (x >= 16 && y >= 16)
+   {
+      const Macroblock &topleft = buf_decompressed->get_frame_mb(i, x - 16, y - 16);
+      if (get_aad(tmp, topleft) <= 5)
+      {
+         predicted_forward(tmp, topleft);
+         return BlockVect(-16, -16, -1);
+      }
+   }
+   iframe_forward(qual, tmp);
+   return BlockVect(-1, -1, -1);
+}
 // sum of absolute difference
 auto sad = [](const Macroblock &want, const Macroblock &have)
 {
@@ -328,55 +399,22 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
       buf_decompressed->push_mb(mb);
    }
 }
-/*
- * min rcost, dcost is initialized once per MB
- * */
-auto sse = [] (const Macroblock &og, const Macroblock &rec) {
-   auto y =  (og.Y - rec.Y).cwiseSquare().sum();
-   auto cb = (og.Cb - rec.Cb).cwiseSquare().sum();
-   auto cr = (og.Cr - rec.Cr).cwiseSquare().sum();
-   return  (y + cb + cr);
-};
-bool RDO_cost_for_mb(
-      const Macroblock &og,
-      const Macroblock &rec,
-      double &min_rdcost, double &min_dcost, double &min_rate) {
-   /* usually we have lambdas for Motion Estimation M.E & 
-    * Decision Mode D.M (4x4, 8x8, etc macroblock size), since we only have 
-    * M.E it simplifies to one lambda*/
-   double lambda = 5.854046; // retrieved from JM 15.1
-   double distortion = sse(og, rec);
-   double rate = 0.0;
-   double rdcost = (double)distortion + lambda * std::max(0.5, (double)rate);
-   if(rdcost >= min_rdcost) return false; 
 
-   std::cerr << "RDO rdcost "<< rdcost << " distortion " << distortion <<"\n";
-   min_rdcost = rdcost;
-   min_dcost = distortion;
-   min_rate = lambda * rate;
-   return true;
-}
 int count = 0;
 void encode_iframe(Macroblock &mb, auto x, auto y)
 {
    count++;
    // Create a vector for intra-prediction if applicable
    int frame_idx = buf_compressed->frame_count();
-   #if 0 
-      double min_rdcost = std::numeric_limits<double>::max();
-      double min_dcost = std::numeric_limits<double>::max();
-      double min_rate = std::numeric_limits<double>::max();
-      auto cost_fn = [&](const Macroblock &og, const Macroblock &rec) {
-         return RDO_cost_for_mb(og, rec, min_rdcost, min_dcost, min_rate);
-      };
-
-   for(auto choice = 0; choice < 5; choice++)
-      tmp.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
+   #if 0
+     //rdo_intra_prediction(); 
+     
+   
    #else
    auto cost_fn = [](const Macroblock &og, const Macroblock &rec) {
       return get_aad(og, rec) <= 5;
    };
-   tmp.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
+   tmp.vect = intra_prediction(mb, frame_idx, x, y);
    #endif
    mb = tmp;
    buf_compressed->push_mb(mb);
