@@ -135,6 +135,7 @@ auto sse = [] (const Macroblock &og, const Macroblock &rec) {
 };
 bool RDO_cost_for_mb(
       const Macroblock &og,
+      const Macroblock &com,
       const Macroblock &rec,
       double &min_rdcost, double &min_dcost, double &min_rate) {
    std::ostringstream mock_stream;
@@ -143,7 +144,7 @@ bool RDO_cost_for_mb(
     * Decision Mode D.M (4x4, 8x8, etc macroblock size), since we only have 
     * M.E it simplifies to one lambda*/
    double lambda = 5.854046; // retrieved from JM 15.1
-   write_mb(mock_output, og, og.vect);
+   write_mb(mock_output, com, com.vect);
    double rate = mock_output.written;
    double distortion = sse(og, rec);
    double rdcost = (double)distortion + lambda * std::max(0.5, (double)rate);
@@ -155,47 +156,72 @@ bool RDO_cost_for_mb(
    min_rate = lambda * rate;
    return true;
 }
-BlockVect rdo_intra_prediction(
+void rdo_intra_prediction(
       const Macroblock &mb, auto i, auto x, auto y)
 {
    double min_rdcost = std::numeric_limits<double>::max();
    double min_dcost = std::numeric_limits<double>::max();
    double min_rate = std::numeric_limits<double>::max();
-   auto cost = [&](const Macroblock &pred) {
-      Macroblock og = mb; // original
-      Macroblock com = mb; // compressed
-      Macroblock rec = mb; // reconstructed
-      predicted_forward(tmp, pred);
-      return RDO_cost_for_mb(tmp, pred, min_rdcost, min_dcost, min_rate);
+   auto rdo_improves = [&](
+         const Macroblock &og, // original
+         const Macroblock &com, // compressed
+         const Macroblock &rec // reconstructed   
+         ) {
+
+      return RDO_cost_for_mb(mb, com, rec, min_rdcost, min_dcost, min_rate);
    };
+   Macroblock best = tmp;
    if (x >= 16)
    {
+      tmp = mb;
+      BlockVect vect = BlockVect(-16, 0, -1);
       const Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y);
-      if (cost(left))
+      Macroblock com = tmp; predicted_forward(com, left);
+      Macroblock rec = com; intra_reconstruct(buf_decompressed, qual, rec, i, x, y, vect);
+      if (rdo_improves(tmp, com, rec))
       {
-         return BlockVect(-16, 0, -1);
+         best = com;
+         best.vect = vect;
       }
    }
    if (y >= 16)
    {
+      tmp = mb;
+      BlockVect vect = BlockVect(0, -16, -1);
       const Macroblock &above = buf_decompressed->get_frame_mb(i, x, y - 16);
-      if (get_aad(tmp, above) <= 5)
+      Macroblock com = tmp; predicted_forward(com, above);
+      Macroblock rec = com; intra_reconstruct(buf_decompressed, qual, rec, i, x, y, vect);
+      if (rdo_improves(tmp, com, rec))
       {
-         predicted_forward(tmp, above);
-         return BlockVect(0, -16, -1);
+         best = com;
+         best.vect = vect;
       }
    }
    if (x >= 16 && y >= 16)
    {
+      tmp = mb;
+      BlockVect vect = BlockVect(-16, -16, -1); 
       const Macroblock &topleft = buf_decompressed->get_frame_mb(i, x - 16, y - 16);
-      if (get_aad(tmp, topleft) <= 5)
+      Macroblock com = tmp; predicted_forward(com, topleft);
+      Macroblock rec = com; intra_reconstruct(buf_decompressed, qual, rec, i, x, y, vect);
+      if (rdo_improves(tmp, com, rec))
       {
-         predicted_forward(tmp, topleft);
-         return BlockVect(-16, -16, -1);
+         best = com;
+         best.vect = vect;
       }
    }
-   iframe_forward(qual, tmp);
-   return BlockVect(-1, -1, -1);
+   tmp = mb;
+   BlockVect vect = BlockVect(-1, -1, -1);
+   Macroblock com = tmp; iframe_forward(qual, com);
+   Macroblock rec = com; intra_reconstruct(buf_decompressed, qual, rec, i, x, y, vect);
+   if(rdo_improves(tmp, com, rec)) 
+   {
+      best = com;
+      best.vect = vect;
+   }
+   buf_compressed->push_mb(best);
+   intra_reconstruct(buf_decompressed, qual, best, i, x, y, best.vect);
+   buf_decompressed->push_mb(best);
 }
 // sum of absolute difference
 auto sad = [](const Macroblock &want, const Macroblock &have)
@@ -379,21 +405,18 @@ void encode_iframe(Macroblock &mb, auto x, auto y)
    count++;
    // Create a vector for intra-prediction if applicable
    int frame_idx = buf_compressed->frame_count();
-   #if 0
-     //rdo_intra_prediction(); 
+   #if 1
+     rdo_intra_prediction(mb, frame_idx, x, y); 
      
    
    #else
-   auto cost_fn = [](const Macroblock &og, const Macroblock &rec) {
-      return get_aad(og, rec) <= 5;
-   };
+   
    tmp.vect = intra_prediction(mb, frame_idx, x, y);
-   #endif
    mb = tmp;
    buf_compressed->push_mb(mb);
    intra_reconstruct(buf_decompressed, qual, mb, frame_idx, x, y, mb.vect);
    buf_decompressed->push_mb(mb);
-   // Create a fingerprint for the Macroblock using the compressed data
+   #endif
 }
 auto encode_and_buffer_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto y)
 {
