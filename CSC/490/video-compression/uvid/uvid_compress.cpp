@@ -104,45 +104,47 @@ Macroblock tmp{
     .Y = Matrix16d::Zero(16, 16),
     .Cb = Matrix8d::Zero(8, 8),
     .Cr = Matrix8d::Zero(8, 8)};
-int get_aad(Macroblock &want, Macroblock &have)
+int get_aad(Macroblock &og, Macroblock &rec)
 {
    return (
-       ((want.Y - have.Y).array().abs().sum() +
-        (want.Cb - have.Cb).array().abs().sum() +
-        (want.Cr - have.Cr).array().abs().sum()) /
+       ((og.Y - rec.Y).array().abs().sum() +
+        (og.Cb - rec.Cb).array().abs().sum() +
+        (og.Cr - rec.Cr).array().abs().sum()) /
        384);
 }
-BlockVect intra_prediction(Macroblock &mb, auto i, auto x, auto y)
+BlockVect intra_prediction(
+      std::function<bool (const Macroblock &og, const Macroblock &rec)> cost_fn,
+      const Macroblock &mb, auto i, auto x, auto y)
 {
    tmp = mb;
    if (x >= 16)
    {
-      Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y);
-      if (get_aad(tmp, left) <= 5)
+      const Macroblock &left = buf_decompressed->get_frame_mb(i, x - 16, y);
+      if (cost_fn(tmp, left))
       {
-         predicted_forward(mb, left);
+         predicted_forward(tmp, left);
          return BlockVect(-16, 0, -1);
       }
    }
    if (y >= 16)
    {
-      Macroblock &above = buf_decompressed->get_frame_mb(i, x, y - 16);
-      if (get_aad(tmp, above) <= 5)
+      const Macroblock &above = buf_decompressed->get_frame_mb(i, x, y - 16);
+      if (cost_fn(tmp, above))
       {
-         predicted_forward(mb, above);
+         predicted_forward(tmp, above);
          return BlockVect(0, -16, -1);
       }
    }
    if (x >= 16 && y >= 16)
    {
-      Macroblock &topleft = buf_decompressed->get_frame_mb(i, x - 16, y - 16);
-      if (get_aad(tmp, topleft) <= 5)
+      const Macroblock &topleft = buf_decompressed->get_frame_mb(i, x - 16, y - 16);
+      if (cost_fn(tmp, topleft))
       {
-         predicted_forward(mb, topleft);
+         predicted_forward(tmp, topleft);
          return BlockVect(-16, -16, -1);
       }
    }
-   iframe_forward(qual, mb);
+   iframe_forward(qual, tmp);
    return BlockVect(-1, -1, -1);
 }
 
@@ -326,14 +328,57 @@ void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, in
       buf_decompressed->push_mb(mb);
    }
 }
+/*
+ * min rcost, dcost is initialized once per MB
+ * */
+auto sse = [] (const Macroblock &og, const Macroblock &rec) {
+   auto y =  (og.Y - rec.Y).cwiseSquare().sum();
+   auto cb = (og.Cb - rec.Cb).cwiseSquare().sum();
+   auto cr = (og.Cr - rec.Cr).cwiseSquare().sum();
+   return  (y + cb + cr);
+};
+bool RDO_cost_for_mb(
+      const Macroblock &og,
+      const Macroblock &rec,
+      double &min_rdcost, double &min_dcost, double &min_rate) {
+   /* usually we have lambdas for Motion Estimation M.E & 
+    * Decision Mode D.M (4x4, 8x8, etc macroblock size), since we only have 
+    * M.E it simplifies to one lambda*/
+   double lambda = 5.854046; // retrieved from JM 15.1
+   double distortion = sse(og, rec);
+   double rate = 0.0;
+   double rdcost = (double)distortion + lambda * std::max(0.5, (double)rate);
+   if(rdcost >= min_rdcost) return false; 
 
+   std::cerr << "RDO rdcost "<< rdcost << " distortion " << distortion <<"\n";
+   min_rdcost = rdcost;
+   min_dcost = distortion;
+   min_rate = lambda * rate;
+   return true;
+}
 int count = 0;
 void encode_iframe(Macroblock &mb, auto x, auto y)
 {
    count++;
    // Create a vector for intra-prediction if applicable
    int frame_idx = buf_compressed->frame_count();
-   mb.vect = intra_prediction(mb, frame_idx, x, y);
+   #if 1 
+      double min_rdcost = std::numeric_limits<double>::max();
+      double min_dcost = std::numeric_limits<double>::max();
+      double min_rate = std::numeric_limits<double>::max();
+      auto cost_fn = [&](const Macroblock &og, const Macroblock &rec) {
+         return RDO_cost_for_mb(og, rec, min_rdcost, min_dcost, min_rate);
+      };
+
+   for(auto choice = 0; choice < 5; choice++)
+      mb.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
+   #else
+   auto cost_fn = [](Macroblock &og, Macroblock &rec) {
+      return get_aad(og, rec) <= 5;
+   };
+   mb.vect = intra_prediction(cost_fn, mb, frame_idx, x, y);
+   #endif
+   mb = tmp;
    buf_compressed->push_mb(mb);
    intra_reconstruct(buf_decompressed, qual, mb, frame_idx, x, y, mb.vect);
    buf_decompressed->push_mb(mb);
@@ -414,6 +459,7 @@ terminate:
    else
       goto terminate;
 }
+
 
 int main(int argc, char **argv)
 {
