@@ -55,11 +55,6 @@ int fcount = 0;
 void write_intra_vector(OutputBitStream &stream, const Macroblock &mb)
 {
    auto [x, y, z] = mb.vect;
-
-   // fcount++;
-   // if(fcount % buf_compressed->mb_in_frame() == 0) {
-   //    std::cerr << " frame " << buf_compressed->frame_count() << " copy " << mb.is_copy << " x " << x << " y " << y << " z " << static_cast<int>(z) << "\n";
-   // }
    if (mb.is_copy)
       stream.push_byte(static_cast<u8>(1U));
    else
@@ -81,24 +76,7 @@ auto write_mb(OutputBitStream &stream, const Macroblock &mb, BlockVect vect)
       return;
    // write the matrix if block is not a copy
    compressed_mb_to_bitstream(mb, stream);
-   // std::cerr << "CY\n" <<mb.Y<<"\n";
-   // std::cerr << "Cb\n" <<mb.Cb<<"\n";
-   // std::cerr << "Cr\n" <<mb.Cr<<"\n";
-   // exit(0);
-   ////
-
-   // for(auto y = 0; y < 16; y++)
-   //    for(auto x = 0; x < 16; x++)
-   //       stream.push_byte(static_cast<i8>(mb.Y(x, y)));
-
-   // for(auto y = 0; y < 8; y++)
-   //    for(auto x = 0; x < 8; x++)
-   //       stream.push_byte(static_cast<i8>(mb.Cb(x, y)));
-
-   // for(auto y = 0; y < 8; y++)
-   //    for(auto x = 0; x < 8; x++)
-   //       stream.push_byte(static_cast<i8>(mb.Cr(x, y)));
-}
+   }
 
 Macroblock tmp{
     .Y = Matrix16d::Zero(16, 16),
@@ -282,11 +260,6 @@ Item inter_block_search(const Macroblock &mb, const int x0, const int y0)
 
       int lookahead_long = 32;
       int lookahead_short = 16;
-      // double the lookahead distance every 2 frames
-      // if(!(j & 1)) {
-      //   lookahead_long += 32;
-      //   lookahead_short += 16;
-      //}
       // compare with second Macroblock top
       int curr_sad = sad(mb, cached(j, x, (y - lookahead_long) % global_height));
       if (curr_sad < best_sad)
@@ -438,12 +411,6 @@ auto encode_and_buffer_mb(OutputBitStream &stream, Macroblock &mb, auto x, auto 
 }
 
 int written = 0;
-/*
- * the functions push bits with the following meaning:
- * 0 - no delta
- * 0 - no repetitions
- *
- * */
 
 void write_frames_to_stream(OutputBitStream &stream)
 {
@@ -460,12 +427,6 @@ void write_frames_to_stream(OutputBitStream &stream)
       for (const Macroblock &mb : buf_compressed->get_frame(i))
       {
          written++;
-         // if(written == 396 || written == 3960)  {
-         //    std::cerr << "Y\n"<<mb.Y << "\n"<<"Cb"<<mb.Cb<<"\n"<<"Cr"<<mb.Cr<<"\n";
-
-         //}
-         // push a byte flag on new frames
-         // compress_mb(mb, stream);
          write_mb(stream, mb, mb.vect);
       }
       stream.flush_to_byte();
