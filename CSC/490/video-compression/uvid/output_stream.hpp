@@ -18,8 +18,9 @@
 
 class OutputBitStream{
 public:
+    u32 written;
     /* Constructor */
-    OutputBitStream( std::ostream& output_stream ): bitvec{0}, numbits{0}, outfile{output_stream} {
+    OutputBitStream( std::ostream& output_stream ): bitvec{0}, numbits{0}, written{0}, outfile{output_stream} {
 
     }
 
@@ -69,6 +70,7 @@ public:
     void push_bit(unsigned int b){
         bitvec |= (b&1)<<numbits;
         numbits++;
+        written++;
         if (numbits == 8)
             output_byte();
     }
