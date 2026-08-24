@@ -223,6 +223,178 @@ void rdo_intra_prediction(
    intra_reconstruct(buf_decompressed, qual, best, i, x, y, best.vect);
    buf_decompressed->push_mb(best);
 }
+typedef struct Item
+{
+   int idx, x, y;
+   int best_sad;
+   bool is_copy = false;
+} Item;
+
+Item rdo_inter_block_search(const Macroblock &mb, const int x0, const int y0)
+{
+   double min_rdcost = std::numeric_limits<double>::max();
+   double min_dcost = std::numeric_limits<double>::max();
+   double min_rate = std::numeric_limits<double>::max();
+   auto rdo_improves = [&](
+         const Macroblock &og, // original
+         const Macroblock &dec, // decompressed   
+         int x, int y, int idx
+         ) {
+
+      Macroblock com = mb;
+      com.vect = BlockVect(x, y, idx);
+      predicted_forward(com, dec);
+      Macroblock rec = com;
+      predicted_inverse(rec, dec);
+      return RDO_cost_for_mb(mb, com, rec, min_rdcost, min_dcost, min_rate);
+   };
+   // 1. get the ith block of the previous buffered frames
+   int frame_idx = buf_decompressed->frame_count() - 1;                   // exclude currrent frame
+   Item it = {.idx = frame_idx, .x = x0, .y = y0, .best_sad = INT32_MAX}; // initialize best item to same block on prev frame
+
+   tmp = mb;
+   tmp.vect = BlockVect(-1, -1, -1);
+   Macroblock best = tmp;
+   for (int i = frame_idx; i >= 0; i--)
+   {
+      tmp = mb;
+      const Macroblock &decompressed = buf_decompressed->get_frame_mb(i, x0, y0);
+      // 2. pick the (frame, block) with the best SAD value
+      if (rdo_improves(tmp, decompressed, i, x0, y0))
+      {
+         predicted_forward(tmp, decompressed);
+         tmp.vect = BlockVect (i, x0, y0);
+         best = tmp;
+      }
+   }
+   // std::cerr << " sad " << it.best_sad << "\n" << "original " << mb.Y << "\n" << " copy \n" << buf_decompressed->get_frame_mb(it.idx, it.x, it.y).Y; exit(1);
+   /*
+    * perform a hexagon-search:
+    * top - looks two blocks ahead
+    * bottom - looks two blocks ahead
+    * topL, bottomL, topR, bottomR, looks two blocks ahead over the
+    * x-axis and one block ahead over the y-axis in an L shape.
+    * This maximizes the distance covered.
+    *
+    * Every two frames the lookahead distance in each direction is doubled,
+    * with the idea that the farther away the reference frame is, the farther
+    * away a possible match will be found.
+    * */
+   constexpr auto cached = [](auto i, auto x, auto y) -> const Macroblock &
+   { return buf_decompressed->get_frame_mb(i, x, y); };
+
+   auto &[idx, x, y, best_sad, is_copy] = it;
+   
+   for (int j = idx; j >= 0; j--)
+   {
+
+      int lookahead_long = 32;
+      int lookahead_short = 16;
+      // compare with second Macroblock top
+      
+      tmp = mb;
+      if (rdo_improves(
+               mb, 
+               cached(j, x, (y - lookahead_long) % global_height), 
+               x, (y - lookahead_long) % global_height, j)
+            )
+      {
+         y = ((y - lookahead_long) % global_height);
+         idx = j;
+         predicted_forward(tmp, cached(j, x, (y - lookahead_long) % global_height));
+         tmp.vect = BlockVect (x, (y - lookahead_long) % global_height, j);
+         best = tmp;
+      }
+      // compare with second Macroblock top-left
+      tmp = mb;
+      if(rdo_improves(
+            mb, 
+            cached(j, (x - lookahead_long) % global_width, (y - lookahead_short) % global_height),
+            (x - lookahead_long) % global_width, (y - lookahead_short) % global_height, j
+            ))
+      {
+         x = (x - lookahead_long) % global_width;
+         y = (y - lookahead_short) % global_height;
+         idx = j;
+         predicted_forward(
+               tmp, 
+               cached(j, (x - lookahead_long) % global_width, (y - lookahead_short) % global_height));
+         tmp.vect = BlockVect (x, (y - lookahead_long) % global_height, j);
+         best = tmp;
+      }
+      // compare with second Macroblock bottom-left
+      tmp = mb;
+      if(rdo_improves(
+               mb, 
+               cached(j, (x - lookahead_long) % global_width, (y + lookahead_short) % global_height),
+               (x - lookahead_long) % global_width, (y + lookahead_short) % global_height, j))
+      {
+         x = (x - lookahead_long) % global_width;
+         y = (y + lookahead_short) % global_height;
+         idx = j;
+         predicted_forward(
+               tmp, 
+               cached(j, (x - lookahead_long) % global_width, (y + lookahead_short) % global_height));
+         tmp.vect = 
+            BlockVect((x - lookahead_long) % global_width, (y + lookahead_short) % global_height, j);
+         best = tmp;
+
+      }
+      // compare with second Macroblock top-right
+      tmp = mb;
+      if(rdo_improves(
+               mb, 
+               cached(j, (x + lookahead_long) % global_width, (y - lookahead_short) % global_height),
+               (x + lookahead_long) % global_width, (y - lookahead_short) % global_height, j))
+      {
+         x = (x + lookahead_long) % global_width;
+         y = (y - lookahead_short) % global_height;
+         idx = j;
+         predicted_forward(
+               tmp, 
+               cached(j, (x + lookahead_long) % global_width, (y - lookahead_short) % global_height));
+         tmp.vect = 
+            BlockVect((x + lookahead_long) % global_width, (y - lookahead_short) % global_height, j);
+         best = tmp;
+      }
+      // compare with second Macroblock bottom-right
+      tmp = mb;
+      if(rdo_improves(
+               mb, 
+               cached(j, (x + lookahead_long) % global_width, (y + lookahead_short) % global_height),
+               (x + lookahead_long) % global_width, (y + lookahead_short) % global_height, j))
+      {
+         x = (x + lookahead_long) % global_width;
+         y = (y + lookahead_short) % global_height;
+         idx = j;
+         predicted_forward(
+               tmp, 
+               cached(j, (x + lookahead_long) % global_width, (y + lookahead_short) % global_height));
+         tmp.vect = 
+            BlockVect((x + lookahead_long) % global_width, (y - lookahead_short) % global_height, j);
+         best = tmp;
+      }
+      // compare with second Macroblock bottom
+      if(rdo_improves(
+               mb, 
+               cached(j, x, (y + lookahead_long) % global_height),
+               x, (y + lookahead_long) % global_height, j))
+      {
+         y = (y + lookahead_long) % global_height;
+         idx = j;
+         predicted_forward(
+               tmp, 
+               cached(j, x, (y + lookahead_long) % global_height));
+         tmp.vect = 
+            BlockVect(x, (y + lookahead_long) % global_height, j);
+         best = tmp;
+         
+      }
+   }
+
+   is_copy = false;
+   return it;
+}
 // sum of absolute difference
 auto sad = [](const Macroblock &want, const Macroblock &have)
 {
@@ -232,12 +404,6 @@ auto sad = [](const Macroblock &want, const Macroblock &have)
        (want.Cr - have.Cr).array().abs().sum());
 };
 // TODO: cache results
-typedef struct Item
-{
-   int idx, x, y;
-   int best_sad;
-   bool is_copy = false;
-} Item;
 
 int matches = 0;
 constexpr int tolerance = 512;
@@ -367,7 +533,11 @@ int deltas = 0;
 void encode_and_buffer_vector_search(OutputBitStream &stream, Macroblock &mb, int x0, int y0)
 {
 
+   #if RDO
+   auto [idx, x, y, best_sad, is_copy] = rdo_inter_block_search(mb, x0, y0);
+   # else
    auto [idx, x, y, best_sad, is_copy] = inter_block_search(mb, x0, y0);
+   #endif
    assert(buf_decompressed->frame_count() >= 1);
    assert(buf_decompressed->frame_count() == buf_compressed->frame_count());
    assert(idx <= buf_decompressed->frame_count() - 1);
@@ -405,10 +575,8 @@ void encode_iframe(Macroblock &mb, auto x, auto y)
    count++;
    // Create a vector for intra-prediction if applicable
    int frame_idx = buf_compressed->frame_count();
-   #if 1
+   #if RDO
      rdo_intra_prediction(mb, frame_idx, x, y); 
-     
-   
    #else
    
    tmp.vect = intra_prediction(mb, frame_idx, x, y);
@@ -552,5 +720,8 @@ int main(int argc, char **argv)
    std::cerr << "matches " << matches << "\n";
    std::cerr << "copies " << copies << "\n";
    std::cerr << "deltas " << deltas << "\n";
+   #if RDO
+      std::cerr << "RDO enabled\n";
+   #endif
    return 0;
 }
